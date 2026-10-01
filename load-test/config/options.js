@@ -19,11 +19,47 @@ export const thresholds = {
     'p(99)<=1000',
   ],
 
+  'http_req_failed{endpoint:personal-recommendations}': ['rate<=0.01'],
+  'http_req_duration{endpoint:personal-recommendations}': [
+    'p(95)<=300',
+    'p(99)<=1000',
+  ],
+
   'http_req_failed{endpoint:gift-recommendations}': ['rate<=0.01'],
   'http_req_duration{endpoint:gift-recommendations}': [
     'p(95)<=300',
     'p(99)<=1000',
   ],
+};
+
+export const smokeOptions = {
+  scenarios: {
+    smoke: {
+      executor: 'shared-iterations',
+      vus: 1,
+      iterations: 1,
+      maxDuration: '1m',
+      exec: 'smoke',
+    },
+  },
+
+  thresholds,
+};
+
+export const singleApiOptions = {
+  scenarios: {
+    single_api: {
+      executor: 'constant-arrival-rate',
+      rate: Number(__ENV.RATE || 1),
+      timeUnit: __ENV.TIME_UNIT || '1s',
+      duration: __ENV.DURATION || '1m',
+      preAllocatedVUs: Number(__ENV.PRE_ALLOCATED_VUS || 2),
+      maxVUs: Number(__ENV.MAX_VUS || 10),
+      exec: 'singleApi',
+    },
+  },
+
+  thresholds,
 };
 
 export const userFlowOptions = {
