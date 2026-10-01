@@ -6,7 +6,7 @@ export const thresholds = {
     'p(99)<=1000',
   ],
 
-  // API별 성공률/응답시간
+  // API별 성공률 / 응답시간
   'http_req_failed{endpoint:friends}': ['rate<=0.01'],
   'http_req_duration{endpoint:friends}': [
     'p(95)<=300',
@@ -50,11 +50,15 @@ export const singleApiOptions = {
   scenarios: {
     single_api: {
       executor: 'constant-arrival-rate',
+
+      // singleApi 1 iteration = 측정 대상 HTTP 요청 1개
       rate: Number(__ENV.RATE || 1),
       timeUnit: __ENV.TIME_UNIT || '1s',
       duration: __ENV.DURATION || '1m',
+
       preAllocatedVUs: Number(__ENV.PRE_ALLOCATED_VUS || 2),
       maxVUs: Number(__ENV.MAX_VUS || 10),
+
       exec: 'singleApi',
     },
   },
@@ -64,6 +68,13 @@ export const singleApiOptions = {
 
 export const userFlowOptions = {
   scenarios: {
+    // userFlow 1회 = HTTP 요청 3개
+    //
+    // 32 iteration / 10m
+    // × 3 requests
+    // ÷ 600 sec
+    // = 0.16 HTTP RPS
+
     baseline: {
       executor: 'constant-arrival-rate',
       rate: 32,
@@ -74,6 +85,7 @@ export const userFlowOptions = {
       exec: 'userFlow',
     },
 
+    // 64 × 3 / 600 = 0.32 HTTP RPS
     load_032: {
       executor: 'constant-arrival-rate',
       startTime: '10m',
@@ -85,6 +97,7 @@ export const userFlowOptions = {
       exec: 'userFlow',
     },
 
+    // 160 × 3 / 600 = 0.80 HTTP RPS
     load_080: {
       executor: 'constant-arrival-rate',
       startTime: '20m',
@@ -96,6 +109,7 @@ export const userFlowOptions = {
       exec: 'userFlow',
     },
 
+    // 320 × 3 / 600 = 1.60 HTTP RPS
     load_160: {
       executor: 'constant-arrival-rate',
       startTime: '30m',
@@ -107,6 +121,7 @@ export const userFlowOptions = {
       exec: 'userFlow',
     },
 
+    // 640 × 3 / 600 = 3.20 HTTP RPS
     load_320: {
       executor: 'constant-arrival-rate',
       startTime: '40m',
