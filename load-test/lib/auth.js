@@ -1,5 +1,4 @@
-// k6 부하테스트에서 사용할 테스트 계정 토큰을 읽고,
-// Need U Backend 인증 방식인 NEEDU_ACCESS_TOKEN Cookie를 만들어주는 공통 모듈입니다.
+import exec from 'k6/execution';
 import { SharedArray } from 'k6/data';
 
 const TOKEN_FILE = __ENV.TOKEN_FILE || '../config/tokens.json';
@@ -14,7 +13,9 @@ export const users = new SharedArray('needu-load-test-users', () => {
 
   return parsed.map((user, index) => {
     if (!user.userId || !user.accessToken) {
-      throw new Error(`Invalid user at index ${index}. userId and accessToken are required.`);
+      throw new Error(
+        `Invalid user at index ${index}. userId and accessToken are required.`,
+      );
     }
 
     return {
@@ -28,9 +29,9 @@ export function getUser(index = 0) {
   return users[index % users.length];
 }
 
-// VU 번호를 기준으로 테스트 계정을 분산해서 선택합니다.
-export function getVuUser() {
-  return getUser((__VU || 1) - 1);
+// 전체 iteration 번호를 기준으로 테스트 계정을 순환해서 선택합니다.
+export function getIterationUser() {
+  return getUser(exec.scenario.iterationInTest % users.length);
 }
 
 export function authCookie(user) {
