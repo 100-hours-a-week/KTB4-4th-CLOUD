@@ -1,7 +1,7 @@
 import { check } from 'k6';
 
 import { smokeOptions } from '../config/options.js';
-import { getVuUser } from '../lib/auth.js';
+import { getIterationUser } from '../lib/auth.js';
 import {
   getFriends,
   getFriendDetail,
@@ -24,7 +24,7 @@ function selectFriendId(user, friendsResponse) {
 }
 
 export function smoke() {
-  const user = getVuUser();
+  const user = getIterationUser();
 
   // 1. 친구 목록 조회
   const friendsResponse = getFriends(user);
