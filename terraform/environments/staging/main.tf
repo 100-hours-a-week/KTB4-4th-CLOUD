@@ -50,6 +50,8 @@ module "v2" {
   enable_redis_auth              = var.enable_redis_auth
   redis_auth_token               = var.redis_auth_token
   alarm_sns_topic_arn            = var.alarm_sns_topic_arn
+  deployment_5xx_threshold       = var.deployment_5xx_threshold
+  catalog_commands               = var.catalog_commands
 }
 output "alb_dns_name" {
   value = module.v2.alb_dns_name

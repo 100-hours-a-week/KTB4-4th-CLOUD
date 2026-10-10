@@ -162,6 +162,16 @@ variable "alarm_sns_topic_arn" {
   default = ""
 }
 
+variable "deployment_5xx_threshold" {
+  type    = number
+  default = 5
+}
+
+variable "catalog_commands" {
+  type    = map(list(string))
+  default = {}
+}
+
 variable "app_secret_parameters" {
   type    = map(map(string))
   default = {}

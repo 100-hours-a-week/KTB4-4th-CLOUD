@@ -40,18 +40,15 @@ locals {
     }
     ai = {
       parameter_path = "/needu/${var.environment}/ai/*"
-      secret_arns    = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+      secret_arns    = []
     }
     catalog-sync = {
       parameter_path = "/needu/${var.environment}/ai-catalog/*"
-      secret_arns = [
-        aws_db_instance.mysql.master_user_secret[0].secret_arn,
-        aws_db_instance.postgres.master_user_secret[0].secret_arn
-      ]
+      secret_arns    = [aws_db_instance.mysql.master_user_secret[0].secret_arn]
     }
     catalog-import = {
       parameter_path = "/needu/${var.environment}/ai-catalog/*"
-      secret_arns    = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+      secret_arns    = []
     }
   }
 }
@@ -118,12 +115,4 @@ resource "aws_iam_role_policy" "catalog_import" {
   name   = "catalog-output-read"
   role   = aws_iam_role.catalog_task["catalog-import"].id
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${aws_s3_bucket.catalog.arn}/jobs/*/output/*"] }] })
-}
-
-# Backend와 AI가 각자 필요한 데이터베이스 비밀값을 읽을 수 있도록 허용
-resource "aws_iam_role_policy" "task_secrets" {
-  for_each = toset(["backend", "ai"])
-  name     = "database-secret-read"
-  role     = aws_iam_role.task[each.key].id
-  policy   = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = each.key == "backend" ? [aws_db_instance.mysql.master_user_secret[0].secret_arn] : [aws_db_instance.postgres.master_user_secret[0].secret_arn] }] })
 }

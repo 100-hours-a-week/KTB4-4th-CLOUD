@@ -9,7 +9,7 @@ db_subnets = {
 }
 certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
-domain_name = "v2-prod.needu.gift" # Do NOT overwrite the existing V1 prod DNS before cutover
+domain_name = "v2-prod.needu.gift" # V1 운영 DNS 전환 전에는 기존 도메인을 덮어쓰지 않음
 ecr_repository_urls = {
   frontend = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/frontend"
   backend  = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/backend"
@@ -17,7 +17,7 @@ ecr_repository_urls = {
 }
 image_tags = { frontend = "REPLACE_SHA", backend = "REPLACE_SHA", ai = "REPLACE_SHA" }
 mysql_engine_version = "8.4.0"
-postgres_engine_version = "16.6" # Confirm supported version + pgvector compatibility
+postgres_engine_version = "16.6" # 지원 버전과 pgvector 호환성 확인 필요
 mysql_instance_class = "db.t4g.medium"
 postgres_instance_class = "db.t4g.small"
 mysql_storage_gb = 50
@@ -41,5 +41,11 @@ app_env = {
   ai = {}
 }
 
-# Optional: SSM SecureString parameter ARNs (not plaintext values)
+# 선택 사항: 평문 값이 아닌 SSM SecureString Parameter ARN
 app_secret_parameters = { frontend = {}, backend = {}, ai = {} }
+
+# 정상 배포 트래픽을 확인한 뒤 조정
+deployment_5xx_threshold = 5
+
+# AI 팀 실행 명령 확정 전에는 빈 값으로 유지
+catalog_commands = {}
