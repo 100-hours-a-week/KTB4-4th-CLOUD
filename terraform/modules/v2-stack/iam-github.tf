@@ -1,41 +1,4 @@
-data "aws_iam_policy_document" "ecs_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-  }
-}
-resource "aws_iam_role" "execution" {
-  name               = "needu-${var.environment}-ecs-execution"
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
-}
-resource "aws_iam_role_policy_attachment" "execution" {
-  role       = aws_iam_role.execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-resource "aws_iam_role_policy" "execution_parameters" {
-  name   = "needu-${var.environment}-execution-parameters"
-  role   = aws_iam_role.execution.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["ssm:GetParameters", "ssm:GetParameter", "secretsmanager:GetSecretValue"], Resource = ["arn:aws:ssm:*:*:parameter${var.parameter_prefix}/*", aws_db_instance.mysql.master_user_secret[0].secret_arn, aws_db_instance.postgres.master_user_secret[0].secret_arn] }] })
-}
-resource "aws_iam_role" "task" {
-  for_each           = toset(["frontend", "backend", "ai"])
-  name               = "needu-${var.environment}-${each.key}-task"
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
-}
-resource "aws_iam_role_policy" "task_catalog" {
-  name   = "catalog-access"
-  role   = aws_iam_role.task["ai"].id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["s3:ListBucket"], Resource = [aws_s3_bucket.catalog.arn] }, { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.catalog.arn}/*"] }] })
-}
-resource "aws_iam_role_policy" "task_secrets" {
-  for_each = toset(["backend", "ai"])
-  name     = "database-secret-read"
-  role     = aws_iam_role.task[each.key].id
-  policy   = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = each.key == "backend" ? [aws_db_instance.mysql.master_user_secret[0].secret_arn] : [aws_db_instance.postgres.master_user_secret[0].secret_arn, aws_db_instance.mysql.master_user_secret[0].secret_arn] }] })
-}
+# GitHub Actions가 OIDC로 배포 Role을 맡을 수 있도록 허용하는 신뢰 정책
 data "aws_iam_policy_document" "github_assume" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -55,10 +18,14 @@ data "aws_iam_policy_document" "github_assume" {
     }
   }
 }
+
+# GitHub Actions에서 ECS 배포를 수행할 때 사용하는 Role
 resource "aws_iam_role" "github_cd" {
   name               = "needu-${var.environment}-github-ecs-cd"
   assume_role_policy = data.aws_iam_policy_document.github_assume.json
 }
+
+# ECS 서비스 배포와 Task Role 전달에 필요한 권한을 배포 Role에 부여
 resource "aws_iam_role_policy" "github_cd" {
   name = "ecs-deploy"
   role = aws_iam_role.github_cd.id
@@ -69,7 +36,10 @@ resource "aws_iam_role_policy" "github_cd" {
   ] })
 }
 
+# 현재 AWS 계정 ID를 조회해 ECR Repository ARN을 구성할 때 사용
 data "aws_caller_identity" "current" {}
+
+# main과 develop 브랜치의 GitHub Actions가 CI Role을 맡도록 허용
 data "aws_iam_policy_document" "github_ci_assume" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -89,10 +59,14 @@ data "aws_iam_policy_document" "github_ci_assume" {
     }
   }
 }
+
+# GitHub Actions에서 컨테이너 이미지를 빌드하고 ECR에 올릴 때 사용하는 Role
 resource "aws_iam_role" "github_ci" {
   name               = "needu-${var.environment}-github-ecr-ci"
   assume_role_policy = data.aws_iam_policy_document.github_ci_assume.json
 }
+
+# Frontend, Backend, AI 이미지를 각 ECR Repository에 업로드할 권한을 부여
 resource "aws_iam_role_policy" "github_ci" {
   name = "ecr-push"
   role = aws_iam_role.github_ci.id
