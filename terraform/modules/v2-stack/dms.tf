@@ -2,7 +2,7 @@
 resource "aws_security_group" "dms" {
   count       = var.enable_dms ? 1 : 0
   name_prefix = "needu-${var.environment}-dms-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_vpc_security_group_egress_rule" "dms_out" {
   count             = var.enable_dms ? 1 : 0

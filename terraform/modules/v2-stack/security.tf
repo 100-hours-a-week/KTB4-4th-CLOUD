@@ -1,7 +1,7 @@
 resource "aws_security_group" "alb" {
   name_prefix = "needu-${var.environment}-alb-"
   description = "Public HTTPS ingress"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
   tags        = { Name = "needu-${var.environment}-alb" }
 }
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
@@ -34,27 +34,27 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_be" {
 }
 resource "aws_security_group" "fe" {
   name_prefix = "needu-${var.environment}-fe-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "be" {
   name_prefix = "needu-${var.environment}-be-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "ai" {
   name_prefix = "needu-${var.environment}-ai-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "mysql" {
   name_prefix = "needu-${var.environment}-mysql-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "postgres" {
   name_prefix = "needu-${var.environment}-postgres-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "redis" {
   name_prefix = "needu-${var.environment}-redis-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_vpc_security_group_ingress_rule" "fe_from_alb" {
   security_group_id            = aws_security_group.fe.id

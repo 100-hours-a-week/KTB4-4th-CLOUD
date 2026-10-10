@@ -19,7 +19,7 @@ resource "aws_lb_target_group" "fe" {
   port                 = 3000
   protocol             = "HTTP"
   target_type          = "ip"
-  vpc_id               = var.vpc_id
+  vpc_id               = data.aws_vpc.selected.id
   deregistration_delay = 30
   health_check {
     path                = "/"
@@ -34,7 +34,7 @@ resource "aws_lb_target_group" "be" {
   port                 = 8080
   protocol             = "HTTP"
   target_type          = "ip"
-  vpc_id               = var.vpc_id
+  vpc_id               = data.aws_vpc.selected.id
   deregistration_delay = 30
   health_check {
     path                = "/actuator/health"

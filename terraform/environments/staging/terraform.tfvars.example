@@ -1,13 +1,11 @@
 environment = "staging"
-vpc_id = "vpc-REPLACE"
-igw_id = "igw-REPLACE"
 public_subnets = {
-  a = { az = "ap-northeast-2a", cidr = "10.0.48.0/24" }
-  c = { az = "ap-northeast-2c", cidr = "10.0.49.0/24" }
+  a = { az = "ap-northeast-2a", cidr = "10.1.48.0/24" }
+  c = { az = "ap-northeast-2c", cidr = "10.1.49.0/24" }
 }
 db_subnets = {
-  a = { az = "ap-northeast-2a", cidr = "10.0.52.0/24" }
-  c = { az = "ap-northeast-2c", cidr = "10.0.53.0/24" }
+  a = { az = "ap-northeast-2a", cidr = "10.1.52.0/24" }
+  c = { az = "ap-northeast-2c", cidr = "10.1.53.0/24" }
 }
 certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"

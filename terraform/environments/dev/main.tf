@@ -14,8 +14,6 @@ provider "aws" {
 module "v2" {
   source                         = "../../modules/v2-stack"
   environment                    = var.environment
-  vpc_id                         = var.vpc_id
-  igw_id                         = var.igw_id
   public_subnets                 = var.public_subnets
   db_subnets                     = var.db_subnets
   certificate_arn                = var.certificate_arn

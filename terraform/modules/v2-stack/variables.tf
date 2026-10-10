@@ -1,11 +1,9 @@
 variable "environment" {
   type = string
 }
-variable "vpc_id" {
-  type = string
-}
-variable "igw_id" {
-  type = string
+variable "vpc_name" {
+  type    = string
+  default = "needu-v2-vpc"
 }
 variable "public_subnets" {
   type = map(object({ az = string, cidr = string }))
