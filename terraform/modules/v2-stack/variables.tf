@@ -47,6 +47,15 @@ variable "postgres_storage_gb" {
 variable "redis_node_type" {
   type = string
 }
+variable "redis_num_nodes" {
+  type    = number
+  default = 1
+
+  validation {
+    condition     = var.redis_num_nodes >= 1 && floor(var.redis_num_nodes) == var.redis_num_nodes
+    error_message = "Redis 노드 수는 1 이상의 정수여야 합니다."
+  }
+}
 variable "task_cpu" {
   type = map(number)
 }
@@ -87,54 +96,6 @@ variable "github_repository" {
 }
 variable "github_oidc_provider_arn" {
   type = string
-}
-variable "enable_dms" {
-  type    = bool
-  default = false
-}
-variable "v1_staging_sg_id" {
-  type    = string
-  default = ""
-}
-variable "dms_replication_instance_class" {
-  type    = string
-  default = "dms.t3.medium"
-}
-variable "dms_source_mysql_host" {
-  type    = string
-  default = ""
-}
-variable "dms_source_postgres_host" {
-  type    = string
-  default = ""
-}
-variable "dms_source_mysql_port" {
-  type    = number
-  default = 3306
-}
-variable "dms_source_postgres_port" {
-  type    = number
-  default = 5432
-}
-variable "dms_source_mysql_secret_arn" {
-  type    = string
-  default = ""
-}
-variable "dms_source_postgres_secret_arn" {
-  type    = string
-  default = ""
-}
-variable "dms_vpc_role_arn" {
-  type    = string
-  default = ""
-}
-variable "dms_cloudwatch_role_arn" {
-  type    = string
-  default = ""
-}
-variable "dms_endpoint_access_role_arn" {
-  type    = string
-  default = ""
 }
 variable "create_dns_record" {
   type    = bool

@@ -50,11 +50,6 @@ resource "aws_db_instance" "postgres" {
 resource "aws_db_parameter_group" "postgres" {
   name   = "needu-${var.environment}-postgres-pg"
   family = "postgres${split(".", var.postgres_engine_version)[0]}"
-  parameter {
-    name         = "rds.logical_replication"
-    value        = var.enable_dms ? "1" : "0"
-    apply_method = "pending-reboot"
-  }
 }
 resource "aws_elasticache_subnet_group" "redis" {
   name       = "needu-${var.environment}-redis-subnets"
@@ -66,9 +61,9 @@ resource "aws_elasticache_replication_group" "redis" {
   engine                     = "redis"
   node_type                  = var.redis_node_type
   port                       = 6379
-  num_cache_clusters         = var.environment == "dev" ? 1 : 2
-  automatic_failover_enabled = var.environment != "dev"
-  multi_az_enabled           = var.environment != "dev"
+  num_cache_clusters         = var.redis_num_nodes
+  automatic_failover_enabled = var.redis_num_nodes >= 2
+  multi_az_enabled           = var.redis_num_nodes >= 2
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
   auth_token                 = var.enable_redis_auth ? var.redis_auth_token : null

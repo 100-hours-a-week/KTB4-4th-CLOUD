@@ -43,9 +43,6 @@ output "catalog_bucket" {
 output "github_cd_role_arn" {
   value = aws_iam_role.github_cd.arn
 }
-output "dms_replication_instance_arn" {
-  value = var.enable_dms ? aws_dms_replication_instance.main[0].replication_instance_arn : null
-}
 output "github_ci_role_arn" {
   value = aws_iam_role.github_ci.arn
 }
