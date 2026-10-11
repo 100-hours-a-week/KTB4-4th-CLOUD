@@ -1,0 +1,440 @@
+
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Terraform environment"
+        required: true
+        type: choice
+        options:
+          - shared
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  # ==================================================
+  # 1. Resolve target environment
+  # ==================================================
+
+  resolve:
+    name: Resolve target
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.target.outputs.environment }}
+      directory: ${{ steps.target.outputs.directory }}
+      state_key: ${{ steps.target.outputs.state_key }}
+      should_apply: ${{ steps.target.outputs.should_apply }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Resolve environment and state
+        id: target
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ inputs.environment }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          SHOULD_APPLY="true"
+
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            ENVIRONMENT="dev"
+
+            if [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+              echo "::error::Cannot determine previous commit."
+              exit 1
+            fi
+
+            CHANGED_FILES="$(git diff --name-only "$BEFORE_SHA" "$CURRENT_SHA")"
+
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+
+            if ! echo "$CHANGED_FILES" | grep -Eq \
+              '^terraform/(environments/dev/|modules/|shared/)'; then
+              SHOULD_APPLY="false"
+            fi
+          else
+            ENVIRONMENT="$INPUT_ENV"
+          fi
+
+          case "$ENVIRONMENT" in
+            shared)
+              STATE_KEY="shared/terraform.tfstate"
+              ;;
+            dev|staging|prod)
+              STATE_KEY="v2/${ENVIRONMENT}/terraform.tfstate"
+              ;;
+            *)
+              echo "::error::Invalid environment"
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "environment=$ENVIRONMENT"
+            echo "directory=terraform/environments/$ENVIRONMENT"
+            echo "state_key=$STATE_KEY"
+            echo "should_apply=$SHOULD_APPLY"
+          } >> "$GITHUB_OUTPUT"
+
+  # ==================================================
+  # 2. Generate Terraform Plan
+  # ==================================================
+
+  plan:
+    name: Plan - ${{ needs.resolve.outputs.environment }}
+    needs: resolve
+
+    if: needs.resolve.outputs.should_apply == 'true'
+
+    runs-on: ubuntu-latest
+
+    environment: terraform-plan
+
+    permissions:
+      contents: read
+      id-token: write
+
+    concurrency:
+      group: terraform-plan-${{ needs.resolve.outputs.environment }}
+      cancel-in-progress: false
+
+    env:
+      AWS_REGION: ap-northeast-2
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_DIR: ${{ needs.resolve.outputs.directory }}
+      TF_STATE_BUCKET: needu-terraform-state-919551759796
+      TF_STATE_KEY: ${{ needs.resolve.outputs.state_key }}
+      TF_ENV: ${{ needs.resolve.outputs.environment }}
+
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify execution branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Terraform execution is only allowed from main."
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Configure AWS Plan credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Terraform-Plan
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-plan-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Initialize Terraform backend
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          terraform init \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=${TF_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate -no-color
+
+      - name: Create Terraform Plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -out=tfplan \
+            -no-color
+
+          terraform show -no-color tfplan > plan.txt
+          terraform show -json tfplan > plan.json
+
+      - name: Review destructive changes
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+
+          with open("plan.json", encoding="utf-8") as f:
+              plan = json.load(f)
+
+          destructive = []
+
+          for resource in plan.get("resource_changes", []):
+              actions = resource.get("change", {}).get("actions", [])
+
+              if "delete" in actions:
+                  destructive.append(resource["address"])
+
+          if destructive:
+              print("Destructive changes detected:")
+
+              for address in destructive:
+                  print(f"- {address}")
+
+              print("Terraform Apply blocked.")
+              sys.exit(1)
+
+          print("No destructive changes detected.")
+          PY
+
+      - name: Create Plan metadata
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          PLAN_SHA="$(sha256sum tfplan | awk '{print $1}')"
+
+          {
+            echo "environment=${TF_ENV}"
+            echo "commit_sha=${COMMIT_SHA}"
+            echo "run_id=${RUN_ID}"
+            echo "run_attempt=${RUN_ATTEMPT}"
+            echo "state_key=${TF_STATE_KEY}"
+            echo "plan_sha256=${PLAN_SHA}"
+          } > plan-metadata.env
+
+          {
+            echo "## Terraform Plan"
+            echo ""
+            echo "- Environment: ${TF_ENV}"
+            echo "- Commit: ${COMMIT_SHA}"
+            echo "- Plan SHA-256: ${PLAN_SHA}"
+            echo ""
+            echo "Review the uploaded Plan artifact before approving Apply."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.TF_ENV }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            ${{ env.TF_DIR }}/plan.txt
+            ${{ env.TF_DIR }}/plan-metadata.env
+          if-no-files-found: error
+          retention-days: 3
+
+  # ==================================================
+  # 3. Apply reviewed Terraform Plan
+  # ==================================================
+
+  apply:
+    name: Apply - ${{ needs.resolve.outputs.environment }}
+
+    needs:
+      - resolve
+      - plan
+
+    runs-on: ubuntu-latest
+
+    environment: ${{ needs.resolve.outputs.environment == 'prod' && 'production' || needs.resolve.outputs.environment == 'shared' && 'terraform-shared' || needs.resolve.outputs.environment }}
+
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+
+    concurrency:
+      group: terraform-apply-${{ needs.resolve.outputs.environment }}
+      cancel-in-progress: false
+
+    env:
+      AWS_REGION: ap-northeast-2
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_DIR: ${{ needs.resolve.outputs.directory }}
+      TF_STATE_BUCKET: needu-terraform-state-919551759796
+      TF_STATE_KEY: ${{ needs.resolve.outputs.state_key }}
+      TF_ENV: ${{ needs.resolve.outputs.environment }}
+
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify execution branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Terraform Apply is only allowed from main."
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Download approved Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ env.TF_ENV }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.TF_DIR }}
+
+      - name: Verify Plan metadata and checksum
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          test -f tfplan
+          test -f plan-metadata.env
+
+          EXPECTED_ENV="$(grep '^environment=' plan-metadata.env | cut -d= -f2-)"
+          EXPECTED_SHA="$(grep '^commit_sha=' plan-metadata.env | cut -d= -f2-)"
+          EXPECTED_RUN="$(grep '^run_id=' plan-metadata.env | cut -d= -f2-)"
+          EXPECTED_ATTEMPT="$(grep '^run_attempt=' plan-metadata.env | cut -d= -f2-)"
+          EXPECTED_STATE="$(grep '^state_key=' plan-metadata.env | cut -d= -f2-)"
+          EXPECTED_HASH="$(grep '^plan_sha256=' plan-metadata.env | cut -d= -f2-)"
+
+          ACTUAL_HASH="$(sha256sum tfplan | awk '{print $1}')"
+
+          if [[ "$EXPECTED_ENV" != "$TF_ENV" ]] ||
+             [[ "$EXPECTED_SHA" != "$COMMIT_SHA" ]] ||
+             [[ "$EXPECTED_RUN" != "$RUN_ID" ]] ||
+             [[ "$EXPECTED_ATTEMPT" != "$RUN_ATTEMPT" ]] ||
+             [[ "$EXPECTED_STATE" != "$TF_STATE_KEY" ]] ||
+             [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
+            echo "::error::Terraform Plan verification failed."
+            exit 1
+          fi
+
+          echo "Terraform Plan metadata verified."
+
+      - name: Configure AWS Apply credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.resolve.outputs.environment == 'shared' && 'arn:aws:iam::919551759796:role/NeedU-V2-Terraform-Shared' || needs.resolve.outputs.environment == 'dev' && 'arn:aws:iam::919551759796:role/NeedU-V2-Terraform-Dev' || needs.resolve.outputs.environment == 'staging' && 'arn:aws:iam::919551759796:role/NeedU-V2-Terraform-Staging' || 'arn:aws:iam::919551759796:role/NeedU-V2-Terraform-Prod' }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-apply-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Initialize Terraform backend
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          terraform init \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=${TF_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Apply exact reviewed Plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform apply \
+            -input=false \
+            -lock-timeout=5m \
+            -no-color \
+            tfplan
+
+      # ------------------------------------------------
+      # Post-Apply Drift Verification
+      # ------------------------------------------------
+
+      - name: Verify post-apply drift
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set +e
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -detailed-exitcode \
+            -no-color > post-apply-plan.txt 2>&1
+
+          EXIT_CODE=$?
+
+          cat post-apply-plan.txt
+
+          if [[ "$EXIT_CODE" -eq 0 ]]; then
+            echo "No remaining changes." >> "$GITHUB_STEP_SUMMARY"
+
+          elif [[ "$EXIT_CODE" -eq 2 ]]; then
+            echo "::warning::Post-apply plan detected remaining changes."
+            echo "Remaining changes detected." >> "$GITHUB_STEP_SUMMARY"
+
+          else
+            exit 1
+          fi
+
+      - name: Upload execution logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-apply-logs-${{ needs.resolve.outputs.environment }}-${{ github.run_id }}
+          path: |
+            ${{ env.TF_DIR }}/post-apply-plan.txt
+          if-no-files-found: ignore
+          retention-days: 7
