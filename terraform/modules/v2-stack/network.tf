@@ -1,9 +1,19 @@
 data "aws_vpc" "selected" {
-  id = var.vpc_id
+  filter {
+    name   = "tag:Name"
+    values = [var.vpc_name]
+  }
+}
+
+data "aws_internet_gateway" "selected" {
+  filter {
+    name   = "attachment.vpc-id"
+    values = [data.aws_vpc.selected.id]
+  }
 }
 resource "aws_subnet" "public" {
   for_each                = var.public_subnets
-  vpc_id                  = var.vpc_id
+  vpc_id                  = data.aws_vpc.selected.id
   availability_zone       = each.value.az
   cidr_block              = each.value.cidr
   map_public_ip_on_launch = true
@@ -11,16 +21,16 @@ resource "aws_subnet" "public" {
 }
 resource "aws_subnet" "db" {
   for_each          = var.db_subnets
-  vpc_id            = var.vpc_id
+  vpc_id            = data.aws_vpc.selected.id
   availability_zone = each.value.az
   cidr_block        = each.value.cidr
   tags              = { Name = "needu-${var.environment}-db-${each.key}" }
 }
 resource "aws_route_table" "public" {
-  vpc_id = var.vpc_id
+  vpc_id = data.aws_vpc.selected.id
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = var.igw_id
+    gateway_id = data.aws_internet_gateway.selected.id
   }
   tags = { Name = "needu-${var.environment}-public-rt" }
 }
@@ -30,7 +40,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 resource "aws_route_table" "db" {
-  vpc_id = var.vpc_id
+  vpc_id = data.aws_vpc.selected.id
   tags   = { Name = "needu-${var.environment}-db-rt" }
 }
 resource "aws_route_table_association" "db" {

@@ -5,13 +5,56 @@ locals {
     ai       = { port = 8000, sg = aws_security_group.ai.id }
   }
   service_env = {
-    frontend = merge({ NODE_ENV = "production", BACKEND_API_BASE_URL = "http://backend:8080" }, lookup(var.app_env, "frontend", {}))
-    backend  = merge({ SPRING_PROFILES_ACTIVE = var.environment, AI_SERVER_BASE_URL = "http://ai:8000", DB_HOST = aws_db_instance.mysql.address, DB_PORT = "3306", DB_USERNAME = "needu", REDIS_HOST = aws_elasticache_replication_group.redis.primary_endpoint_address, REDIS_PORT = "6379", REDIS_SSL_ENABLED = "true" }, lookup(var.app_env, "backend", {}))
-    ai       = merge({ APP_ENV = var.environment, POSTGRES_HOST = aws_db_instance.postgres.address, POSTGRES_PORT = "5432", POSTGRES_USER = "needu", MYSQL_HOST = aws_db_instance.mysql.address, CATALOG_BUCKET = aws_s3_bucket.catalog.bucket, REDIS_HOST = aws_elasticache_replication_group.redis.primary_endpoint_address, REDIS_SSL_ENABLED = "true" }, lookup(var.app_env, "ai", {}))
+    frontend = { NODE_ENV = "production" }
+    backend = {
+      SPRING_PROFILES_ACTIVE        = var.environment
+      SPRING_DATASOURCE_URL         = "jdbc:mysql://${aws_db_instance.mysql.address}:3306/needu"
+      DB_USERNAME                   = "needu"
+      SPRING_DATA_REDIS_HOST        = aws_elasticache_replication_group.redis.primary_endpoint_address
+      SPRING_DATA_REDIS_PORT        = "6379"
+      SPRING_DATA_REDIS_SSL_ENABLED = "true"
+      AI_SERVER_BASE_URL            = "http://ai:8000"
+    }
+    ai = {
+      REDIS_URL = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379/0"
+    }
+  }
+  service_secrets = {
+    frontend = merge({
+      BACKEND_API_BASE_URL = "${local.parameter_base_path}/frontend-runtime/BACKEND_API_BASE_URL"
+      SENTRY_ENVIRONMENT   = "${local.parameter_base_path}/frontend-runtime/SENTRY_ENVIRONMENT"
+    }, lookup(var.app_secret_parameters, "frontend", {}))
+    backend = lookup(var.app_secret_parameters, "backend", {})
+    ai = merge({
+      CATALOG_DATABASE_URL_RO = "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
+    }, lookup(var.app_secret_parameters, "ai", {}))
+  }
+  catalog_jobs = {
+    catalog-sync = {
+      environment = {
+        CATALOG_BUCKET        = aws_s3_bucket.catalog.bucket
+        SOURCE_MYSQL_HOST     = aws_db_instance.mysql.address
+        SOURCE_MYSQL_PORT     = "3306"
+        SOURCE_MYSQL_USER     = "needu"
+        SOURCE_MYSQL_DATABASE = "needu"
+      }
+      secrets = {
+        CATALOG_DATABASE_URL  = "${local.parameter_base_path}/ai-catalog/CATALOG_DATABASE_URL"
+        SOURCE_MYSQL_PASSWORD = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::"
+      }
+    }
+    catalog-import = {
+      environment = {
+        CATALOG_BUCKET = aws_s3_bucket.catalog.bucket
+      }
+      secrets = {
+        CATALOG_DATABASE_URL = "${local.parameter_base_path}/ai-catalog/CATALOG_DATABASE_URL"
+      }
+    }
   }
 }
 resource "aws_ecs_cluster" "main" {
-  name = "needu-${var.environment}"
+  name = "needu-${var.environment}-cluster"
   setting {
     name  = "containerInsights"
     value = "enabled"
@@ -32,7 +75,7 @@ resource "aws_ecs_task_definition" "service" {
   network_mode             = "awsvpc"
   cpu                      = tostring(var.task_cpu[each.key])
   memory                   = tostring(var.task_memory[each.key])
-  execution_role_arn       = aws_iam_role.execution.arn
+  execution_role_arn       = aws_iam_role.service_execution[each.key].arn
   task_role_arn            = aws_iam_role.task[each.key].arn
   container_definitions = jsonencode([{
     name             = each.key
@@ -40,7 +83,7 @@ resource "aws_ecs_task_definition" "service" {
     essential        = true
     portMappings     = [{ containerPort = each.value.port, hostPort = each.value.port, protocol = "tcp", name = "${each.key}-tcp", appProtocol = "http" }]
     environment      = [for k, v in local.service_env[each.key] : { name = k, value = v }]
-    secrets          = concat([for k, v in lookup(var.app_secret_parameters, each.key, {}) : { name = k, valueFrom = v }], each.key == "backend" ? [{ name = "DB_PASSWORD", valueFrom = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::" }] : each.key == "ai" ? [{ name = "POSTGRES_PASSWORD", valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::" }] : [])
+    secrets          = concat([for k, v in local.service_secrets[each.key] : { name = k, valueFrom = v }], each.key == "backend" ? [{ name = "DB_PASSWORD", valueFrom = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::" }] : [])
     logConfiguration = { logDriver = "awslogs", options = { "awslogs-group" = aws_cloudwatch_log_group.service[each.key].name, "awslogs-region" = "ap-northeast-2", "awslogs-stream-prefix" = "ecs" } }
   }])
 }
@@ -51,12 +94,24 @@ resource "aws_ecs_service" "service" {
   task_definition                    = aws_ecs_task_definition.service[each.key].arn
   desired_count                      = var.task_desired_count
   launch_type                        = "FARGATE"
-  enable_execute_command             = true
+  enable_execute_command             = var.environment != "prod"
   health_check_grace_period_seconds  = each.key == "ai" ? null : 120
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+  dynamic "alarms" {
+    for_each = contains(["backend", "ai"], each.key) ? [each.key] : []
+    content {
+      alarm_names = [alarms.value == "backend" ? aws_cloudwatch_metric_alarm.backend_target_5xx.alarm_name : aws_cloudwatch_metric_alarm.ai_service_connect_5xx.alarm_name]
+      enable      = true
+      rollback    = true
+    }
+  }
   network_configuration {
-    subnets          = local.public_subnet_ids
+    subnets          = [aws_subnet.public["a"].id]
     security_groups  = [each.value.sg]
     assign_public_ip = var.ecs_assign_public_ip
   }
@@ -79,17 +134,6 @@ resource "aws_ecs_service" "service" {
         client_alias {
           dns_name = "ai"
           port     = 8000
-        }
-      }
-    }
-    dynamic "service" {
-      for_each = each.key == "backend" ? [1] : []
-      content {
-        port_name      = "backend-tcp"
-        discovery_name = "backend"
-        client_alias {
-          dns_name = "backend"
-          port     = 8080
         }
       }
     }
@@ -136,30 +180,68 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   dimensions          = { LoadBalancer = aws_lb.main.arn_suffix }
   alarm_actions       = var.alarm_sns_topic_arn == "" ? [] : [var.alarm_sns_topic_arn]
 }
+
+resource "aws_cloudwatch_metric_alarm" "backend_target_5xx" {
+  alarm_name          = "needu-${var.environment}-backend-deployment-5xx"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  metric_name         = "HTTPCode_Target_5XX_Count"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = var.deployment_5xx_threshold
+  treat_missing_data  = "notBreaching"
+  dimensions = {
+    LoadBalancer = aws_lb.main.arn_suffix
+    TargetGroup  = aws_lb_target_group.be.arn_suffix
+  }
+  alarm_actions = var.alarm_sns_topic_arn == "" ? [] : [var.alarm_sns_topic_arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "ai_service_connect_5xx" {
+  alarm_name          = "needu-${var.environment}-ai-deployment-5xx"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  metric_name         = "HTTPCode_Target_5XX_Count"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = var.deployment_5xx_threshold
+  treat_missing_data  = "notBreaching"
+  dimensions = {
+    TargetDiscoveryName = "ai"
+    ServiceName         = "needu-${var.environment}-backend"
+    ClusterName         = aws_ecs_cluster.main.name
+  }
+  alarm_actions = var.alarm_sns_topic_arn == "" ? [] : [var.alarm_sns_topic_arn]
+}
+
 resource "aws_cloudwatch_log_group" "batch" {
-  for_each          = toset(["catalog-sync", "catalog-import", "spring-batch"])
+  for_each          = local.catalog_jobs
   name              = "/needu/${var.environment}/batch/${each.key}"
   retention_in_days = 30
 }
 resource "aws_ecs_task_definition" "batch" {
-  for_each = {
-    catalog-sync   = "ai"
-    catalog-import = "ai"
-    spring-batch   = "backend"
-  }
+  for_each                 = local.catalog_jobs
   family                   = "needu-${var.environment}-${each.key}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = tostring(var.task_cpu[each.value])
-  memory                   = tostring(var.task_memory[each.value])
-  execution_role_arn       = aws_iam_role.execution.arn
-  task_role_arn            = aws_iam_role.task[each.value].arn
-  container_definitions = jsonencode([{
-    name             = each.key
-    image            = "${var.ecr_repository_urls[each.value]}:${var.image_tags[each.value]}"
-    essential        = true
-    environment      = [for k, v in merge(local.service_env[each.value], { NEEDU_BATCH_JOB = each.key }) : { name = k, value = v }]
-    secrets          = concat([for k, v in lookup(var.app_secret_parameters, each.value, {}) : { name = k, valueFrom = v }], each.value == "backend" ? [{ name = "DB_PASSWORD", valueFrom = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::" }] : [{ name = "POSTGRES_PASSWORD", valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::" }])
-    logConfiguration = { logDriver = "awslogs", options = { "awslogs-group" = aws_cloudwatch_log_group.batch[each.key].name, "awslogs-region" = "ap-northeast-2", "awslogs-stream-prefix" = "batch" } }
-  }])
+  cpu                      = tostring(var.task_cpu["ai"])
+  memory                   = tostring(var.task_memory["ai"])
+  execution_role_arn       = aws_iam_role.service_execution[each.key].arn
+  task_role_arn            = aws_iam_role.catalog_task[each.key].arn
+  container_definitions = jsonencode([
+    merge({
+      name             = each.key
+      image            = "${var.ecr_repository_urls["ai"]}:${var.image_tags["ai"]}"
+      essential        = true
+      environment      = [for k, v in each.value.environment : { name = k, value = v }]
+      secrets          = [for k, v in each.value.secrets : { name = k, valueFrom = v }]
+      logConfiguration = { logDriver = "awslogs", options = { "awslogs-group" = aws_cloudwatch_log_group.batch[each.key].name, "awslogs-region" = "ap-northeast-2", "awslogs-stream-prefix" = "batch" } }
+      }, length(lookup(var.catalog_commands, each.key, [])) == 0 ? {} : {
+      command = var.catalog_commands[each.key]
+    })
+  ])
 }

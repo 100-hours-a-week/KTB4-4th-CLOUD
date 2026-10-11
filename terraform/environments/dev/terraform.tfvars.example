@@ -1,13 +1,11 @@
 environment = "dev"
-vpc_id = "vpc-REPLACE"
-igw_id = "igw-REPLACE"
 public_subnets = {
-  a = { az = "ap-northeast-2a", cidr = "10.0.32.0/24" }
-  c = { az = "ap-northeast-2c", cidr = "10.0.33.0/24" }
+  a = { az = "ap-northeast-2a", cidr = "10.1.32.0/24" }
+  c = { az = "ap-northeast-2c", cidr = "10.1.33.0/24" }
 }
 db_subnets = {
-  a = { az = "ap-northeast-2a", cidr = "10.0.36.0/24" }
-  c = { az = "ap-northeast-2c", cidr = "10.0.37.0/24" }
+  a = { az = "ap-northeast-2a", cidr = "10.1.36.0/24" }
+  c = { az = "ap-northeast-2c", cidr = "10.1.37.0/24" }
 }
 certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
@@ -18,13 +16,14 @@ ecr_repository_urls = {
   ai       = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/ai"
 }
 image_tags = { frontend = "REPLACE_SHA", backend = "REPLACE_SHA", ai = "REPLACE_SHA" }
-mysql_engine_version = "8.4.0"
-postgres_engine_version = "16.6" # Confirm supported version + pgvector compatibility
+mysql_engine_version = "8.4.11"
+postgres_engine_version = "18.6" # pgvector 0.8.2 지원 버전
 mysql_instance_class = "db.t4g.small"
 postgres_instance_class = "db.t4g.small"
 mysql_storage_gb = 50
 postgres_storage_gb = 20
 redis_node_type = "cache.t4g.micro"
+redis_num_nodes = 1
 task_cpu = { frontend = 512, backend = 1024, ai = 512 }
 task_memory = { frontend = 1024, backend = 2048, ai = 1024 }
 task_desired_count = 1
@@ -33,15 +32,13 @@ autoscaling_max = 2
 multi_az = false
 deletion_protection = false
 db_backup_retention_days = 7
-parameter_prefix = "/needu/dev"
 github_repository = "OWNER/REPOSITORY"
 github_oidc_provider_arn = "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-enable_dms = false
-app_env = {
-  frontend = {}
-  backend = {}
-  ai = {}
-}
-
-# Optional: SSM SecureString parameter ARNs (not plaintext values)
+# 실제 값은 AWS의 /needu/v2/dev 경로에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = { frontend = {}, backend = {}, ai = {} }
+
+# 정상 배포 트래픽을 확인한 뒤 조정
+deployment_5xx_threshold = 5
+
+# AI 팀 실행 명령 확정 전에는 빈 값으로 유지
+catalog_commands = {}

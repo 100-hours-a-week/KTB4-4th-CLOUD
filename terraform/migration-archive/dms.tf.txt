@@ -1,8 +1,8 @@
-# Optional: enable_dms=true only after source credentials, CDC settings, and DMS roles are prepared.
+# 원본 자격 증명, CDC 설정, DMS Role이 준비된 뒤 마이그레이션 전용 구성에서 사용합니다.
 resource "aws_security_group" "dms" {
   count       = var.enable_dms ? 1 : 0
   name_prefix = "needu-${var.environment}-dms-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_vpc_security_group_egress_rule" "dms_out" {
   count             = var.enable_dms ? 1 : 0

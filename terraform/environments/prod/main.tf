@@ -12,46 +12,39 @@ provider "aws" {
   }
 }
 module "v2" {
-  source                         = "../../modules/v2-stack"
-  environment                    = var.environment
-  vpc_id                         = var.vpc_id
-  igw_id                         = var.igw_id
-  public_subnets                 = var.public_subnets
-  db_subnets                     = var.db_subnets
-  certificate_arn                = var.certificate_arn
-  hosted_zone_id                 = var.hosted_zone_id
-  domain_name                    = var.domain_name
-  ecr_repository_urls            = var.ecr_repository_urls
-  image_tags                     = var.image_tags
-  mysql_engine_version           = var.mysql_engine_version
-  postgres_engine_version        = var.postgres_engine_version
-  mysql_instance_class           = var.mysql_instance_class
-  postgres_instance_class        = var.postgres_instance_class
-  mysql_storage_gb               = var.mysql_storage_gb
-  postgres_storage_gb            = var.postgres_storage_gb
-  redis_node_type                = var.redis_node_type
-  task_cpu                       = var.task_cpu
-  task_memory                    = var.task_memory
-  task_desired_count             = var.task_desired_count
-  autoscaling_min                = var.autoscaling_min
-  autoscaling_max                = var.autoscaling_max
-  multi_az                       = var.multi_az
-  deletion_protection            = var.deletion_protection
-  db_backup_retention_days       = var.db_backup_retention_days
-  app_env                        = var.app_env
-  app_secret_parameters          = var.app_secret_parameters
-  parameter_prefix               = var.parameter_prefix
-  github_repository              = var.github_repository
-  github_oidc_provider_arn       = var.github_oidc_provider_arn
-  enable_dms                     = var.enable_dms
-  dms_source_mysql_host          = var.dms_source_mysql_host
-  dms_source_postgres_host       = var.dms_source_postgres_host
-  dms_source_mysql_secret_arn    = var.dms_source_mysql_secret_arn
-  dms_source_postgres_secret_arn = var.dms_source_postgres_secret_arn
-  dms_endpoint_access_role_arn   = var.dms_endpoint_access_role_arn
-  enable_redis_auth              = var.enable_redis_auth
-  redis_auth_token               = var.redis_auth_token
-  alarm_sns_topic_arn            = var.alarm_sns_topic_arn
+  source                   = "../../modules/v2-stack"
+  environment              = var.environment
+  public_subnets           = var.public_subnets
+  db_subnets               = var.db_subnets
+  certificate_arn          = var.certificate_arn
+  hosted_zone_id           = var.hosted_zone_id
+  domain_name              = var.domain_name
+  ecr_repository_urls      = var.ecr_repository_urls
+  image_tags               = var.image_tags
+  mysql_engine_version     = var.mysql_engine_version
+  postgres_engine_version  = var.postgres_engine_version
+  mysql_instance_class     = var.mysql_instance_class
+  postgres_instance_class  = var.postgres_instance_class
+  mysql_storage_gb         = var.mysql_storage_gb
+  postgres_storage_gb      = var.postgres_storage_gb
+  redis_node_type          = var.redis_node_type
+  redis_num_nodes          = var.redis_num_nodes
+  task_cpu                 = var.task_cpu
+  task_memory              = var.task_memory
+  task_desired_count       = var.task_desired_count
+  autoscaling_min          = var.autoscaling_min
+  autoscaling_max          = var.autoscaling_max
+  multi_az                 = var.multi_az
+  deletion_protection      = var.deletion_protection
+  db_backup_retention_days = var.db_backup_retention_days
+  app_secret_parameters    = var.app_secret_parameters
+  github_repository        = var.github_repository
+  github_oidc_provider_arn = var.github_oidc_provider_arn
+  enable_redis_auth        = var.enable_redis_auth
+  redis_auth_token         = var.redis_auth_token
+  alarm_sns_topic_arn      = var.alarm_sns_topic_arn
+  deployment_5xx_threshold = var.deployment_5xx_threshold
+  catalog_commands         = var.catalog_commands
 }
 output "alb_dns_name" {
   value = module.v2.alb_dns_name
@@ -79,7 +72,4 @@ output "github_cd_role_arn" {
 }
 output "batch_task_definition_arns" {
   value = module.v2.batch_task_definition_arns
-}
-output "github_ci_role_arn" {
-  value = module.v2.github_ci_role_arn
 }

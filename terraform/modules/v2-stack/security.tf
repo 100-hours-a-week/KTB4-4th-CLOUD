@@ -1,7 +1,7 @@
 resource "aws_security_group" "alb" {
   name_prefix = "needu-${var.environment}-alb-"
   description = "Public HTTPS ingress"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
   tags        = { Name = "needu-${var.environment}-alb" }
 }
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
@@ -34,27 +34,39 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_be" {
 }
 resource "aws_security_group" "fe" {
   name_prefix = "needu-${var.environment}-fe-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "be" {
   name_prefix = "needu-${var.environment}-be-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "ai" {
   name_prefix = "needu-${var.environment}-ai-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
+}
+resource "aws_security_group" "ai_catalog_sync" {
+  name_prefix = "needu-${var.environment}-ai-catalog-sync-"
+  description = "Catalog sync batch"
+  vpc_id      = data.aws_vpc.selected.id
+  tags        = { Name = "needu-${var.environment}-ai-catalog-sync-sg" }
+}
+resource "aws_security_group" "ai_catalog_import" {
+  name_prefix = "needu-${var.environment}-ai-catalog-import-"
+  description = "Catalog import batch"
+  vpc_id      = data.aws_vpc.selected.id
+  tags        = { Name = "needu-${var.environment}-ai-catalog-import-sg" }
 }
 resource "aws_security_group" "mysql" {
   name_prefix = "needu-${var.environment}-mysql-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "postgres" {
   name_prefix = "needu-${var.environment}-postgres-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_security_group" "redis" {
   name_prefix = "needu-${var.environment}-redis-"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.selected.id
 }
 resource "aws_vpc_security_group_ingress_rule" "fe_from_alb" {
   security_group_id            = aws_security_group.fe.id
@@ -66,13 +78,6 @@ resource "aws_vpc_security_group_ingress_rule" "fe_from_alb" {
 resource "aws_vpc_security_group_ingress_rule" "be_from_alb" {
   security_group_id            = aws_security_group.be.id
   referenced_security_group_id = aws_security_group.alb.id
-  from_port                    = 8080
-  to_port                      = 8080
-  ip_protocol                  = "tcp"
-}
-resource "aws_vpc_security_group_ingress_rule" "be_from_fe" {
-  security_group_id            = aws_security_group.be.id
-  referenced_security_group_id = aws_security_group.fe.id
   from_port                    = 8080
   to_port                      = 8080
   ip_protocol                  = "tcp"
@@ -112,24 +117,38 @@ resource "aws_vpc_security_group_ingress_rule" "redis_from_ai" {
   to_port                      = 6379
   ip_protocol                  = "tcp"
 }
-resource "aws_vpc_security_group_ingress_rule" "mysql_from_ai_batch" {
+resource "aws_vpc_security_group_ingress_rule" "mysql_from_ai_catalog_sync" {
   security_group_id            = aws_security_group.mysql.id
-  referenced_security_group_id = aws_security_group.ai.id
+  referenced_security_group_id = aws_security_group.ai_catalog_sync.id
   from_port                    = 3306
   to_port                      = 3306
   ip_protocol                  = "tcp"
   description                  = "Catalog sync batch reads MySQL"
 }
-resource "aws_vpc_security_group_ingress_rule" "postgres_from_be_batch" {
+resource "aws_vpc_security_group_ingress_rule" "postgres_from_ai_catalog_sync" {
   security_group_id            = aws_security_group.postgres.id
-  referenced_security_group_id = aws_security_group.be.id
+  referenced_security_group_id = aws_security_group.ai_catalog_sync.id
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"
-  description                  = "Batch/catalog integration if needed"
+  description                  = "Catalog sync batch writes PostgreSQL"
+}
+resource "aws_vpc_security_group_ingress_rule" "postgres_from_ai_catalog_import" {
+  security_group_id            = aws_security_group.postgres.id
+  referenced_security_group_id = aws_security_group.ai_catalog_import.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  description                  = "Catalog import batch writes PostgreSQL"
 }
 resource "aws_vpc_security_group_egress_rule" "app_outbound" {
-  for_each          = { fe = aws_security_group.fe.id, be = aws_security_group.be.id, ai = aws_security_group.ai.id }
+  for_each = {
+    fe                = aws_security_group.fe.id
+    be                = aws_security_group.be.id
+    ai                = aws_security_group.ai.id
+    ai_catalog_sync   = aws_security_group.ai_catalog_sync.id
+    ai_catalog_import = aws_security_group.ai_catalog_import.id
+  }
   security_group_id = each.value
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
