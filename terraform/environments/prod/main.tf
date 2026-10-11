@@ -37,9 +37,7 @@ module "v2" {
   multi_az                 = var.multi_az
   deletion_protection      = var.deletion_protection
   db_backup_retention_days = var.db_backup_retention_days
-  app_env                  = var.app_env
   app_secret_parameters    = var.app_secret_parameters
-  parameter_prefix         = var.parameter_prefix
   github_repository        = var.github_repository
   github_oidc_provider_arn = var.github_oidc_provider_arn
   enable_redis_auth        = var.enable_redis_auth
@@ -74,7 +72,4 @@ output "github_cd_role_arn" {
 }
 output "batch_task_definition_arns" {
   value = module.v2.batch_task_definition_arns
-}
-output "github_ci_role_arn" {
-  value = module.v2.github_ci_role_arn
 }

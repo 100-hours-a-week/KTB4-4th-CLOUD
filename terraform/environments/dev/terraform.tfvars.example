@@ -32,16 +32,9 @@ autoscaling_max = 2
 multi_az = false
 deletion_protection = false
 db_backup_retention_days = 7
-parameter_prefix = "/needu/dev"
 github_repository = "OWNER/REPOSITORY"
 github_oidc_provider_arn = "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-app_env = {
-  frontend = {}
-  backend = {}
-  ai = {}
-}
-
-# 선택 사항: 평문 값이 아닌 SSM SecureString Parameter ARN
+# 실제 값은 AWS의 /needu/v2/dev 경로에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = { frontend = {}, backend = {}, ai = {} }
 
 # 정상 배포 트래픽을 확인한 뒤 조정

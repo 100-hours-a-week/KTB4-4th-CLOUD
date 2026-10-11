@@ -84,13 +84,6 @@ variable "ecs_assign_public_ip" {
   type    = bool
   default = true
 }
-variable "app_env" {
-  type    = map(map(string))
-  default = {}
-}
-variable "parameter_prefix" {
-  type = string
-}
 variable "github_repository" {
   type = string
 }
@@ -134,6 +127,7 @@ variable "catalog_commands" {
 }
 
 variable "app_secret_parameters" {
-  type    = map(map(string))
-  default = {}
+  description = "AWS의 /needu/v2/{env} 경로에 별도 등록한 값을 ECS에 주입할 서비스별 SSM Parameter 이름과 경로"
+  type        = map(map(string))
+  default     = {}
 }

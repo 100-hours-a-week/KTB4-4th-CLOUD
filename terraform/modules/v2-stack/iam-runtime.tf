@@ -9,45 +9,29 @@ data "aws_iam_policy_document" "ecs_assume" {
   }
 }
 
-# ECS가 컨테이너 시작에 필요한 작업을 수행할 때 사용하는 실행 Role
-resource "aws_iam_role" "execution" {
-  name               = "needu-${var.environment}-ecs-execution"
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
-}
-
-# ECR 이미지 다운로드와 CloudWatch Logs 전송에 필요한 AWS 기본 정책을 연결
-resource "aws_iam_role_policy_attachment" "execution" {
-  role       = aws_iam_role.execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# 컨테이너 시작 시 Parameter Store와 DB 비밀값을 읽을 수 있도록 허용
-resource "aws_iam_role_policy" "execution_parameters" {
-  name   = "needu-${var.environment}-execution-parameters"
-  role   = aws_iam_role.execution.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["ssm:GetParameters", "ssm:GetParameter", "secretsmanager:GetSecretValue"], Resource = ["arn:aws:ssm:*:*:parameter${var.parameter_prefix}/*", aws_db_instance.mysql.master_user_secret[0].secret_arn, aws_db_instance.postgres.master_user_secret[0].secret_arn] }] })
-}
-
 locals {
+  # V1과 동시에 운영하는 동안 V2 설정이 기존 Parameter에 영향을 주지 않도록 경로를 분리
+  parameter_base_path = "/needu/v2/${var.environment}"
+
   execution_roles = {
     frontend = {
-      parameter_path = "/needu/${var.environment}/frontend-runtime/*"
+      parameter_path = "${local.parameter_base_path}/frontend-runtime/*"
       secret_arns    = []
     }
     backend = {
-      parameter_path = "/needu/${var.environment}/backend/*"
+      parameter_path = "${local.parameter_base_path}/backend/*"
       secret_arns    = [aws_db_instance.mysql.master_user_secret[0].secret_arn]
     }
     ai = {
-      parameter_path = "/needu/${var.environment}/ai/*"
+      parameter_path = "${local.parameter_base_path}/ai/*"
       secret_arns    = []
     }
     catalog-sync = {
-      parameter_path = "/needu/${var.environment}/ai-catalog/*"
+      parameter_path = "${local.parameter_base_path}/ai-catalog/*"
       secret_arns    = [aws_db_instance.mysql.master_user_secret[0].secret_arn]
     }
     catalog-import = {
-      parameter_path = "/needu/${var.environment}/ai-catalog/*"
+      parameter_path = "${local.parameter_base_path}/ai-catalog/*"
       secret_arns    = []
     }
   }

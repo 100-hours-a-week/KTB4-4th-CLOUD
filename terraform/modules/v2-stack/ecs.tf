@@ -5,8 +5,8 @@ locals {
     ai       = { port = 8000, sg = aws_security_group.ai.id }
   }
   service_env = {
-    frontend = merge({ NODE_ENV = "production" }, lookup(var.app_env, "frontend", {}))
-    backend = merge({
+    frontend = { NODE_ENV = "production" }
+    backend = {
       SPRING_PROFILES_ACTIVE        = var.environment
       SPRING_DATASOURCE_URL         = "jdbc:mysql://${aws_db_instance.mysql.address}:3306/needu"
       DB_USERNAME                   = "needu"
@@ -14,19 +14,19 @@ locals {
       SPRING_DATA_REDIS_PORT        = "6379"
       SPRING_DATA_REDIS_SSL_ENABLED = "true"
       AI_SERVER_BASE_URL            = "http://ai:8000"
-    }, lookup(var.app_env, "backend", {}))
-    ai = merge({
+    }
+    ai = {
       REDIS_URL = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379/0"
-    }, lookup(var.app_env, "ai", {}))
+    }
   }
   service_secrets = {
     frontend = merge({
-      BACKEND_API_BASE_URL = "/needu/${var.environment}/frontend-runtime/BACKEND_API_BASE_URL"
-      SENTRY_ENVIRONMENT   = "/needu/${var.environment}/frontend-runtime/SENTRY_ENVIRONMENT"
+      BACKEND_API_BASE_URL = "${local.parameter_base_path}/frontend-runtime/BACKEND_API_BASE_URL"
+      SENTRY_ENVIRONMENT   = "${local.parameter_base_path}/frontend-runtime/SENTRY_ENVIRONMENT"
     }, lookup(var.app_secret_parameters, "frontend", {}))
     backend = lookup(var.app_secret_parameters, "backend", {})
     ai = merge({
-      CATALOG_DATABASE_URL_RO = "/needu/${var.environment}/ai/CATALOG_DATABASE_URL_RO"
+      CATALOG_DATABASE_URL_RO = "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
     }, lookup(var.app_secret_parameters, "ai", {}))
   }
   catalog_jobs = {
@@ -39,7 +39,7 @@ locals {
         SOURCE_MYSQL_DATABASE = "needu"
       }
       secrets = {
-        CATALOG_DATABASE_URL  = "/needu/${var.environment}/ai-catalog/CATALOG_DATABASE_URL"
+        CATALOG_DATABASE_URL  = "${local.parameter_base_path}/ai-catalog/CATALOG_DATABASE_URL"
         SOURCE_MYSQL_PASSWORD = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::"
       }
     }
@@ -48,7 +48,7 @@ locals {
         CATALOG_BUCKET = aws_s3_bucket.catalog.bucket
       }
       secrets = {
-        CATALOG_DATABASE_URL = "/needu/${var.environment}/ai-catalog/CATALOG_DATABASE_URL"
+        CATALOG_DATABASE_URL = "${local.parameter_base_path}/ai-catalog/CATALOG_DATABASE_URL"
       }
     }
   }

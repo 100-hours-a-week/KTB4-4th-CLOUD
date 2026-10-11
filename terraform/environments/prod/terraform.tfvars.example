@@ -9,7 +9,7 @@ db_subnets = {
 }
 certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
-domain_name = "v2-prod.needu.gift" # V1 운영 DNS 전환 전에는 기존 도메인을 덮어쓰지 않음
+domain_name = "v2.needu.gift" # V1 운영 DNS 전환 전 확인용 도메인
 ecr_repository_urls = {
   frontend = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/frontend"
   backend  = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/backend"
@@ -32,16 +32,9 @@ autoscaling_max = 4
 multi_az = false
 deletion_protection = true
 db_backup_retention_days = 7
-parameter_prefix = "/needu/prod"
 github_repository = "OWNER/REPOSITORY"
 github_oidc_provider_arn = "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-app_env = {
-  frontend = {}
-  backend = {}
-  ai = {}
-}
-
-# 선택 사항: 평문 값이 아닌 SSM SecureString Parameter ARN
+# 실제 값은 AWS의 /needu/v2/prod 경로에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = { frontend = {}, backend = {}, ai = {} }
 
 # 정상 배포 트래픽을 확인한 뒤 조정
