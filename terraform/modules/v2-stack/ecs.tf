@@ -21,8 +21,8 @@ locals {
   }
   service_secrets = {
     frontend = merge({
-      BACKEND_API_BASE_URL = "${local.parameter_base_path}/frontend-runtime/BACKEND_API_BASE_URL"
-      SENTRY_ENVIRONMENT   = "${local.parameter_base_path}/frontend-runtime/SENTRY_ENVIRONMENT"
+      BACKEND_API_BASE_URL = aws_ssm_parameter.frontend_runtime["BACKEND_API_BASE_URL"].arn
+      SENTRY_ENVIRONMENT   = aws_ssm_parameter.frontend_runtime["SENTRY_ENVIRONMENT"].arn
     }, lookup(var.app_secret_parameters, "frontend", {}))
     backend = lookup(var.app_secret_parameters, "backend", {})
     ai = merge({

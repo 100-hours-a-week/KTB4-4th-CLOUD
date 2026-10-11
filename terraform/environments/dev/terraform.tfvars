@@ -1,5 +1,5 @@
 # Git에서 관리하는 Dev 고정 설정
-# 인증서 ARN과 GitHub CD 저장소는 확정 후 이 파일에 추가하고,
+# GitHub CD 저장소는 확정 후 이 파일에 추가하고,
 # 배포 이미지 태그는 CI에서 TF_VAR_image_tags로 전달합니다.
 
 environment = "dev"
@@ -46,8 +46,26 @@ github_oidc_provider_arn = "arn:aws:iam::919551759796:oidc-provider/token.action
 # 실제 값은 AWS에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = {
   frontend = {}
-  backend  = {}
-  ai       = {}
+  backend = {
+    AI_SERVICE_TOKEN          = "/needu/v2/dev/backend/AI_SERVICE_TOKEN"
+    JWT_SECRET                = "/needu/v2/dev/backend/JWT_SECRET"
+    KAKAO_CLIENT_SECRET       = "/needu/v2/dev/backend/KAKAO_CLIENT_SECRET"
+    KAKAO_FRIEND_REDIRECT_URI = "/needu/v2/dev/backend/KAKAO_FRIEND_REDIRECT_URI"
+    KAKAO_REDIRECT_URI        = "/needu/v2/dev/backend/KAKAO_REDIRECT_URI"
+    KAKAO_REST_API_KEY        = "/needu/v2/dev/backend/KAKAO_REST_API_KEY"
+    SENTRY_DSN                = "/needu/v2/dev/backend/SENTRY_DSN"
+  }
+  ai = {
+    EXTRACTION_MODEL_BASE_URL = "/needu/v2/dev/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME     = "/needu/v2/dev/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/dev/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME       = "/needu/v2/dev/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY        = "/needu/v2/dev/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL   = "/needu/v2/dev/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME       = "/needu/v2/dev/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN             = "/needu/v2/dev/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY           = "/needu/v2/dev/ai/UPSTAGE_API_KEY"
+  }
 }
 
 # AI 팀 실행 명령 확정 전에는 빈 값으로 유지
