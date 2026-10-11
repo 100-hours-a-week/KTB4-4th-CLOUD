@@ -212,7 +212,7 @@ resource "aws_cloudwatch_metric_alarm" "ai_service_connect_5xx" {
   treat_missing_data  = "notBreaching"
   dimensions = {
     TargetDiscoveryName = "ai"
-    ServiceName         = "needu-${var.environment}-ai"
+    ServiceName         = "needu-${var.environment}-backend"
     ClusterName         = aws_ecs_cluster.main.name
   }
   alarm_actions = var.alarm_sns_topic_arn == "" ? [] : [var.alarm_sns_topic_arn]
