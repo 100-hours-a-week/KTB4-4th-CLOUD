@@ -1,0 +1,438 @@
+
+# ==================================================
+# NeedU V2 - Terraform Apply IAM Policies
+# ==================================================
+
+locals {
+  terraform_environments = toset([
+    "dev",
+    "staging",
+    "prod"
+  ])
+
+  terraform_shared_apply_actions = [
+    "ec2:CreateVpc",
+    "ec2:ModifyVpcAttribute",
+    "ec2:DeleteVpc",
+    "ec2:CreateInternetGateway",
+    "ec2:AttachInternetGateway",
+    "ec2:DetachInternetGateway",
+    "ec2:DeleteInternetGateway",
+    "ec2:CreateTags",
+    "ec2:DeleteTags",
+
+    "ecr:CreateRepository",
+    "ecr:DeleteRepository",
+    "ecr:PutImageTagMutability",
+    "ecr:PutImageScanningConfiguration",
+    "ecr:TagResource",
+    "ecr:UntagResource"
+  ]
+
+  terraform_environment_apply_actions = [
+    "ec2:CreateSubnet",
+    "ec2:DeleteSubnet",
+    "ec2:ModifySubnetAttribute",
+    "ec2:CreateRouteTable",
+    "ec2:DeleteRouteTable",
+    "ec2:CreateRoute",
+    "ec2:DeleteRoute",
+    "ec2:AssociateRouteTable",
+    "ec2:DisassociateRouteTable",
+    "ec2:CreateSecurityGroup",
+    "ec2:DeleteSecurityGroup",
+    "ec2:AuthorizeSecurityGroupIngress",
+    "ec2:AuthorizeSecurityGroupEgress",
+    "ec2:RevokeSecurityGroupIngress",
+    "ec2:RevokeSecurityGroupEgress",
+    "ec2:CreateSecurityGroupRule",
+    "ec2:ModifySecurityGroupRules",
+    "ec2:CreateTags",
+    "ec2:DeleteTags",
+
+    "elasticloadbalancing:CreateLoadBalancer",
+    "elasticloadbalancing:ModifyLoadBalancerAttributes",
+    "elasticloadbalancing:DeleteLoadBalancer",
+    "elasticloadbalancing:CreateTargetGroup",
+    "elasticloadbalancing:ModifyTargetGroup",
+    "elasticloadbalancing:DeleteTargetGroup",
+    "elasticloadbalancing:CreateListener",
+    "elasticloadbalancing:ModifyListener",
+    "elasticloadbalancing:DeleteListener",
+    "elasticloadbalancing:CreateRule",
+    "elasticloadbalancing:ModifyRule",
+    "elasticloadbalancing:DeleteRule",
+
+    "application-autoscaling:RegisterScalableTarget",
+    "application-autoscaling:DeregisterScalableTarget",
+    "application-autoscaling:PutScalingPolicy",
+    "application-autoscaling:DeleteScalingPolicy",
+
+    "logs:CreateLogGroup",
+    "logs:DeleteLogGroup",
+    "logs:PutRetentionPolicy",
+
+    "cloudwatch:PutMetricAlarm",
+    "cloudwatch:DeleteAlarms",
+
+    "elasticache:CreateReplicationGroup",
+    "elasticache:ModifyReplicationGroup",
+    "elasticache:DeleteReplicationGroup",
+    "elasticache:CreateCacheSubnetGroup",
+    "elasticache:ModifyCacheSubnetGroup",
+    "elasticache:DeleteCacheSubnetGroup",
+
+    "servicediscovery:CreateHttpNamespace",
+    "servicediscovery:DeleteNamespace"
+  ]
+}
+
+# ==================================================
+# 1. Shared Infrastructure Apply
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_shared_apply" {
+  statement {
+    sid       = "ManageSharedResources"
+    effect    = "Allow"
+    actions   = local.terraform_shared_apply_actions
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_shared_apply" {
+  name   = "TerraformSharedApply"
+  role   = aws_iam_role.terraform_github["shared"].id
+  policy = data.aws_iam_policy_document.terraform_shared_apply.json
+}
+
+# ==================================================
+# 2. Environment Infrastructure Apply
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_environment_apply" {
+  for_each = local.terraform_environments
+
+  statement {
+    sid       = "ManageEnvironmentInfrastructure"
+    effect    = "Allow"
+    actions   = local.terraform_environment_apply_actions
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_environment_apply" {
+  for_each = local.terraform_environments
+
+  name   = "TerraformEnvironmentApply"
+  role   = aws_iam_role.terraform_github[each.key].id
+  policy = data.aws_iam_policy_document.terraform_environment_apply[each.key].json
+}
+
+# ==================================================
+# 3. Environment ECS Apply
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_ecs_apply" {
+  for_each = local.terraform_environments
+
+  statement {
+    sid    = "ManageEnvironmentECS"
+    effect = "Allow"
+
+    actions = [
+      "ecs:CreateCluster",
+      "ecs:DeleteCluster",
+      "ecs:CreateService",
+      "ecs:UpdateService",
+      "ecs:DeleteService"
+    ]
+
+    resources = [
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:cluster/needu-${each.key}-*",
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/*/needu-${each.key}-*"
+    ]
+  }
+
+  statement {
+    sid    = "ManageEnvironmentTaskDefinitions"
+    effect = "Allow"
+
+    actions = [
+      "ecs:RegisterTaskDefinition",
+      "ecs:DeregisterTaskDefinition"
+    ]
+
+    resources = [
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:task-definition/needu-${each.key}-*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_ecs_apply" {
+  for_each = local.terraform_environments
+
+  name   = "TerraformECSApply"
+  role   = aws_iam_role.terraform_github[each.key].id
+  policy = data.aws_iam_policy_document.terraform_ecs_apply[each.key].json
+}
+
+# ==================================================
+# 4. Environment IAM
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_environment_iam" {
+  for_each = local.terraform_environments
+
+  # ECS Runtime Roles:
+  # Runtime Boundary를 지정한 경우에만 생성 가능
+  statement {
+    sid    = "CreateRuntimeRolesWithBoundary"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-task"
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PermissionsBoundary"
+
+      values = [
+        aws_iam_policy.runtime_boundary[each.key].arn
+      ]
+    }
+  }
+
+  # GitHub ECS CD Role:
+  # CD Boundary를 지정한 경우에만 생성 가능
+  statement {
+    sid    = "CreateCDRoleWithBoundary"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-github-ecs-cd"
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PermissionsBoundary"
+
+      values = [
+        aws_iam_policy.cd_boundary[each.key].arn
+      ]
+    }
+  }
+
+  statement {
+    sid    = "ManageEnvironmentIAMRoles"
+    effect = "Allow"
+
+    actions = [
+      "iam:DeleteRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:DetachRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-task",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-github-ecs-cd"
+    ]
+  }
+
+  statement {
+    sid    = "DenyBoundaryModification"
+    effect = "Deny"
+
+    actions = [
+      "iam:DeleteRolePermissionsBoundary",
+      "iam:PutRolePermissionsBoundary"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*"
+    ]
+  }
+
+  statement {
+    sid    = "AttachECSTaskExecutionPolicy"
+    effect = "Allow"
+
+    actions = [
+      "iam:AttachRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution"
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PolicyARN"
+
+      values = [
+        "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+      ]
+    }
+  }
+
+  statement {
+    sid    = "PassEnvironmentRolesToECS"
+    effect = "Allow"
+
+    actions = [
+      "iam:PassRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-task"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+
+      values = [
+        "ecs-tasks.amazonaws.com"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_environment_iam" {
+  for_each = local.terraform_environments
+
+  name   = "TerraformEnvironmentIAM"
+  role   = aws_iam_role.terraform_github[each.key].id
+  policy = data.aws_iam_policy_document.terraform_environment_iam[each.key].json
+}
+
+# ==================================================
+# 5. Shared GitHub CI IAM
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_shared_iam" {
+  statement {
+    sid    = "ManageSharedCIRoles"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:DetachRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/NeedU-V2-GitHubActions-CI",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/NeedU-V2-GitHubActions-CI-Frontend"
+    ]
+  }
+
+  statement {
+    sid    = "AttachApprovedSharedCIPolicies"
+    effect = "Allow"
+
+    actions = [
+      "iam:AttachRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/NeedU-V2-GitHubActions-CI",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/NeedU-V2-GitHubActions-CI-Frontend"
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PolicyARN"
+
+      values = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-ECR-Push",
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-Frontend-ECR-Push",
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-Frontend-Build-SSM-Read"
+      ]
+    }
+  }
+
+  statement {
+    sid    = "ManageSharedCIPolicies"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreatePolicy",
+      "iam:DeletePolicy",
+      "iam:CreatePolicyVersion",
+      "iam:DeletePolicyVersion",
+      "iam:SetDefaultPolicyVersion",
+      "iam:TagPolicy",
+      "iam:UntagPolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-ECR-Push",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-Frontend-ECR-Push",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-Frontend-Build-SSM-Read"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_shared_iam" {
+  name   = "TerraformSharedIAM"
+  role   = aws_iam_role.terraform_github["shared"].id
+  policy = data.aws_iam_policy_document.terraform_shared_iam.json
+}
+
+# ==================================================
+# 6. Environment RDS
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_environment_rds" {
+  for_each = local.terraform_environments
+
+  statement {
+    sid    = "ManageEnvironmentRDS"
+    effect = "Allow"
+
+    actions = [
+      "rds:CreateDBInstance",
+      "rds:ModifyDBInstance",
+      "rds:DeleteDBInstance",
+      "rds:CreateDBSubnetGroup",
+      "rds:ModifyDBSubnetGroup",
+      "rds:DeleteDBSubnetGroup",
+      "rds:CreateDBParameterGroup",
+      "rds:ModifyDBParameterGroup",
+      "rds:DeleteDBParameterGroup"
+    ]
+
+    resources = [
+      "arn:aws:rds:ap-northeast-2:${data.aws_caller_identity.current.account_id}:db:needu-${each.key}-*",
+      "arn:aws:rds:ap-northeast-2:${data.aws_caller_identity.current.account_id}:subgrp:needu-${each.key}-*",
+      "arn:aws:rds:ap-northeast-2:${data.aws_caller_identity.current.account_id}:pg:needu-${each.key}-*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_environment_rds" {
+  for_each = local.terraform_environments
+
+  name   = "TerraformEnvironmentRDS"
+  role   = aws_iam_role.terraform_github[each.key].id
+  policy = data.aws_iam_policy_document.terraform_environment_rds[each.key].json
+}
