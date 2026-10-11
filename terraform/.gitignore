@@ -4,6 +4,10 @@
 *.tfplan
 *.tfvars
 !*.tfvars.example
+# 실제 비밀값이 없는 환경별 고정 설정만 Git에서 관리
+!environments/dev/terraform.tfvars
+!environments/staging/terraform.tfvars
+!environments/prod/terraform.tfvars
 backend.hcl
 !backend.hcl.example
 crash.log
