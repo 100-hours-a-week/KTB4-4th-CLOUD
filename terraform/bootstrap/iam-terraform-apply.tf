@@ -119,6 +119,78 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     actions   = local.terraform_environment_apply_actions
     resources = ["*"]
   }
+
+  # Catalog S3 Bucket 생성.
+  # bucket_prefix로 생성하므로 실제 버킷 이름은
+  # needu-{environment}-catalog-{suffix} 형식이다.
+  statement {
+    sid    = "ManageEnvironmentCatalogBuckets"
+    effect = "Allow"
+
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:PutBucketVersioning",
+      "s3:PutEncryptionConfiguration",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:PutBucketTagging",
+      "s3:DeleteBucketTagging"
+    ]
+
+    resources = [
+      "arn:aws:s3:::needu-${each.key}-catalog-*"
+    ]
+  }
+
+  # Terraform에서 force_destroy를 사용하는 경우
+  # 객체 조회 및 삭제가 필요하다.
+  statement {
+    sid    = "ManageEnvironmentCatalogObjects"
+    effect = "Allow"
+
+    actions = [
+      "s3:ListBucket",
+      "s3:ListBucketVersions",
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion"
+    ]
+
+    resources = [
+      "arn:aws:s3:::needu-${each.key}-catalog-*",
+      "arn:aws:s3:::needu-${each.key}-catalog-*/*"
+    ]
+  }
+
+  # 기존 Route 53 Hosted Zone의 레코드 관리.
+  # Hosted Zone 자체의 생성/삭제는 허용하지 않는다.
+  statement {
+    sid    = "ManageEnvironmentDNSRecords"
+    effect = "Allow"
+
+    actions = [
+      "route53:ChangeResourceRecordSets"
+    ]
+
+    resources = [
+      "arn:aws:route53:::hostedzone/*"
+    ]
+  }
+
+  # DNS 변경 완료 상태 조회
+  statement {
+    sid    = "CheckDNSChanges"
+    effect = "Allow"
+
+    actions = [
+      "route53:GetChange"
+    ]
+
+    resources = [
+      "arn:aws:route53:::change/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "terraform_environment_apply" {
@@ -418,13 +490,45 @@ data "aws_iam_policy_document" "terraform_environment_rds" {
       "rds:DeleteDBSubnetGroup",
       "rds:CreateDBParameterGroup",
       "rds:ModifyDBParameterGroup",
-      "rds:DeleteDBParameterGroup"
+      "rds:DeleteDBParameterGroup",
+      "rds:AddTagsToResource",
+      "rds:RemoveTagsFromResource"
     ]
 
     resources = [
       "arn:aws:rds:ap-northeast-2:${data.aws_caller_identity.current.account_id}:db:needu-${each.key}-*",
       "arn:aws:rds:ap-northeast-2:${data.aws_caller_identity.current.account_id}:subgrp:needu-${each.key}-*",
       "arn:aws:rds:ap-northeast-2:${data.aws_caller_identity.current.account_id}:pg:needu-${each.key}-*"
+    ]
+  }
+
+  # RDS 관리형 Master Password Secret
+  statement {
+    sid    = "ManageRDSManagedSecrets"
+    effect = "Allow"
+
+    actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:TagResource",
+      "secretsmanager:UntagResource"
+    ]
+
+    resources = [
+      "arn:aws:secretsmanager:ap-northeast-2:${data.aws_caller_identity.current.account_id}:secret:rds!*"
+    ]
+  }
+
+  # RDS에서 KMS 키를 참조하는 경우 키 메타데이터 조회
+  statement {
+    sid    = "DescribeRDSKMSKeys"
+    effect = "Allow"
+
+    actions = [
+      "kms:DescribeKey"
+    ]
+
+    resources = [
+      "arn:aws:kms:ap-northeast-2:${data.aws_caller_identity.current.account_id}:key/*"
     ]
   }
 }
