@@ -9,7 +9,7 @@ db_subnets = {
 }
 certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
-domain_name = "v2.needu.gift" # V1 운영 DNS 전환 전 확인용 도메인
+domain_name = "prod.needu.gift" # V1 운영 DNS 전환 전 V2 Prod 검증용 도메인
 ecr_repository_urls = {
   frontend = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/frontend"
   backend  = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/backend"
