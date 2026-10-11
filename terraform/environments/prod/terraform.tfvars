@@ -1,5 +1,5 @@
 # Git에서 관리하는 V2 Prod 고정 설정
-# 인증서 ARN과 GitHub CD 저장소는 확정 후 이 파일에 추가하고,
+# GitHub CD 저장소는 확정 후 이 파일에 추가하고,
 # 배포 이미지 태그는 CI에서 TF_VAR_image_tags로 전달합니다.
 
 environment = "prod"

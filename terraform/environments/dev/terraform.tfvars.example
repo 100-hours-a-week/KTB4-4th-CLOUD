@@ -7,7 +7,6 @@ db_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.36.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.37.0/24" }
 }
-certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
 domain_name = "dev.needu.gift"
 ecr_repository_urls = {

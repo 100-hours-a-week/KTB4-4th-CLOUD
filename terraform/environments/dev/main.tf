@@ -16,7 +16,6 @@ module "v2" {
   environment              = var.environment
   public_subnets           = var.public_subnets
   db_subnets               = var.db_subnets
-  certificate_arn          = var.certificate_arn
   hosted_zone_id           = var.hosted_zone_id
   domain_name              = var.domain_name
   ecr_repository_urls      = var.ecr_repository_urls

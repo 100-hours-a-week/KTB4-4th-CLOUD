@@ -11,9 +11,6 @@ variable "public_subnets" {
 variable "db_subnets" {
   type = map(object({ az = string, cidr = string }))
 }
-variable "certificate_arn" {
-  type = string
-}
 variable "hosted_zone_id" {
   type = string
 }

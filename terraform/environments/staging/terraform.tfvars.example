@@ -7,7 +7,6 @@ db_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.52.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.53.0/24" }
 }
-certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
 domain_name = "v2.needu.gift" # V2 Staging 리허설용 도메인
 ecr_repository_urls = {
