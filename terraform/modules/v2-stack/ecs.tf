@@ -16,6 +16,12 @@ locals {
       AI_SERVER_BASE_URL            = "http://ai:8000"
     }
     ai = {
+      # AI 코드의 APP_ENV 허용값에 맞춰 Terraform 환경 이름을 변환
+      APP_ENV = {
+        dev     = "development"
+        staging = "staging"
+        prod    = "production"
+      }[var.environment]
       REDIS_URL = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379/0"
     }
   }

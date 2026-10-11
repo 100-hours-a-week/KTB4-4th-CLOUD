@@ -68,5 +68,5 @@ app_secret_parameters = {
   }
 }
 
-# AI 팀 실행 명령 확정 전에는 빈 값으로 유지
+# V2 배치용 모델 Endpoint와 실행 방식 확정 전에는 빈 값으로 유지
 catalog_commands = {}
