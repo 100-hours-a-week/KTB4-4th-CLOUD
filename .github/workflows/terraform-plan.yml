@@ -1,0 +1,364 @@
+
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Terraform target environment"
+        required: true
+        type: choice
+        options:
+          - shared
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  # ==================================================
+  # 1. Resolve changed environments
+  # ==================================================
+
+  resolve:
+    name: Resolve Plan targets
+    runs-on: ubuntu-latest
+
+    outputs:
+      environments: ${{ steps.targets.outputs.environments }}
+      should_plan: ${{ steps.targets.outputs.should_plan }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Resolve target environments
+        id: targets
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ inputs.environment }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            case "$INPUT_ENV" in
+              shared|dev|staging|prod)
+                TARGETS="[\"${INPUT_ENV}\"]"
+                ;;
+              *)
+                echo "::error::Invalid environment."
+                exit 1
+                ;;
+            esac
+
+          else
+            # Fork PR에는 AWS 인증을 제공하지 않음
+            if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+              echo "Fork PR detected. AWS Plan will be skipped."
+              echo 'environments=[]' >> "$GITHUB_OUTPUT"
+              echo 'should_plan=false' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            git diff --name-only \
+              "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
+
+            echo "Changed Terraform files:"
+            cat changed-files.txt
+
+            TARGETS="$(
+              python3 - <<'PY'
+          import json
+
+          with open("changed-files.txt", encoding="utf-8") as f:
+              paths = [line.strip() for line in f if line.strip()]
+
+          targets = set()
+
+          for path in paths:
+              if path.startswith("terraform/modules/"):
+                  targets.update(["dev", "staging", "prod"])
+
+              elif path.startswith("terraform/environments/dev/"):
+                  targets.add("dev")
+
+              elif path.startswith("terraform/environments/staging/"):
+                  targets.add("staging")
+
+              elif path.startswith("terraform/environments/prod/"):
+                  targets.add("prod")
+
+              elif path.startswith("terraform/environments/shared/"):
+                  targets.add("shared")
+
+          print(json.dumps(sorted(targets)))
+          PY
+            )"
+          fi
+
+          echo "environments=$TARGETS" >> "$GITHUB_OUTPUT"
+
+          if [[ "$TARGETS" == "[]" ]]; then
+            echo "should_plan=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_plan=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Resolved environments: $TARGETS"
+
+  # ==================================================
+  # 2. Terraform Plan
+  # ==================================================
+
+  plan:
+    name: Plan - ${{ matrix.environment }}
+
+    needs: resolve
+
+    if: needs.resolve.outputs.should_plan == 'true'
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.resolve.outputs.environments) }}
+
+    environment: terraform-plan
+
+    permissions:
+      contents: read
+      id-token: write
+
+    concurrency:
+      group: terraform-plan-${{ matrix.environment }}
+      cancel-in-progress: false
+
+    env:
+      AWS_REGION: ap-northeast-2
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_ENV: ${{ matrix.environment }}
+      TF_DIR: terraform/environments/${{ matrix.environment }}
+      TF_STATE_BUCKET: needu-terraform-state-919551759796
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify trusted execution
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+              echo "::error::Fork PR cannot assume AWS roles."
+              exit 1
+            fi
+
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$HEAD_REF" != "refs/heads/main" ]]; then
+              echo "::error::Manual Terraform Plan is only allowed from main."
+              exit 1
+            fi
+
+          else
+            echo "::error::Unsupported event."
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Resolve backend state key
+        id: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$TF_ENV" in
+            shared)
+              STATE_KEY="shared/terraform.tfstate"
+              ;;
+            dev|staging|prod)
+              STATE_KEY="v2/${TF_ENV}/terraform.tfstate"
+              ;;
+            *)
+              echo "::error::Invalid environment."
+              exit 1
+              ;;
+          esac
+
+          echo "state_key=$STATE_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS Plan credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Terraform-Plan
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-plan-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Initialize remote backend
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        env:
+          STATE_KEY: ${{ steps.backend.outputs.state_key }}
+        run: |
+          terraform init \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=${STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set +e
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -detailed-exitcode \
+            -out=tfplan \
+            -no-color > plan.txt 2>&1
+
+          EXIT_CODE=$?
+
+          cat plan.txt
+
+          if [[ "$EXIT_CODE" -eq 1 ]]; then
+            exit 1
+          fi
+
+          if [[ "$EXIT_CODE" -eq 2 ]]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Inspect planned resource changes
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform show -json tfplan > plan.json
+
+          python3 - <<'PY'
+          import json
+
+          with open("plan.json", encoding="utf-8") as f:
+              plan = json.load(f)
+
+          changes = plan.get("resource_changes", [])
+
+          counts = {
+              "create": 0,
+              "update": 0,
+              "delete": 0,
+              "replace": 0,
+          }
+
+          destructive = []
+
+          for resource in changes:
+              actions = resource.get("change", {}).get("actions", [])
+
+              if actions == ["no-op"]:
+                  continue
+
+              if "delete" in actions:
+                  destructive.append(resource["address"])
+
+              if "create" in actions and "delete" in actions:
+                  counts["replace"] += 1
+              elif "delete" in actions:
+                  counts["delete"] += 1
+              elif "create" in actions:
+                  counts["create"] += 1
+              elif "update" in actions:
+                  counts["update"] += 1
+
+          with open("plan-summary.md", "w", encoding="utf-8") as f:
+              f.write("## Terraform Plan Summary\n\n")
+              f.write("| Action | Count |\n")
+              f.write("|---|---:|\n")
+
+              for action, count in counts.items():
+                  f.write(f"| {action} | {count} |\n")
+
+              f.write("\n### Destructive changes\n\n")
+
+              if destructive:
+                  for address in destructive:
+                      f.write(f"- `{address}`\n")
+              else:
+                  f.write("None\n")
+
+          print(open("plan-summary.md", encoding="utf-8").read())
+          PY
+
+      - name: Publish Plan summary
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          {
+            echo "## Environment: ${TF_ENV}"
+            echo ""
+            cat plan-summary.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Plan review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-review-${{ matrix.environment }}-${{ github.run_id }}
+          path: |
+            ${{ env.TF_DIR }}/plan.txt
+            ${{ env.TF_DIR }}/plan-summary.md
+          if-no-files-found: error
+          retention-days: 7
