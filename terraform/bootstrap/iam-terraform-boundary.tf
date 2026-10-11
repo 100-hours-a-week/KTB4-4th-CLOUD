@@ -1,4 +1,3 @@
-
 # ==================================================
 # NeedU V2 - Environment Permissions Boundaries
 # ==================================================
@@ -67,11 +66,10 @@ data "aws_iam_policy_document" "runtime_boundary" {
     ]
   }
 
-  # RDS 관리형 Secret ARN은 환경 이름을 포함하지 않을 수 있다.
-  # 해당 Secret의 Environment 태그가 정확히 일치하는 경우에만 허용한다.
-  # 실제 RDS 관리형 Secret에 이 태그가 있는지 적용 전에 확인해야 한다.
+  # RDS 관리형 Secret은 ARN이 rds! 접두사로 시작한다.
+  # 실제 Execution Role 정책에서 개별 Secret ARN으로 접근을 제한한다.
   statement {
-    sid    = "ReadTaggedEnvironmentRDSSecrets"
+    sid    = "ReadRDSManagedSecrets"
     effect = "Allow"
 
     actions = [
@@ -81,15 +79,6 @@ data "aws_iam_policy_document" "runtime_boundary" {
     resources = [
       "arn:aws:secretsmanager:ap-northeast-2:${data.aws_caller_identity.current.account_id}:secret:rds!*"
     ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/Environment"
-
-      values = [
-        each.key
-      ]
-    }
   }
 
   statement {
