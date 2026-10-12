@@ -80,6 +80,8 @@ locals {
     "elasticache:CreateCacheSubnetGroup",
     "elasticache:ModifyCacheSubnetGroup",
     "elasticache:DeleteCacheSubnetGroup",
+    "elasticache:AddTagsToResource",
+    "elasticache:RemoveTagsFromResource",
 
     "servicediscovery:CreateHttpNamespace",
     "servicediscovery:DeleteNamespace"
