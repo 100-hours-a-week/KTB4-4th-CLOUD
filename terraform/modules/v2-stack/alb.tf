@@ -14,6 +14,7 @@ resource "aws_lb" "main" {
     }
   }
 }
+
 resource "aws_lb_target_group" "fe" {
   name                 = "needu-${var.environment}-fe"
   port                 = 3000

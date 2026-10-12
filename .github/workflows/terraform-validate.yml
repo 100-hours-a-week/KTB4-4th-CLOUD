@@ -1,0 +1,73 @@
+
+name: Terraform Validate
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-*.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate - ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: bootstrap
+            directory: terraform/bootstrap
+          - environment: shared
+            directory: terraform/environments/shared
+          - environment: dev
+            directory: terraform/environments/dev
+          - environment: staging
+            directory: terraform/environments/staging
+          - environment: prod
+            directory: terraform/environments/prod
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Check provider lock file
+        env:
+          TF_DIR: ${{ matrix.directory }}
+        run: |
+          test -f "$TF_DIR/.terraform.lock.hcl" || {
+            echo "::error::Missing provider lock file: $TF_DIR/.terraform.lock.hcl"
+            exit 1
+          }
+
+      - name: Initialize Terraform without backend
+        working-directory: ${{ matrix.directory }}
+        run: terraform init -backend=false -lockfile=readonly -input=false -no-color
+
+      - name: Validate Terraform configuration
+        working-directory: ${{ matrix.directory }}
+        run: terraform validate -no-color
+
+      - name: Verify lock file unchanged
+        env:
+          TF_DIR: ${{ matrix.directory }}
+        run: |
+          git diff --exit-code -- "$TF_DIR/.terraform.lock.hcl"

@@ -3,6 +3,7 @@
 *.tfstate.*
 *.tfplan
 *.tfvars
+**/tfplan
 !*.tfvars.example
 # 실제 비밀값이 없는 환경별 고정 설정만 Git에서 관리
 !environments/dev/terraform.tfvars

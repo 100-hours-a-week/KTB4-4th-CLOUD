@@ -2,6 +2,7 @@ resource "aws_db_subnet_group" "main" {
   name       = "needu-${var.environment}-db-subnets"
   subnet_ids = local.db_subnet_ids
 }
+
 resource "aws_db_instance" "mysql" {
   identifier                  = "needu-${var.environment}-mysql"
   engine                      = "mysql"
@@ -23,7 +24,14 @@ resource "aws_db_instance" "mysql" {
   final_snapshot_identifier   = var.deletion_protection ? "needu-${var.environment}-mysql-final" : null
   apply_immediately           = false
   auto_minor_version_upgrade  = false
+
+  tags = {
+    Project     = "NeedU"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }
+# AI 카탈로그 코드와 마이그레이션에서 사용하는 초기 데이터베이스를 생성
 resource "aws_db_instance" "postgres" {
   identifier                  = "needu-${var.environment}-postgres"
   engine                      = "postgres"
@@ -31,7 +39,7 @@ resource "aws_db_instance" "postgres" {
   instance_class              = var.postgres_instance_class
   allocated_storage           = var.postgres_storage_gb
   storage_type                = "gp3"
-  db_name                     = "needu"
+  db_name                     = "needu_vector"
   username                    = "needu"
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.main.name
@@ -46,15 +54,24 @@ resource "aws_db_instance" "postgres" {
   apply_immediately           = false
   auto_minor_version_upgrade  = false
   parameter_group_name        = aws_db_parameter_group.postgres.name
+
+  tags = {
+    Project     = "NeedU"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }
+
 resource "aws_db_parameter_group" "postgres" {
   name   = "needu-${var.environment}-postgres-pg"
   family = "postgres${split(".", var.postgres_engine_version)[0]}"
 }
+
 resource "aws_elasticache_subnet_group" "redis" {
   name       = "needu-${var.environment}-redis-subnets"
   subnet_ids = local.db_subnet_ids
 }
+
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id       = "needu-${var.environment}-redis"
   description                = "NeedU ${var.environment} Redis"
@@ -72,24 +89,30 @@ resource "aws_elasticache_replication_group" "redis" {
   snapshot_retention_limit   = var.environment == "dev" ? 0 : 7
   apply_immediately          = false
 }
+
 resource "aws_s3_bucket" "catalog" {
   bucket_prefix = "needu-${var.environment}-catalog-"
   force_destroy = var.environment != "prod"
 }
+
 resource "aws_s3_bucket_versioning" "catalog" {
   bucket = aws_s3_bucket.catalog.id
+
   versioning_configuration {
     status = "Enabled"
   }
 }
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "catalog" {
   bucket = aws_s3_bucket.catalog.id
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
   }
 }
+
 resource "aws_s3_bucket_public_access_block" "catalog" {
   bucket                  = aws_s3_bucket.catalog.id
   block_public_acls       = true

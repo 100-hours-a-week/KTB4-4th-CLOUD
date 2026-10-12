@@ -7,7 +7,6 @@ db_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.52.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.53.0/24" }
 }
-certificate_arn = "arn:aws:acm:ap-northeast-2:ACCOUNT_ID:certificate/REPLACE"
 hosted_zone_id = "Z_REPLACE"
 domain_name = "v2.needu.gift" # V2 Staging 리허설용 도메인
 ecr_repository_urls = {
@@ -32,7 +31,11 @@ autoscaling_max = 4
 multi_az = false
 deletion_protection = false
 db_backup_retention_days = 7
-github_repository = "OWNER/REPOSITORY"
+github_repositories = {
+  frontend = "100-hours-a-week/KTB4-4th-FE"
+  backend  = "100-hours-a-week/KTB4-4th-BE"
+  ai       = "100-hours-a-week/KTB4-4th-AI"
+}
 github_oidc_provider_arn = "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
 # 실제 값은 AWS의 /needu/v2/staging 경로에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = { frontend = {}, backend = {}, ai = {} }

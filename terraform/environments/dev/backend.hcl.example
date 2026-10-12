@@ -1,4 +1,4 @@
-bucket       = "REPLACE_WITH_STATE_BUCKET"
+bucket       = "needu-terraform-state-919551759796"
 key          = "v2/dev/terraform.tfstate"
 region       = "ap-northeast-2"
 encrypt      = true
