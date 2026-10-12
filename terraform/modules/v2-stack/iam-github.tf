@@ -100,16 +100,28 @@ resource "aws_iam_role_policy" "github_cd" {
         ]
       },
       {
-        Sid    = "RegisterTaskDefinitions"
+        Sid      = "RegisterTaskDefinitions"
+        Effect   = "Allow"
+        Action   = ["ecs:RegisterTaskDefinition"]
+        Resource = "*"
+      },
+      {
+        Sid    = "TagTaskDefinitions"
         Effect = "Allow"
 
         Action = [
-          "ecs:RegisterTaskDefinition"
+          "ecs:TagResource"
         ]
 
         Resource = [
           "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:task-definition/needu-${var.environment}-*"
         ]
+
+        Condition = {
+          StringEquals = {
+            "ecs:CreateAction" = "RegisterTaskDefinition"
+          }
+        }
       },
       {
         Sid    = "PassEnvironmentRoles"
