@@ -1,3 +1,4 @@
+
 # --------------------------------------------------
 # Terraform AWS Resource Read Permissions
 # --------------------------------------------------
@@ -77,11 +78,11 @@ data "aws_iam_policy_document" "terraform_read" {
     effect = "Allow"
 
     actions = [
-      "s3:GetBucketVersioning",
+      "s3:GetBucket*",
+      "s3:GetAccelerateConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
       "s3:GetEncryptionConfiguration",
-      "s3:GetBucketPublicAccessBlock",
-      "s3:GetBucketTagging",
-      "s3:GetBucketPolicy",
       "s3:ListBucket"
     ]
 
