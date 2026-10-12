@@ -61,6 +61,8 @@ locals {
     "elasticloadbalancing:CreateRule",
     "elasticloadbalancing:ModifyRule",
     "elasticloadbalancing:DeleteRule",
+    "elasticloadbalancing:AddTags",
+    "elasticloadbalancing:RemoveTags",
 
     "application-autoscaling:RegisterScalableTarget",
     "application-autoscaling:DeregisterScalableTarget",
@@ -70,6 +72,8 @@ locals {
     "logs:CreateLogGroup",
     "logs:DeleteLogGroup",
     "logs:PutRetentionPolicy",
+    "logs:TagResource",
+    "logs:UntagResource",
 
     "cloudwatch:PutMetricAlarm",
     "cloudwatch:DeleteAlarms",
