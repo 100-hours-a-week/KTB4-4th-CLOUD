@@ -335,6 +335,24 @@ data "aws_iam_policy_document" "terraform_ecs_apply" {
       values   = ["RegisterTaskDefinition"]
     }
   }
+
+  # ECS Cluster 및 Service 생성 시 Provider default_tags 적용
+  statement {
+    sid     = "TagEnvironmentECSResources"
+    effect  = "Allow"
+    actions = ["ecs:TagResource"]
+
+    resources = [
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:cluster/needu-${each.key}-*",
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/*/needu-${each.key}-*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:CreateAction"
+      values   = ["CreateCluster", "CreateService"]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "terraform_ecs_apply" {
