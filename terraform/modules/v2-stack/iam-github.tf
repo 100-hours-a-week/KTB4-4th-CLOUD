@@ -1,4 +1,3 @@
-
 # ==================================================
 # NeedU V2 - GitHub ECS CD IAM
 # ==================================================
@@ -74,6 +73,19 @@ resource "aws_iam_role_policy" "github_cd" {
         ]
 
         Resource = "*"
+      },
+      {
+        Sid    = "ReadBaselineTaskDefinition"
+        Effect = "Allow"
+
+        Action = [
+          "ssm:GetParameter"
+        ]
+
+        Resource = [
+          for service in ["frontend", "backend", "ai"] :
+          "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${var.environment}/ecs/${service}/base-task-definition-arn"
+        ]
       },
       {
         Sid    = "UpdateEnvironmentServices"
