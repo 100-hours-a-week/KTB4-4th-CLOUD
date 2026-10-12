@@ -1,3 +1,4 @@
+
 # --------------------------------------------------
 # Terraform AWS Resource Read Permissions
 # --------------------------------------------------
@@ -82,6 +83,7 @@ data "aws_iam_policy_document" "terraform_read" {
       "s3:GetBucketPublicAccessBlock",
       "s3:GetBucketTagging",
       "s3:GetBucketPolicy",
+      "s3:GetBucketAcl",
       "s3:ListBucket"
     ]
 
