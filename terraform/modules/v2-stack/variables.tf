@@ -110,13 +110,21 @@ variable "ecs_assign_public_ip" {
   default = true
 }
 
-variable "github_repositories" {
-  description = "서비스별 GitHub Actions CD를 실행하는 저장소"
+variable "github_subject_prefixes" {
+  description = "서비스별 GitHub Actions CD 저장소의 Immutable OIDC Subject Prefix"
   type        = map(string)
 
   validation {
-    condition     = toset(keys(var.github_repositories)) == toset(["frontend", "backend", "ai"])
-    error_message = "github_repositories에는 frontend, backend, ai 저장소가 모두 필요합니다."
+    condition     = toset(keys(var.github_subject_prefixes)) == toset(["frontend", "backend", "ai"])
+    error_message = "github_subject_prefixes에는 frontend, backend, ai 저장소가 모두 필요합니다."
+  }
+
+  validation {
+    condition = alltrue([
+      for prefix in values(var.github_subject_prefixes) :
+      startswith(prefix, "repo:") && strcontains(prefix, "@")
+    ])
+    error_message = "각 값에는 GitHub Immutable OIDC Subject Prefix를 입력해야 합니다."
   }
 }
 

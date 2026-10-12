@@ -50,10 +50,10 @@ deployment_5xx_threshold = 5
 
 github_oidc_provider_arn = "arn:aws:iam::919551759796:oidc-provider/token.actions.githubusercontent.com"
 
-github_repositories = {
-  frontend = "100-hours-a-week/KTB4-4th-FE"
-  backend  = "100-hours-a-week/KTB4-4th-BE"
-  ai       = "100-hours-a-week/KTB4-4th-AI"
+github_subject_prefixes = {
+  frontend = "repo:100-hours-a-week@167328634/KTB4-4th-FE@1344651837"
+  backend  = "repo:100-hours-a-week@167328634/KTB4-4th-BE@1344652257"
+  ai       = "repo:100-hours-a-week@167328634/KTB4-4th-AI@1344652688"
 }
 
 # 실제 값은 AWS에 별도 등록하고 여기에는 Parameter 경로만 작성

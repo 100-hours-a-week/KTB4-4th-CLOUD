@@ -97,8 +97,8 @@ variable "db_backup_retention_days" {
   type = number
 }
 
-variable "github_repositories" {
-  description = "서비스별 GitHub Actions CD를 실행하는 저장소"
+variable "github_subject_prefixes" {
+  description = "서비스별 GitHub Actions CD 저장소의 Immutable OIDC Subject Prefix"
   type        = map(string)
 }
 

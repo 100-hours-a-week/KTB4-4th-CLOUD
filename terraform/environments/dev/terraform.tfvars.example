@@ -31,10 +31,10 @@ autoscaling_max = 2
 multi_az = false
 deletion_protection = false
 db_backup_retention_days = 7
-github_repositories = {
-  frontend = "100-hours-a-week/KTB4-4th-FE"
-  backend  = "100-hours-a-week/KTB4-4th-BE"
-  ai       = "100-hours-a-week/KTB4-4th-AI"
+github_subject_prefixes = {
+  frontend = "repo:100-hours-a-week@167328634/KTB4-4th-FE@1344651837"
+  backend  = "repo:100-hours-a-week@167328634/KTB4-4th-BE@1344652257"
+  ai       = "repo:100-hours-a-week@167328634/KTB4-4th-AI@1344652688"
 }
 github_oidc_provider_arn = "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
 # 실제 값은 AWS의 /needu/v2/dev 경로에 별도 등록하고 여기에는 Parameter 경로만 작성
