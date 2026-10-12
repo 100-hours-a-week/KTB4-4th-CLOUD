@@ -1,4 +1,3 @@
-
 terraform {
   required_version = ">= 1.10.0, < 2.0.0"
 
@@ -24,13 +23,18 @@ provider "aws" {
   }
 }
 
+# Shared Terraform에서 생성한 ACM 인증서 ARN 조회
+data "aws_ssm_parameter" "certificate_arn" {
+  name = "/needu/v2/dev/acm/certificate-arn"
+}
+
 module "v2" {
   source = "../../modules/v2-stack"
 
   environment              = var.environment
   public_subnets           = var.public_subnets
   db_subnets               = var.db_subnets
-  certificate_arn          = var.certificate_arn
+  certificate_arn          = data.aws_ssm_parameter.certificate_arn.value
   hosted_zone_id           = var.hosted_zone_id
   domain_name              = var.domain_name
   ecr_repository_urls      = var.ecr_repository_urls
