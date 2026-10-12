@@ -1,22 +1,41 @@
+
 terraform {
   required_version = ">= 1.10.0, < 2.0.0"
+
   required_providers {
-    aws = { source = "hashicorp/aws", version = "~> 6.0" }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
   }
+
   backend "s3" {}
 }
+
 provider "aws" {
   region = "ap-northeast-2"
+
   default_tags {
-    tags = { Project = "NeedU", Environment = var.environment, ManagedBy = "Terraform" }
+    tags = {
+      Project     = "NeedU"
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    }
   }
 }
+
+# Shared Terraform에서 관리하는 Prod ACM 인증서 ARN 조회
+data "aws_ssm_parameter" "certificate_arn" {
+  name = "/needu/v2/prod/acm/certificate-arn"
+}
+
 module "v2" {
-  source                   = "../../modules/v2-stack"
+  source = "../../modules/v2-stack"
+
   environment              = var.environment
   public_subnets           = var.public_subnets
   db_subnets               = var.db_subnets
-  certificate_arn          = var.certificate_arn
+  certificate_arn          = data.aws_ssm_parameter.certificate_arn.value
   hosted_zone_id           = var.hosted_zone_id
   domain_name              = var.domain_name
   ecr_repository_urls      = var.ecr_repository_urls
@@ -45,31 +64,46 @@ module "v2" {
   alarm_sns_topic_arn      = var.alarm_sns_topic_arn
   deployment_5xx_threshold = var.deployment_5xx_threshold
   catalog_commands         = var.catalog_commands
+
+  # Prod - ECS Runtime Permissions Boundary
+  iam_runtime_permissions_boundary_arn = "arn:aws:iam::919551759796:policy/NeedU-V2-prod-RuntimePermissionsBoundary"
+
+  # Prod - GitHub ECS CD Permissions Boundary
+  iam_cd_permissions_boundary_arn = "arn:aws:iam::919551759796:policy/NeedU-V2-prod-CDPermissionsBoundary"
 }
+
 output "alb_dns_name" {
   value = module.v2.alb_dns_name
 }
+
 output "ecs_cluster_name" {
   value = module.v2.ecs_cluster_name
 }
+
 output "ecs_services" {
   value = module.v2.ecs_services
 }
+
 output "mysql_address" {
   value = module.v2.mysql_address
 }
+
 output "postgres_address" {
   value = module.v2.postgres_address
 }
+
 output "redis_endpoint" {
   value = module.v2.redis_endpoint
 }
+
 output "catalog_bucket" {
   value = module.v2.catalog_bucket
 }
+
 output "github_cd_role_arn" {
   value = module.v2.github_cd_role_arn
 }
+
 output "batch_task_definition_arns" {
   value = module.v2.batch_task_definition_arns
 }
