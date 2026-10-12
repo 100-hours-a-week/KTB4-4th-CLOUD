@@ -1,4 +1,3 @@
-
 # --------------------------------------------------
 # Terraform AWS Resource Read Permissions
 # --------------------------------------------------
@@ -27,8 +26,19 @@ locals {
     "route53:List*",
     "iam:Get*",
     "iam:List*",
+
+    # SSM Parameter 목록 조회
     "ssm:DescribeParameters",
+
+    # Secrets Manager 메타데이터 조회
     "secretsmanager:DescribeSecret",
+
+    # ACM 인증서 조회
+    "acm:DescribeCertificate",
+    "acm:ListCertificates",
+    "acm:ListTagsForCertificate",
+
+    # S3 조회
     "s3:ListAllMyBuckets",
     "s3:GetBucketLocation"
   ]
@@ -42,6 +52,26 @@ data "aws_iam_policy_document" "terraform_read" {
     resources = ["*"]
   }
 
+  # 환경별 SSM Parameter 조회
+  statement {
+    sid    = "ReadV2SSMParameters"
+    effect = "Allow"
+
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "ssm:ListTagsForResource"
+    ]
+
+    resources = [
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/dev/*",
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/staging/*",
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/prod/*"
+    ]
+  }
+
+  # Catalog S3 Bucket 설정 조회
   statement {
     sid    = "ReadCatalogBucketConfiguration"
     effect = "Allow"
@@ -62,6 +92,8 @@ data "aws_iam_policy_document" "terraform_read" {
   }
 }
 
+# Plan / Shared / Dev / Staging / Prod Role에
+# 공통 조회 정책 부여
 resource "aws_iam_role_policy" "terraform_read" {
   for_each = local.terraform_roles
 
