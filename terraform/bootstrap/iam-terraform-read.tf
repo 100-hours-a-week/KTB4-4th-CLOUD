@@ -12,6 +12,7 @@ locals {
     "servicediscovery:Get*",
     "servicediscovery:List*",
     "application-autoscaling:Describe*",
+    "application-autoscaling:ListTagsForResource",
     "cloudwatch:Describe*",
     "cloudwatch:List*",
     "cloudwatch:Get*",
