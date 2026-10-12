@@ -68,6 +68,8 @@ locals {
     "application-autoscaling:DeregisterScalableTarget",
     "application-autoscaling:PutScalingPolicy",
     "application-autoscaling:DeleteScalingPolicy",
+    "application-autoscaling:TagResource",
+    "application-autoscaling:UntagResource",
 
     "logs:CreateLogGroup",
     "logs:DeleteLogGroup",
