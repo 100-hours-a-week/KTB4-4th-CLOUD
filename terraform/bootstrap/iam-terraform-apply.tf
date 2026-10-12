@@ -404,7 +404,7 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
     ]
 
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-github-ecs-cd"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-github-ecs-cd"
     ]
 
     condition {
@@ -429,11 +429,10 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
       "iam:DeleteRolePolicy",
       "iam:DetachRolePolicy"
     ]
-
     resources = [
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution",
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-task",
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-github-ecs-cd"
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-github-ecs-cd"
     ]
   }
 
