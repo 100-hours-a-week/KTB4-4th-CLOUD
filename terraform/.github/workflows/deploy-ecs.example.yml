@@ -1,0 +1,52 @@
+name: Deploy ECS (example)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "GitHub Environment (dev/staging/prod)"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+      service:
+        description: "Service"
+        required: true
+        type: choice
+        options: [frontend, backend, ai]
+      image_tag:
+        description: "Previously built immutable Git SHA image tag"
+        required: true
+        type: string
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  deploy:
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ECS_CD_ROLE_ARN }}
+          aws-region: ap-northeast-2
+      - name: Register task revision and deploy
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: ${{ inputs.service }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          FAMILY="needu-${ENVIRONMENT}-${SERVICE}"
+          CLUSTER="needu-${ENVIRONMENT}"
+          SERVICE_NAME="needu-${ENVIRONMENT}-${SERVICE}"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/${SERVICE}"
+          aws ecr describe-images --repository-name "need-u/${SERVICE}" --image-ids "imageTag=${IMAGE_TAG}" >/dev/null
+          aws ecs describe-task-definition --task-definition "$FAMILY" --query taskDefinition --output json \
+            | jq --arg image "${ECR_REPOSITORY_URI}:${IMAGE_TAG}" --arg service "$SERVICE" \
+              'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) | .containerDefinitions |= map(if .name == $service then .image = $image else . end)' \
+            > task-definition.json
+          jq -e --arg service "$SERVICE" --arg image "${ECR_REPOSITORY_URI}:${IMAGE_TAG}" \
+            '.containerDefinitions | any(.name == $service and .image == $image)' task-definition.json >/dev/null
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE_NAME" --task-definition "$TASK_ARN" >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE_NAME"
