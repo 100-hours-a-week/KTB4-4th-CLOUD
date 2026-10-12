@@ -1,3 +1,4 @@
+
 # ==================================================
 # NeedU V2 - Environment Permissions Boundaries
 # ==================================================
@@ -142,6 +143,23 @@ data "aws_iam_policy_document" "cd_boundary" {
     ]
 
     resources = ["*"]
+  }
+
+  # Terraform 기준 Task Definition ARN 조회
+  # GitHub Actions CD에서 SSM Parameter Store를 통해
+  # Terraform이 생성한 기준 Revision ARN을 가져온다.
+  statement {
+    sid    = "ReadBaselineTaskDefinition"
+    effect = "Allow"
+
+    actions = [
+      "ssm:GetParameter"
+    ]
+
+    resources = [
+      for service in ["frontend", "backend", "ai"] :
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${each.key}/ecs/${service}/base-task-definition-arn"
+    ]
   }
 
   statement {
