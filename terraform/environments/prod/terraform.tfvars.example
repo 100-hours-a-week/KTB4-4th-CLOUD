@@ -31,7 +31,11 @@ autoscaling_max = 4
 multi_az = false
 deletion_protection = true
 db_backup_retention_days = 7
-github_repository = "OWNER/REPOSITORY"
+github_repositories = {
+  frontend = "100-hours-a-week/KTB4-4th-FE"
+  backend  = "100-hours-a-week/KTB4-4th-BE"
+  ai       = "100-hours-a-week/KTB4-4th-AI"
+}
 github_oidc_provider_arn = "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
 # 실제 값은 AWS의 /needu/v2/prod 경로에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = { frontend = {}, backend = {}, ai = {} }

@@ -5,6 +5,8 @@
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "github_assume" {
+  for_each = var.github_repositories
+
   statement {
     actions = [
       "sts:AssumeRoleWithWebIdentity"
@@ -32,7 +34,7 @@ data "aws_iam_policy_document" "github_assume" {
       variable = "token.actions.githubusercontent.com:sub"
 
       values = [
-        "repo:${var.github_repository}:environment:${var.environment}"
+        "repo:${each.value}:environment:${var.environment}"
       ]
     }
   }
@@ -43,9 +45,11 @@ data "aws_iam_policy_document" "github_assume" {
 # --------------------------------------------------
 
 resource "aws_iam_role" "github_cd" {
-  name = "needu-${var.environment}-github-ecs-cd"
+  for_each = var.github_repositories
 
-  assume_role_policy   = data.aws_iam_policy_document.github_assume.json
+  name = "needu-${var.environment}-${each.key}-github-ecs-cd"
+
+  assume_role_policy   = data.aws_iam_policy_document.github_assume[each.key].json
   permissions_boundary = var.iam_cd_permissions_boundary_arn
 }
 
@@ -54,8 +58,10 @@ resource "aws_iam_role" "github_cd" {
 # --------------------------------------------------
 
 resource "aws_iam_role_policy" "github_cd" {
+  for_each = var.github_repositories
+
   name = "ecs-deploy"
-  role = aws_iam_role.github_cd.id
+  role = aws_iam_role.github_cd[each.key].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -82,10 +88,7 @@ resource "aws_iam_role_policy" "github_cd" {
           "ssm:GetParameter"
         ]
 
-        Resource = [
-          for service in ["frontend", "backend", "ai"] :
-          "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${var.environment}/ecs/${service}/base-task-definition-arn"
-        ]
+        Resource = "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${var.environment}/ecs/${each.key}/base-task-definition-arn"
       },
       {
         Sid    = "UpdateEnvironmentServices"
@@ -95,9 +98,7 @@ resource "aws_iam_role_policy" "github_cd" {
           "ecs:UpdateService"
         ]
 
-        Resource = [
-          "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/*/needu-${var.environment}-*"
-        ]
+        Resource = "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/*/needu-${var.environment}-${each.key}"
       },
       {
         Sid      = "RegisterTaskDefinitions"
@@ -113,9 +114,7 @@ resource "aws_iam_role_policy" "github_cd" {
           "ecs:TagResource"
         ]
 
-        Resource = [
-          "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:task-definition/needu-${var.environment}-*"
-        ]
+        Resource = "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:task-definition/needu-${var.environment}-${each.key}:*"
 
         Condition = {
           StringEquals = {
@@ -131,17 +130,10 @@ resource "aws_iam_role_policy" "github_cd" {
           "iam:PassRole"
         ]
 
-        Resource = concat(
-          [
-            for r in aws_iam_role.service_execution : r.arn
-          ],
-          [
-            for r in aws_iam_role.task : r.arn
-          ],
-          [
-            for r in aws_iam_role.catalog_task : r.arn
-          ]
-        )
+        Resource = [
+          aws_iam_role.service_execution[each.key].arn,
+          aws_iam_role.task[each.key].arn
+        ]
 
         Condition = {
           StringEquals = {
@@ -158,9 +150,7 @@ resource "aws_iam_role_policy" "github_cd" {
           "ecr:DescribeImages"
         ]
 
-        Resource = [
-          "arn:aws:ecr:ap-northeast-2:${data.aws_caller_identity.current.account_id}:repository/need-u/*"
-        ]
+        Resource = "arn:aws:ecr:ap-northeast-2:${data.aws_caller_identity.current.account_id}:repository/need-u/${each.key}"
       },
       {
         Sid    = "ECRAuthorization"

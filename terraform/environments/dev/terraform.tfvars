@@ -61,9 +61,9 @@ ecr_repository_urls = {
 # ==================================================
 
 image_tags = {
-  frontend = "REPLACE_WITH_FRONTEND_TAG"
-  backend  = "REPLACE_WITH_BACKEND_TAG"
-  ai       = "REPLACE_WITH_AI_TAG"
+  frontend = "9d4001cb8698203eb781bf493d6eca8c7008d722"
+  backend  = "9dd8711bb29b80a98eef3ebde3df15ae7d9924f7"
+  ai       = "b60fb08c350c8076aa546f710566da5d631f89f5"
 }
 
 # ==================================================
@@ -125,7 +125,11 @@ deployment_5xx_threshold = 5
 # GitHub OIDC
 # ==================================================
 
-github_repository = "REPLACE_WITH_OWNER/REPOSITORY"
+github_repositories = {
+  frontend = "100-hours-a-week/KTB4-4th-FE"
+  backend  = "100-hours-a-week/KTB4-4th-BE"
+  ai       = "100-hours-a-week/KTB4-4th-AI"
+}
 
 github_oidc_provider_arn = "arn:aws:iam::919551759796:oidc-provider/token.actions.githubusercontent.com"
 
@@ -138,12 +142,27 @@ github_oidc_provider_arn = "arn:aws:iam::919551759796:oidc-provider/token.action
 
 app_secret_parameters = {
   frontend = {}
-  backend  = {}
-  ai       = {}
+  backend = {
+    AI_SERVICE_TOKEN          = "/needu/v2/dev/backend/AI_SERVICE_TOKEN"
+    JWT_SECRET                = "/needu/v2/dev/backend/JWT_SECRET"
+    KAKAO_CLIENT_SECRET       = "/needu/v2/dev/backend/KAKAO_CLIENT_SECRET"
+    KAKAO_FRIEND_REDIRECT_URI = "/needu/v2/dev/backend/KAKAO_FRIEND_REDIRECT_URI"
+    KAKAO_REDIRECT_URI        = "/needu/v2/dev/backend/KAKAO_REDIRECT_URI"
+    KAKAO_REST_API_KEY        = "/needu/v2/dev/backend/KAKAO_REST_API_KEY"
+    SENTRY_DSN                = "/needu/v2/dev/backend/SENTRY_DSN"
+  }
+  ai = {
+    EXTRACTION_MODEL_BASE_URL = "/needu/v2/dev/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME     = "/needu/v2/dev/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/dev/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME       = "/needu/v2/dev/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY        = "/needu/v2/dev/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL   = "/needu/v2/dev/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME       = "/needu/v2/dev/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN             = "/needu/v2/dev/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY           = "/needu/v2/dev/ai/UPSTAGE_API_KEY"
+  }
 }
 
-# ==================================================
-# AI Catalog Batch
-# ==================================================
-
+# V2 배치용 모델 Endpoint와 실행 방식 확정 전에는 빈 값으로 유지
 catalog_commands = {}

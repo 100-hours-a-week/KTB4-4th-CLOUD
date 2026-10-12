@@ -31,7 +31,7 @@ resource "aws_db_instance" "mysql" {
     ManagedBy   = "Terraform"
   }
 }
-
+# AI 카탈로그 코드와 마이그레이션에서 사용하는 초기 데이터베이스를 생성
 resource "aws_db_instance" "postgres" {
   identifier                  = "needu-${var.environment}-postgres"
   engine                      = "postgres"
@@ -39,7 +39,7 @@ resource "aws_db_instance" "postgres" {
   instance_class              = var.postgres_instance_class
   allocated_storage           = var.postgres_storage_gb
   storage_type                = "gp3"
-  db_name                     = "needu"
+  db_name                     = "needu_vector"
   username                    = "needu"
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.main.name

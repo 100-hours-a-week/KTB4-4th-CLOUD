@@ -56,7 +56,7 @@ module "v2" {
   deletion_protection      = var.deletion_protection
   db_backup_retention_days = var.db_backup_retention_days
   app_secret_parameters    = var.app_secret_parameters
-  github_repository        = var.github_repository
+  github_repositories      = var.github_repositories
   github_oidc_provider_arn = var.github_oidc_provider_arn
   enable_redis_auth        = var.enable_redis_auth
   redis_auth_token         = var.redis_auth_token
@@ -99,8 +99,8 @@ output "catalog_bucket" {
   value = module.v2.catalog_bucket
 }
 
-output "github_cd_role_arn" {
-  value = module.v2.github_cd_role_arn
+output "github_cd_role_arns" {
+  value = module.v2.github_cd_role_arns
 }
 
 output "batch_task_definition_arns" {

@@ -21,14 +21,20 @@ locals {
     }
 
     ai = {
+      # AI 코드의 APP_ENV 허용값에 맞춰 Terraform 환경 이름을 변환
+      APP_ENV = {
+        dev     = "development"
+        staging = "staging"
+        prod    = "production"
+      }[var.environment]
       REDIS_URL = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379/0"
     }
   }
 
   service_secrets = {
     frontend = merge({
-      BACKEND_API_BASE_URL = "${local.parameter_base_path}/frontend-runtime/BACKEND_API_BASE_URL"
-      SENTRY_ENVIRONMENT   = "${local.parameter_base_path}/frontend-runtime/SENTRY_ENVIRONMENT"
+      BACKEND_API_BASE_URL = aws_ssm_parameter.frontend_runtime["BACKEND_API_BASE_URL"].arn
+      SENTRY_ENVIRONMENT   = aws_ssm_parameter.frontend_runtime["SENTRY_ENVIRONMENT"].arn
     }, lookup(var.app_secret_parameters, "frontend", {}))
 
     backend = lookup(var.app_secret_parameters, "backend", {})
