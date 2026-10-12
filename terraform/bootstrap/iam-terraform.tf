@@ -86,12 +86,11 @@ data "aws_iam_policy_document" "terraform_github_trust" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
-
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${local.terraform_github_repository}:environment:${each.value.environment}"
+        "repo:100-hours-a-week@167328634/KTB4-4th-CLOUD@1344657749:environment:${each.value.environment}"
       ]
     }
   }
