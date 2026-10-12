@@ -15,14 +15,6 @@ resource "aws_lb" "main" {
   }
 }
 
-# Shared에서 발급한 공용 ACM 인증서를 ARN 하드코딩 없이 조회
-data "aws_acm_certificate" "main" {
-  domain      = "needu.gift"
-  statuses    = ["ISSUED"]
-  types       = ["AMAZON_ISSUED"]
-  most_recent = true
-}
-
 resource "aws_lb_target_group" "fe" {
   name                 = "needu-${var.environment}-fe"
   port                 = 3000
@@ -71,7 +63,7 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = data.aws_acm_certificate.main.arn
+  certificate_arn   = var.certificate_arn
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.fe.arn
