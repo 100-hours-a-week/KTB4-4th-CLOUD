@@ -1,4 +1,3 @@
-
 # ==================================================
 # NeedU V2 - Terraform Apply IAM Policies
 # ==================================================
@@ -98,6 +97,70 @@ data "aws_iam_policy_document" "terraform_shared_apply" {
     actions   = local.terraform_shared_apply_actions
     resources = ["*"]
   }
+
+  # Shared ACM 인증서 생성 및 관리
+  statement {
+    sid    = "ManageSharedACMCertificates"
+    effect = "Allow"
+
+    actions = [
+      "acm:RequestCertificate",
+      "acm:DeleteCertificate",
+      "acm:AddTagsToCertificate",
+      "acm:RemoveTagsFromCertificate",
+      "acm:UpdateCertificateOptions"
+    ]
+
+    resources = [
+      "arn:aws:acm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:certificate/*"
+    ]
+  }
+
+  # Shared에서 환경별 ACM 인증서 ARN을 SSM에 저장
+  statement {
+    sid    = "ManageSharedACMCertificateParameters"
+    effect = "Allow"
+
+    actions = [
+      "ssm:PutParameter",
+      "ssm:DeleteParameter",
+      "ssm:AddTagsToResource",
+      "ssm:RemoveTagsFromResource"
+    ]
+
+    resources = [
+      for env in local.terraform_environments :
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${env}/acm/certificate-arn"
+    ]
+  }
+
+  # Shared ACM DNS 검증 레코드 관리
+  statement {
+    sid    = "ManageSharedACMValidationRecords"
+    effect = "Allow"
+
+    actions = [
+      "route53:ChangeResourceRecordSets"
+    ]
+
+    resources = [
+      "arn:aws:route53:::hostedzone/*"
+    ]
+  }
+
+  # DNS 변경 완료 여부 확인
+  statement {
+    sid    = "CheckSharedDNSChanges"
+    effect = "Allow"
+
+    actions = [
+      "route53:GetChange"
+    ]
+
+    resources = [
+      "arn:aws:route53:::change/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "terraform_shared_apply" {
@@ -120,9 +183,7 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     resources = ["*"]
   }
 
-  # Catalog S3 Bucket 생성.
-  # bucket_prefix로 생성하므로 실제 버킷 이름은
-  # needu-{environment}-catalog-{suffix} 형식이다.
+  # Catalog S3 Bucket 생성 및 설정
   statement {
     sid    = "ManageEnvironmentCatalogBuckets"
     effect = "Allow"
@@ -142,8 +203,7 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     ]
   }
 
-  # Terraform에서 force_destroy를 사용하는 경우
-  # 객체 조회 및 삭제가 필요하다.
+  # Catalog S3 객체 조회 및 삭제
   statement {
     sid    = "ManageEnvironmentCatalogObjects"
     effect = "Allow"
@@ -163,8 +223,7 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     ]
   }
 
-  # 기존 Route 53 Hosted Zone의 레코드 관리.
-  # Hosted Zone 자체의 생성/삭제는 허용하지 않는다.
+  # 환경별 Route 53 DNS 레코드 관리
   statement {
     sid    = "ManageEnvironmentDNSRecords"
     effect = "Allow"
@@ -178,7 +237,7 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     ]
   }
 
-  # DNS 변경 완료 상태 조회
+  # Route 53 DNS 변경 상태 조회
   statement {
     sid    = "CheckDNSChanges"
     effect = "Allow"
@@ -189,6 +248,24 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
 
     resources = [
       "arn:aws:route53:::change/*"
+    ]
+  }
+
+  # 환경별 SSM Parameter 생성 및 관리
+  statement {
+    sid    = "ManageEnvironmentSSMParameters"
+    effect = "Allow"
+
+    actions = [
+      "ssm:PutParameter",
+      "ssm:DeleteParameter",
+      "ssm:DeleteParameters",
+      "ssm:AddTagsToResource",
+      "ssm:RemoveTagsFromResource"
+    ]
+
+    resources = [
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${each.key}/*"
     ]
   }
 }
@@ -256,8 +333,7 @@ resource "aws_iam_role_policy" "terraform_ecs_apply" {
 data "aws_iam_policy_document" "terraform_environment_iam" {
   for_each = local.terraform_environments
 
-  # ECS Runtime Roles:
-  # Runtime Boundary를 지정한 경우에만 생성 가능
+  # Runtime Permissions Boundary 필수
   statement {
     sid    = "CreateRuntimeRolesWithBoundary"
     effect = "Allow"
@@ -281,8 +357,7 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
     }
   }
 
-  # GitHub ECS CD Role:
-  # CD Boundary를 지정한 경우에만 생성 가능
+  # CD Permissions Boundary 필수
   statement {
     sid    = "CreateCDRoleWithBoundary"
     effect = "Allow"
@@ -325,6 +400,7 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
     ]
   }
 
+  # Permissions Boundary 변경 및 제거 금지
   statement {
     sid    = "DenyBoundaryModification"
     effect = "Deny"
@@ -488,9 +564,6 @@ data "aws_iam_policy_document" "terraform_environment_rds" {
       "rds:CreateDBSubnetGroup",
       "rds:ModifyDBSubnetGroup",
       "rds:DeleteDBSubnetGroup",
-      "rds:CreateDBParameterGroup",
-      "rds:ModifyDBParameterGroup",
-      "rds:DeleteDBParameterGroup",
       "rds:AddTagsToResource",
       "rds:RemoveTagsFromResource"
     ]
@@ -518,7 +591,7 @@ data "aws_iam_policy_document" "terraform_environment_rds" {
     ]
   }
 
-  # RDS에서 KMS 키를 참조하는 경우 키 메타데이터 조회
+  # RDS 관리형 Secret의 KMS 키 조회
   statement {
     sid    = "DescribeRDSKMSKeys"
     effect = "Allow"
