@@ -23,6 +23,13 @@ ecr_repository_urls = {
   ai       = "919551759796.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/ai"
 }
 
+# 최초 Task Definition 생성에 사용할 ECR 이미지 태그
+image_tags = {
+  frontend = "9d4001cb8698203eb781bf493d6eca8c7008d722"
+  backend  = "9dd8711bb29b80a98eef3ebde3df15ae7d9924f7"
+  ai       = "b60fb08c350c8076aa546f710566da5d631f89f5"
+}
+
 mysql_engine_version     = "8.4.11"
 postgres_engine_version  = "18.6" # pgvector 0.8.2 지원 버전
 mysql_instance_class     = "db.t4g.medium"
@@ -42,6 +49,12 @@ db_backup_retention_days = 7
 deployment_5xx_threshold = 5
 
 github_oidc_provider_arn = "arn:aws:iam::919551759796:oidc-provider/token.actions.githubusercontent.com"
+
+github_repositories = {
+  frontend = "100-hours-a-week/KTB4-4th-FE"
+  backend  = "100-hours-a-week/KTB4-4th-BE"
+  ai       = "100-hours-a-week/KTB4-4th-AI"
+}
 
 # 실제 값은 AWS에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = {

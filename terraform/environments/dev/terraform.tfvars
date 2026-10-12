@@ -61,9 +61,9 @@ ecr_repository_urls = {
 # ==================================================
 
 image_tags = {
-  frontend = "REPLACE_WITH_FRONTEND_TAG"
-  backend  = "REPLACE_WITH_BACKEND_TAG"
-  ai       = "REPLACE_WITH_AI_TAG"
+  frontend = "9d4001cb8698203eb781bf493d6eca8c7008d722"
+  backend  = "9dd8711bb29b80a98eef3ebde3df15ae7d9924f7"
+  ai       = "b60fb08c350c8076aa546f710566da5d631f89f5"
 }
 
 # ==================================================
@@ -125,7 +125,11 @@ deployment_5xx_threshold = 5
 # GitHub OIDC
 # ==================================================
 
-github_repository = "REPLACE_WITH_OWNER/REPOSITORY"
+github_repositories = {
+  frontend = "100-hours-a-week/KTB4-4th-FE"
+  backend  = "100-hours-a-week/KTB4-4th-BE"
+  ai       = "100-hours-a-week/KTB4-4th-AI"
+}
 
 github_oidc_provider_arn = "arn:aws:iam::919551759796:oidc-provider/token.actions.githubusercontent.com"
 

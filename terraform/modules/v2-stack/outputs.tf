@@ -40,6 +40,6 @@ output "redis_endpoint" {
 output "catalog_bucket" {
   value = aws_s3_bucket.catalog.id
 }
-output "github_cd_role_arn" {
-  value = aws_iam_role.github_cd.arn
+output "github_cd_role_arns" {
+  value = { for service, role in aws_iam_role.github_cd : service => role.arn }
 }

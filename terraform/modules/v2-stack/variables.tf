@@ -110,8 +110,14 @@ variable "ecs_assign_public_ip" {
   default = true
 }
 
-variable "github_repository" {
-  type = string
+variable "github_repositories" {
+  description = "서비스별 GitHub Actions CD를 실행하는 저장소"
+  type        = map(string)
+
+  validation {
+    condition     = toset(keys(var.github_repositories)) == toset(["frontend", "backend", "ai"])
+    error_message = "github_repositories에는 frontend, backend, ai 저장소가 모두 필요합니다."
+  }
 }
 
 variable "github_oidc_provider_arn" {
