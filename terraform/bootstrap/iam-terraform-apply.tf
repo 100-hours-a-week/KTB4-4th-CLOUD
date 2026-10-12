@@ -70,6 +70,7 @@ locals {
     "application-autoscaling:DeleteScalingPolicy",
     "application-autoscaling:TagResource",
     "application-autoscaling:UntagResource",
+    "application-autoscaling:ListTagsForResource",
 
     "logs:CreateLogGroup",
     "logs:DeleteLogGroup",
