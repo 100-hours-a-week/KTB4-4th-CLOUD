@@ -113,6 +113,7 @@ resource "aws_ecs_task_definition" "service" {
   for_each = local.services
 
   family                   = "needu-${var.environment}-${each.key}"
+  skip_destroy             = true
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
 
@@ -460,6 +461,7 @@ resource "aws_ecs_task_definition" "batch" {
   for_each = local.catalog_jobs
 
   family                   = "needu-${var.environment}-${each.key}"
+  skip_destroy             = true
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
 
