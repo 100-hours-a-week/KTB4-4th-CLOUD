@@ -150,6 +150,7 @@ app_secret_parameters = {
     KAKAO_FRIEND_REDIRECT_URI           = "/needu/v2/dev/backend/KAKAO_FRIEND_REDIRECT_URI"
     KAKAO_REDIRECT_URI                  = "/needu/v2/dev/backend/KAKAO_REDIRECT_URI"
     KAKAO_REST_API_KEY                  = "/needu/v2/dev/backend/KAKAO_REST_API_KEY"
+    KAKAO_TOKEN_ENCRYPTION_KEY          = "/needu/v2/dev/backend/KAKAO_TOKEN_ENCRYPTION_KEY"
     SENTRY_DSN                          = "/needu/v2/dev/backend/SENTRY_DSN"
   }
   ai = {
