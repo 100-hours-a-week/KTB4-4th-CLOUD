@@ -320,16 +320,6 @@ data "aws_iam_policy_document" "terraform_ecs_apply" {
   }
 
   statement {
-    sid     = "DeregisterEnvironmentTaskDefinitions"
-    effect  = "Allow"
-    actions = ["ecs:DeregisterTaskDefinition"]
-
-    resources = [
-      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:task-definition/needu-${each.key}-*"
-    ]
-  }
-
-  statement {
     sid     = "TagEnvironmentTaskDefinitions"
     effect  = "Allow"
     actions = ["ecs:TagResource"]
