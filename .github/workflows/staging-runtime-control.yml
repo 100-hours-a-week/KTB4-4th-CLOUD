@@ -1,0 +1,172 @@
+name: Staging Runtime Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Staging 실행 상태"
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+
+permissions:
+  contents: read
+  id-token: write
+
+# Terraform Staging Apply와 동시에 실행되지 않게 같은 잠금 이름을 사용한다.
+concurrency:
+  group: terraform-apply-staging
+  cancel-in-progress: false
+
+jobs:
+  control:
+    name: Staging ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: staging
+
+    env:
+      AWS_REGION: ap-northeast-2
+      CLUSTER_NAME: needu-staging-cluster
+      ECS_DESIRED_COUNT: "2"
+      AUTOSCALING_MIN: "2"
+      AUTOSCALING_MAX: "4"
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Staging-Control
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: staging-control-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Stop Staging
+        if: inputs.action == 'stop'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          services=(frontend backend ai)
+          databases=(needu-staging-mysql needu-staging-postgres)
+
+          # Auto Scaling이 서비스를 다시 실행하지 않도록 최소 용량을 먼저 0으로 내린다.
+          for service in "${services[@]}"; do
+            resource_id="service/${CLUSTER_NAME}/needu-staging-${service}"
+
+            aws application-autoscaling register-scalable-target \
+              --service-namespace ecs \
+              --resource-id "$resource_id" \
+              --scalable-dimension ecs:service:DesiredCount \
+              --min-capacity 0 \
+              --max-capacity "$AUTOSCALING_MAX"
+
+            aws ecs update-service \
+              --cluster "$CLUSTER_NAME" \
+              --service "needu-staging-${service}" \
+              --desired-count 0 \
+              --no-cli-pager >/dev/null
+          done
+
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER_NAME" \
+            --services needu-staging-frontend needu-staging-backend needu-staging-ai
+
+          # 이미 정지 중이거나 정지된 DB에는 중복 요청을 보내지 않는다.
+          for database in "${databases[@]}"; do
+            status="$(aws rds describe-db-instances \
+              --db-instance-identifier "$database" \
+              --query 'DBInstances[0].DBInstanceStatus' \
+              --output text)"
+
+            if [[ "$status" == "available" ]]; then
+              aws rds stop-db-instance \
+                --db-instance-identifier "$database" \
+                --no-cli-pager >/dev/null
+            elif [[ "$status" == "stopping" || "$status" == "stopped" ]]; then
+              echo "$database is already $status."
+            else
+              echo "::error::$database cannot be stopped while status is $status."
+              exit 1
+            fi
+          done
+
+          for database in "${databases[@]}"; do
+            aws rds wait db-instance-stopped --db-instance-identifier "$database"
+          done
+
+      - name: Start Staging
+        if: inputs.action == 'start'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          services=(frontend backend ai)
+          databases=(needu-staging-mysql needu-staging-postgres)
+
+          # DB가 준비된 후 애플리케이션을 실행해 시작 중 연결 실패를 방지한다.
+          for database in "${databases[@]}"; do
+            status="$(aws rds describe-db-instances \
+              --db-instance-identifier "$database" \
+              --query 'DBInstances[0].DBInstanceStatus' \
+              --output text)"
+
+            if [[ "$status" == "stopped" ]]; then
+              aws rds start-db-instance \
+                --db-instance-identifier "$database" \
+                --no-cli-pager >/dev/null
+            elif [[ "$status" == "available" || "$status" == "starting" ]]; then
+              echo "$database is already $status."
+            elif [[ "$status" == "stopping" ]]; then
+              aws rds wait db-instance-stopped --db-instance-identifier "$database"
+              aws rds start-db-instance \
+                --db-instance-identifier "$database" \
+                --no-cli-pager >/dev/null
+            else
+              echo "::error::$database cannot be started while status is $status."
+              exit 1
+            fi
+          done
+
+          for database in "${databases[@]}"; do
+            aws rds wait db-instance-available --db-instance-identifier "$database"
+          done
+
+          for service in "${services[@]}"; do
+            resource_id="service/${CLUSTER_NAME}/needu-staging-${service}"
+
+            aws application-autoscaling register-scalable-target \
+              --service-namespace ecs \
+              --resource-id "$resource_id" \
+              --scalable-dimension ecs:service:DesiredCount \
+              --min-capacity "$AUTOSCALING_MIN" \
+              --max-capacity "$AUTOSCALING_MAX"
+
+            aws ecs update-service \
+              --cluster "$CLUSTER_NAME" \
+              --service "needu-staging-${service}" \
+              --desired-count "$ECS_DESIRED_COUNT" \
+              --no-cli-pager >/dev/null
+          done
+
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER_NAME" \
+            --services needu-staging-frontend needu-staging-backend needu-staging-ai
+
+      - name: Write summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Staging ${{ inputs.action }} 결과"
+            echo
+            echo "- 실행자: @${{ github.actor }}"
+            echo "- 실행 모드: \`${{ inputs.action }}\`"
+            echo "- ECS 대상: frontend, backend, ai"
+            echo "- RDS 대상: MySQL, PostgreSQL"
+            echo "- ElastiCache와 ALB는 계속 실행됩니다."
+          } >> "$GITHUB_STEP_SUMMARY"
