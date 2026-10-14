@@ -59,8 +59,11 @@ github_subject_prefixes = {
 # 실제 값은 AWS에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = {
   frontend = {}
-  backend  = {}
-  ai       = {}
+  backend = {
+    AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS = "/needu/v2/staging/backend/AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS"
+    KAKAO_TOKEN_ENCRYPTION_KEY          = "/needu/v2/staging/backend/KAKAO_TOKEN_ENCRYPTION_KEY"
+  }
+  ai = {}
 }
 
 # AI 팀 실행 명령 확정 전에는 빈 값으로 유지
