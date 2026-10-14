@@ -40,8 +40,8 @@ redis_node_type          = "cache.t4g.small"
 redis_num_nodes          = 1
 task_cpu                 = { frontend = 512, backend = 1024, ai = 512 }
 task_memory              = { frontend = 1024, backend = 2048, ai = 1024 }
-task_desired_count       = 2
-autoscaling_min          = 2
+task_desired_count       = 0
+autoscaling_min          = 0
 autoscaling_max          = 4
 multi_az                 = false
 deletion_protection      = false
