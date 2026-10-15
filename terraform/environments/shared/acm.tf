@@ -9,7 +9,10 @@ locals {
 resource "aws_acm_certificate" "environment" {
   for_each = local.acm_domains
 
-  domain_name       = each.value
+  domain_name = each.value
+  subject_alternative_names = each.key == "staging" ? [
+    "staging.needu.gift"
+  ] : []
   validation_method = "DNS"
 
   lifecycle {
