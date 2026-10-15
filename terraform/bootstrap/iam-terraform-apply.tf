@@ -648,3 +648,294 @@ resource "aws_iam_role_policy" "terraform_environment_rds" {
   role   = aws_iam_role.terraform_github[each.key].id
   policy = data.aws_iam_policy_document.terraform_environment_rds[each.key].json
 }
+
+# ==================================================
+# 7. Dev SSM Bastion IAM
+#
+# Terraform Dev Apply Role:
+#   - Create Bastion IAM Role with approved boundary
+#   - Attach AmazonSSMManagedInstanceCore
+#   - Manage EC2 Instance Profile
+#   - Pass Bastion Role to EC2 only
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_dev_ssm_bastion_iam" {
+
+  # --------------------------------------------------
+  # Create Bastion Role with required Boundary
+  # --------------------------------------------------
+
+  statement {
+    sid    = "CreateBastionRoleWithBoundary"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-dev-ssm-bastion"
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PermissionsBoundary"
+
+      values = [
+        aws_iam_policy.ssm_bastion_boundary.arn
+      ]
+    }
+  }
+
+  # --------------------------------------------------
+  # Manage Bastion IAM Role
+  # --------------------------------------------------
+
+  statement {
+    sid    = "ManageBastionRole"
+    effect = "Allow"
+
+    actions = [
+      "iam:GetRole",
+      "iam:DeleteRole",
+      "iam:TagRole",
+      "iam:UntagRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-dev-ssm-bastion"
+    ]
+  }
+
+  # --------------------------------------------------
+  # Attach approved SSM managed policy
+  # --------------------------------------------------
+
+  statement {
+    sid    = "AttachBastionSSMPolicy"
+    effect = "Allow"
+
+    actions = ["iam:AttachRolePolicy"]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-dev-ssm-bastion"
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PolicyARN"
+
+      values = [
+        "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      ]
+    }
+  }
+
+  statement {
+    sid    = "DetachBastionSSMPolicy"
+    effect = "Allow"
+
+    actions = ["iam:DetachRolePolicy"]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-dev-ssm-bastion"
+    ]
+  }
+
+  # --------------------------------------------------
+  # Manage Bastion Instance Profile
+  # --------------------------------------------------
+
+  statement {
+    sid    = "ManageBastionInstanceProfile"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateInstanceProfile",
+      "iam:GetInstanceProfile",
+      "iam:DeleteInstanceProfile",
+      "iam:AddRoleToInstanceProfile",
+      "iam:RemoveRoleFromInstanceProfile",
+      "iam:TagInstanceProfile",
+      "iam:UntagInstanceProfile"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/needu-dev-ssm-bastion"
+    ]
+  }
+
+  # --------------------------------------------------
+  # Pass Bastion Role to EC2 only
+  # --------------------------------------------------
+
+  statement {
+    sid    = "PassBastionRoleToEC2"
+    effect = "Allow"
+
+    actions = [
+      "iam:PassRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-dev-ssm-bastion"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+
+      values = [
+        "ec2.amazonaws.com"
+      ]
+    }
+  }
+}
+
+# SSM Bastion IAM Managed Policy
+resource "aws_iam_policy" "terraform_dev_ssm_bastion_iam" {
+  name        = "NeedU-V2-Terraform-Dev-SSMBastionIAM"
+  description = "IAM permissions for Terraform Dev SSM Bastion"
+  policy      = data.aws_iam_policy_document.terraform_dev_ssm_bastion_iam.json
+}
+
+# Managed Policy를 Dev Terraform Role에 연결
+resource "aws_iam_role_policy_attachment" "terraform_dev_ssm_bastion_iam" {
+  role       = aws_iam_role.terraform_github["dev"].name
+  policy_arn = aws_iam_policy.terraform_dev_ssm_bastion_iam.arn
+}
+
+# ==================================================
+# 8. Dev SSM Bastion EC2
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_dev_ssm_bastion_ec2" {
+  statement {
+    sid    = "DescribeBastionEC2"
+    effect = "Allow"
+
+    actions = [
+      "ec2:DescribeInstances",
+      "ec2:DescribeInstanceStatus",
+      "ec2:DescribeImages",
+      "ec2:DescribeVolumes",
+      "ec2:DescribeInstanceAttribute",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeVpcs"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "RunBastionDependencies"
+    effect = "Allow"
+
+    actions = ["ec2:RunInstances"]
+
+    resources = [
+      "arn:aws:ec2:ap-northeast-2::image/ami-*",
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:subnet/*",
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:security-group/*",
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:network-interface/*"
+    ]
+  }
+
+  statement {
+    sid    = "RunBastionInstance"
+    effect = "Allow"
+
+    actions = ["ec2:RunInstances"]
+
+    resources = [
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:instance/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:InstanceType"
+      values   = ["t3.micro"]
+    }
+  }
+
+  statement {
+    sid    = "RunBastionVolume"
+    effect = "Allow"
+
+    actions = ["ec2:RunInstances"]
+
+    resources = [
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:volume/*"
+    ]
+  }
+
+  statement {
+    sid    = "TerminateBastionInstance"
+    effect = "Allow"
+
+    actions = ["ec2:TerminateInstances"]
+
+    resources = [
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:instance/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:ResourceTag/Name"
+      values   = ["needu-dev-ssm-bastion"]
+    }
+  }
+
+  statement {
+    sid    = "TagBastionOnCreation"
+    effect = "Allow"
+
+    actions = ["ec2:CreateTags"]
+
+    resources = [
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:instance/*",
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:volume/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values   = ["RunInstances"]
+    }
+  }
+
+  statement {
+    sid    = "ManageBastionTags"
+    effect = "Allow"
+
+    actions = [
+      "ec2:CreateTags",
+      "ec2:DeleteTags"
+    ]
+
+    resources = [
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:instance/*",
+      "arn:aws:ec2:ap-northeast-2:${data.aws_caller_identity.current.account_id}:volume/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:ResourceTag/Name"
+      values   = ["needu-dev-ssm-bastion"]
+    }
+  }
+}
+
+# SSM Bastion EC2 Managed Policy
+resource "aws_iam_policy" "terraform_dev_ssm_bastion_ec2" {
+  name        = "NeedU-V2-Terraform-Dev-SSMBastionEC2"
+  description = "EC2 permissions for Terraform Dev SSM Bastion"
+  policy      = data.aws_iam_policy_document.terraform_dev_ssm_bastion_ec2.json
+}
+
+# Managed Policy를 Dev Terraform Role에 연결
+resource "aws_iam_role_policy_attachment" "terraform_dev_ssm_bastion_ec2" {
+  role       = aws_iam_role.terraform_github["dev"].name
+  policy_arn = aws_iam_policy.terraform_dev_ssm_bastion_ec2.arn
+}

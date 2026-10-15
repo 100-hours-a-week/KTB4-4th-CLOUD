@@ -10,6 +10,9 @@
 #
 # VPC / Subnet / RDS Security Groups:
 #   Referenced from module.v2 outputs
+#
+# IAM Permissions Boundary:
+#   Managed by terraform/bootstrap
 # ============================================================
 
 
@@ -24,6 +27,8 @@ locals {
   ssm_bastion_subnet_id   = module.v2.public_subnet_ids[0]
   ssm_bastion_mysql_sg    = module.v2.mysql_security_group_id
   ssm_bastion_postgres_sg = module.v2.postgres_security_group_id
+
+  ssm_bastion_boundary_arn = "arn:aws:iam::919551759796:policy/NeedU-V2-dev-SSMBastionPermissionsBoundary"
 }
 
 
@@ -71,51 +76,10 @@ data "aws_iam_policy_document" "ssm_bastion_assume" {
 
 
 # ------------------------------------------------------------
-# 4. SSM Bastion Permissions Boundary
+# 4. EC2 IAM Role
 #
-# 기존 ECS Runtime Boundary와 분리
-# SSM Agent 동작에 필요한 권한만 허용
-# ------------------------------------------------------------
-
-data "aws_iam_policy_document" "ssm_bastion_boundary" {
-  statement {
-    sid    = "AllowSSMManagedInstance"
-    effect = "Allow"
-
-    actions = [
-      "ssm:UpdateInstanceInformation",
-
-      "ssmmessages:CreateControlChannel",
-      "ssmmessages:CreateDataChannel",
-      "ssmmessages:OpenControlChannel",
-      "ssmmessages:OpenDataChannel",
-
-      "ec2messages:AcknowledgeMessage",
-      "ec2messages:DeleteMessage",
-      "ec2messages:FailMessage",
-      "ec2messages:GetEndpoint",
-      "ec2messages:GetMessages",
-      "ec2messages:SendReply"
-    ]
-
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_policy" "ssm_bastion_boundary" {
-  name        = "NeedU-V2-dev-SSMBastionPermissionsBoundary"
-  description = "Permissions boundary for NeedU Dev SSM Bastion"
-
-  policy = data.aws_iam_policy_document.ssm_bastion_boundary.json
-
-  tags = {
-    Name = "NeedU-V2-dev-SSMBastionPermissionsBoundary"
-  }
-}
-
-
-# ------------------------------------------------------------
-# 5. EC2 IAM Role
+# Permissions Boundary is created by Bootstrap.
+# Dev Terraform only references the existing policy.
 # ------------------------------------------------------------
 
 resource "aws_iam_role" "ssm_bastion" {
@@ -123,7 +87,7 @@ resource "aws_iam_role" "ssm_bastion" {
 
   assume_role_policy = data.aws_iam_policy_document.ssm_bastion_assume.json
 
-  permissions_boundary = aws_iam_policy.ssm_bastion_boundary.arn
+  permissions_boundary = local.ssm_bastion_boundary_arn
 
   tags = {
     Name = local.ssm_bastion_name
@@ -132,7 +96,7 @@ resource "aws_iam_role" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 6. Attach SSM Managed Instance Policy
+# 5. Attach SSM Managed Instance Policy
 # ------------------------------------------------------------
 
 resource "aws_iam_role_policy_attachment" "ssm_bastion" {
@@ -143,7 +107,7 @@ resource "aws_iam_role_policy_attachment" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 7. IAM Instance Profile
+# 6. IAM Instance Profile
 # ------------------------------------------------------------
 
 resource "aws_iam_instance_profile" "ssm_bastion" {
@@ -153,7 +117,7 @@ resource "aws_iam_instance_profile" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 8. Bastion Security Group
+# 7. Bastion Security Group
 #
 # Inbound:
 #   None
@@ -162,8 +126,6 @@ resource "aws_iam_instance_profile" "ssm_bastion" {
 #   TCP 443  -> AWS Systems Manager
 #   TCP 3306 -> MySQL RDS
 #   TCP 5432 -> PostgreSQL RDS
-#
-# AWS 기본 전체 아웃바운드 허용 규칙 제거
 # ------------------------------------------------------------
 
 resource "aws_security_group" "ssm_bastion" {
@@ -182,7 +144,7 @@ resource "aws_security_group" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 9. Bastion Outbound - HTTPS (443)
+# 8. Bastion Outbound - HTTPS (443)
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_egress_rule" "ssm_bastion_https" {
@@ -199,7 +161,7 @@ resource "aws_vpc_security_group_egress_rule" "ssm_bastion_https" {
 
 
 # ------------------------------------------------------------
-# 10. Bastion Outbound - MySQL (3306)
+# 9. Bastion Outbound - MySQL (3306)
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_egress_rule" "ssm_bastion_mysql" {
@@ -216,7 +178,7 @@ resource "aws_vpc_security_group_egress_rule" "ssm_bastion_mysql" {
 
 
 # ------------------------------------------------------------
-# 11. Bastion Outbound - PostgreSQL (5432)
+# 10. Bastion Outbound - PostgreSQL (5432)
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_egress_rule" "ssm_bastion_postgres" {
@@ -233,7 +195,7 @@ resource "aws_vpc_security_group_egress_rule" "ssm_bastion_postgres" {
 
 
 # ------------------------------------------------------------
-# 12. MySQL RDS Inbound from Bastion
+# 11. MySQL RDS Inbound from Bastion
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_ingress_rule" "mysql_from_ssm_bastion" {
@@ -250,7 +212,7 @@ resource "aws_vpc_security_group_ingress_rule" "mysql_from_ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 13. PostgreSQL RDS Inbound from Bastion
+# 12. PostgreSQL RDS Inbound from Bastion
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_ingress_rule" "postgres_from_ssm_bastion" {
@@ -267,7 +229,7 @@ resource "aws_vpc_security_group_ingress_rule" "postgres_from_ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 14. Bastion EC2
+# 13. Bastion EC2
 #
 # t3.micro / Amazon Linux 2023
 # Public Subnet / Public IP
@@ -320,7 +282,7 @@ resource "aws_instance" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 15. Outputs
+# 14. Outputs
 # ------------------------------------------------------------
 
 output "ssm_bastion_instance_id" {
