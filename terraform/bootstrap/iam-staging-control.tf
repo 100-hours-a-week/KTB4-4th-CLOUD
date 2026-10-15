@@ -127,6 +127,49 @@ data "aws_iam_policy_document" "staging_control" {
     actions   = ["rds:DescribeDBInstances"]
     resources = ["*"]
   }
+
+  # Cutover 공통 도메인의 V1/V2 연결 대상만 변경할 수 있다.
+  statement {
+    sid    = "ChangeStagingCutoverRecord"
+    effect = "Allow"
+
+    actions   = ["route53:ChangeResourceRecordSets"]
+    resources = ["arn:aws:route53:::hostedzone/Z10258582M6TRCEOCUBUW"]
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
+      values   = ["staging.needu.gift"]
+    }
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsRecordTypes"
+      values   = ["CNAME"]
+    }
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsActions"
+      values   = ["UPSERT"]
+    }
+  }
+
+  # DNS 변경 완료 여부와 현재 레코드를 확인할 때 필요하다.
+  statement {
+    sid    = "ReadStagingCutoverStatus"
+    effect = "Allow"
+
+    actions = [
+      "route53:GetChange",
+      "route53:ListResourceRecordSets"
+    ]
+
+    resources = [
+      "arn:aws:route53:::hostedzone/Z10258582M6TRCEOCUBUW",
+      "arn:aws:route53:::change/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "staging_control" {
@@ -136,6 +179,6 @@ resource "aws_iam_role_policy" "staging_control" {
 }
 
 output "staging_control_role_arn" {
-  description = "Staging ECS·RDS 시작 및 정지용 GitHub Actions IAM Role ARN"
+  description = "Staging ECS·RDS 실행 상태 및 Cutover DNS 제어용 GitHub Actions IAM Role ARN"
   value       = aws_iam_role.staging_control.arn
 }
