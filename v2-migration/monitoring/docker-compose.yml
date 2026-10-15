@@ -14,6 +14,18 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.5.5
+    container_name: needu-loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.1.0
     container_name: needu-grafana
@@ -52,9 +64,11 @@ services:
 
     depends_on:
       - prometheus
+      - loki
 
     restart: unless-stopped
 
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:
