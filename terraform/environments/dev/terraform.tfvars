@@ -152,6 +152,12 @@ app_secret_parameters = {
     KAKAO_REST_API_KEY                  = "/needu/v2/dev/backend/KAKAO_REST_API_KEY"
     KAKAO_TOKEN_ENCRYPTION_KEY          = "/needu/v2/dev/backend/KAKAO_TOKEN_ENCRYPTION_KEY"
     SENTRY_DSN                          = "/needu/v2/dev/backend/SENTRY_DSN"
+    VAPID_PRIVATE_KEY                   = "/needu/v2/dev/backend/VAPID_PRIVATE_KEY"
+    VAPID_PUBLIC_KEY                    = "/needu/v2/dev/backend/VAPID_PUBLIC_KEY"
+    VAPID_SUBJECT                       = "/needu/v2/dev/backend/VAPID_SUBJECT"
+    WEB_PUSH_ENABLED                    = "/needu/v2/dev/backend/WEB_PUSH_ENABLED"
+    WEB_PUSH_REQUEST_TIMEOUT            = "/needu/v2/dev/backend/WEB_PUSH_REQUEST_TIMEOUT"
+    WEB_PUSH_TTL                        = "/needu/v2/dev/backend/WEB_PUSH_TTL"
   }
   ai = {
     EXTRACTION_MODEL_BASE_URL = "/needu/v2/dev/ai/EXTRACTION_MODEL_BASE_URL"
