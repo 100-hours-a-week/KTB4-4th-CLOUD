@@ -10,6 +10,18 @@ on:
         options:
           - start
           - stop
+          - start-ecs
+          - stop-ecs
+      service:
+        description: "ECS 개별 제어 대상(start-ecs/stop-ecs에서만 사용)"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - frontend
+          - backend
+          - ai
 
 permissions:
   contents: read
@@ -33,6 +45,8 @@ jobs:
       ECS_DESIRED_COUNT: "2"
       AUTOSCALING_MIN: "2"
       AUTOSCALING_MAX: "4"
+      CONTROL_ACTION: ${{ inputs.action }}
+      SELECTED_SERVICE: ${{ inputs.service }}
 
     steps:
       - name: Configure AWS credentials
@@ -98,6 +112,59 @@ jobs:
           for database in "${databases[@]}"; do
             aws rds wait db-instance-stopped --db-instance-identifier "$database"
           done
+
+      - name: Control selected ECS services
+        if: inputs.action == 'start-ecs' || inputs.action == 'stop-ecs'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$SELECTED_SERVICE" in
+            all)
+              services=(frontend backend ai)
+              ;;
+            frontend|backend|ai)
+              services=("$SELECTED_SERVICE")
+              ;;
+            *)
+              echo "::error::지원하지 않는 ECS 서비스입니다: $SELECTED_SERVICE"
+              exit 1
+              ;;
+          esac
+
+          ecs_service_names=()
+
+          for service in "${services[@]}"; do
+            resource_id="service/${CLUSTER_NAME}/needu-staging-${service}"
+            ecs_service_name="needu-staging-${service}"
+            ecs_service_names+=("$ecs_service_name")
+
+            if [[ "$CONTROL_ACTION" == "start-ecs" ]]; then
+              min_capacity="$AUTOSCALING_MIN"
+              desired_count="$ECS_DESIRED_COUNT"
+            else
+              min_capacity="0"
+              desired_count="0"
+            fi
+
+            # Auto Scaling이 선택한 실행 수를 되돌리지 않도록 최소 용량을 먼저 변경한다.
+            aws application-autoscaling register-scalable-target \
+              --service-namespace ecs \
+              --resource-id "$resource_id" \
+              --scalable-dimension ecs:service:DesiredCount \
+              --min-capacity "$min_capacity" \
+              --max-capacity "$AUTOSCALING_MAX"
+
+            aws ecs update-service \
+              --cluster "$CLUSTER_NAME" \
+              --service "$ecs_service_name" \
+              --desired-count "$desired_count" \
+              --no-cli-pager >/dev/null
+          done
+
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER_NAME" \
+            --services "${ecs_service_names[@]}"
 
       - name: Start Staging
         if: inputs.action == 'start'
@@ -166,7 +233,12 @@ jobs:
             echo
             echo "- 실행자: @${{ github.actor }}"
             echo "- 실행 모드: \`${{ inputs.action }}\`"
-            echo "- ECS 대상: frontend, backend, ai"
-            echo "- RDS 대상: MySQL, PostgreSQL"
+            if [[ "$CONTROL_ACTION" == "start-ecs" || "$CONTROL_ACTION" == "stop-ecs" ]]; then
+              echo "- ECS 대상: \`$SELECTED_SERVICE\`"
+              echo "- RDS 대상: 변경 없음"
+            else
+              echo "- ECS 대상: frontend, backend, ai"
+              echo "- RDS 대상: MySQL, PostgreSQL"
+            fi
             echo "- ElastiCache와 ALB는 계속 실행됩니다."
           } >> "$GITHUB_STEP_SUMMARY"
