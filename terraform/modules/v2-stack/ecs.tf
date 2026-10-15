@@ -305,7 +305,7 @@ resource "aws_ecs_service" "service" {
 # ==================================================
 
 resource "aws_appautoscaling_target" "ecs" {
-  for_each = local.services
+  for_each = var.environment == "staging" ? {} : local.services
 
   max_capacity = var.autoscaling_max
   min_capacity = var.autoscaling_min
@@ -314,6 +314,30 @@ resource "aws_appautoscaling_target" "ecs" {
 
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
+}
+
+# Staging은 Runtime Control Workflow가 최소 실행 수를 관리한다.
+resource "aws_appautoscaling_target" "ecs_runtime_controlled" {
+  for_each = var.environment == "staging" ? local.services : {}
+
+  max_capacity = var.autoscaling_max
+  min_capacity = var.autoscaling_min
+
+  resource_id = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.service[each.key].name}"
+
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+
+  lifecycle {
+    ignore_changes = [min_capacity]
+  }
+}
+
+locals {
+  ecs_autoscaling_targets = merge(
+    aws_appautoscaling_target.ecs,
+    aws_appautoscaling_target.ecs_runtime_controlled
+  )
 }
 
 # ==================================================
@@ -326,9 +350,9 @@ resource "aws_appautoscaling_policy" "cpu" {
   name        = "needu-${var.environment}-${each.key}-cpu"
   policy_type = "TargetTrackingScaling"
 
-  resource_id        = aws_appautoscaling_target.ecs[each.key].resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs[each.key].scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs[each.key].service_namespace
+  resource_id        = local.ecs_autoscaling_targets[each.key].resource_id
+  scalable_dimension = local.ecs_autoscaling_targets[each.key].scalable_dimension
+  service_namespace  = local.ecs_autoscaling_targets[each.key].service_namespace
 
   target_tracking_scaling_policy_configuration {
     target_value = 65
