@@ -18,6 +18,11 @@ on:
           - dev
           - staging
           - prod
+      allow_shared_acm_replacement:
+        description: "Shared Staging ACM 인증서 교체 허용"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -200,15 +205,18 @@ jobs:
           terraform show -json tfplan > plan.json
 
       # ==================================================
-      # 변경: Task Definition 교체만 허용
+      # Task Definition 교체와 명시적으로 승인한 Shared ACM 교체만 허용한다.
       # ==================================================
 
       - name: Review destructive changes
         working-directory: ${{ env.TF_DIR }}
         shell: bash
+        env:
+          ALLOW_SHARED_ACM_REPLACEMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'shared' && inputs.allow_shared_acm_replacement }}
         run: |
           python3 - <<'PY'
           import json
+          import os
           import re
           import sys
 
@@ -217,6 +225,10 @@ jobs:
 
           blocked = []
           allowed_replacements = []
+          allow_shared_acm_replacement = (
+              os.environ.get("ALLOW_SHARED_ACM_REPLACEMENT", "false").lower()
+              == "true"
+          )
 
           # module 중첩 여부와 관계없이 서비스 및 배치
           # Task Definition 리소스만 교체 허용
@@ -224,6 +236,14 @@ jobs:
               r'^(?:module\.[^.]+\[[^\]]+\]\.|module\.[^.]+\.)*'
               r'aws_ecs_task_definition\.(service|batch)\["[^"]+"\]$'
           )
+
+          # Shared Staging 인증서에 Cutover 도메인을 추가할 때 필요한
+          # 정확한 세 리소스의 교체만 수동 승인 대상으로 제한한다.
+          shared_acm_replacements = {
+              'aws_acm_certificate.environment["staging"]',
+              'aws_acm_certificate_validation.environment["staging"]',
+              'aws_route53_record.acm_validation["staging"]',
+          }
 
           for resource in plan.get("resource_changes", []):
               address = resource["address"]
@@ -248,13 +268,19 @@ jobs:
                   and allowed_pattern.fullmatch(address)
               ):
                   allowed_replacements.append(address)
+              elif (
+                  is_replacement
+                  and allow_shared_acm_replacement
+                  and address in shared_acm_replacements
+              ):
+                  allowed_replacements.append(address)
               else:
                   blocked.append({
                       "address": address,
                       "actions": actions
                   })
 
-          print("Allowed Task Definition replacements:")
+          print("Allowed replacements:")
           for address in allowed_replacements:
               print(f"  - {address}")
 
