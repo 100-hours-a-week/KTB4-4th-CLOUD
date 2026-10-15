@@ -222,7 +222,9 @@ data "aws_iam_policy_document" "frontend_build_ssm" {
 
     resources = [
       "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/common/frontend-build",
-      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/common/frontend-build/*"
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/common/frontend-build/*",
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/dev/frontend-build",
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/dev/frontend-build/*"
     ]
   }
 }
