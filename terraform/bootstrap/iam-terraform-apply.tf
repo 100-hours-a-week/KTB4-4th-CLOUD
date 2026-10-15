@@ -54,6 +54,7 @@ locals {
     "elasticloadbalancing:DeleteLoadBalancer",
     "elasticloadbalancing:CreateTargetGroup",
     "elasticloadbalancing:ModifyTargetGroup",
+    "elasticloadbalancing:ModifyTargetGroupAttributes",
     "elasticloadbalancing:DeleteTargetGroup",
     "elasticloadbalancing:CreateListener",
     "elasticloadbalancing:ModifyListener",
@@ -91,7 +92,9 @@ locals {
     "elasticache:RemoveTagsFromResource",
 
     "servicediscovery:CreateHttpNamespace",
-    "servicediscovery:DeleteNamespace"
+    "servicediscovery:DeleteNamespace",
+    "servicediscovery:TagResource",
+    "servicediscovery:UntagResource"
   ]
 }
 
@@ -599,6 +602,10 @@ data "aws_iam_policy_document" "terraform_environment_rds" {
       "rds:CreateDBSubnetGroup",
       "rds:ModifyDBSubnetGroup",
       "rds:DeleteDBSubnetGroup",
+      "rds:CreateDBParameterGroup",
+      "rds:ModifyDBParameterGroup",
+      "rds:ResetDBParameterGroup",
+      "rds:DeleteDBParameterGroup",
       "rds:AddTagsToResource",
       "rds:RemoveTagsFromResource"
     ]
