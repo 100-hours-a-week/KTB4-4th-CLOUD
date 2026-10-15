@@ -13,6 +13,9 @@
 #
 # IAM Permissions Boundary:
 #   Managed by terraform/bootstrap
+#
+# Issue #86:
+#   Fix SSM Bastion Security Group outbound rules
 # ============================================================
 
 
@@ -120,12 +123,16 @@ resource "aws_iam_instance_profile" "ssm_bastion" {
 # 7. Bastion Security Group
 #
 # Inbound:
-#   None
+#   No inbound rules
 #
 # Outbound:
 #   TCP 443  -> AWS Systems Manager
 #   TCP 3306 -> MySQL RDS
 #   TCP 5432 -> PostgreSQL RDS
+#
+# Issue #86:
+#   Do not manage ingress/egress inline.
+#   Manage rules using dedicated rule resources only.
 # ------------------------------------------------------------
 
 resource "aws_security_group" "ssm_bastion" {
@@ -134,8 +141,8 @@ resource "aws_security_group" "ssm_bastion" {
   description = "SSM Bastion for Dev RDS MySQL and PostgreSQL"
   vpc_id      = local.ssm_bastion_vpc_id
 
-  ingress = []
-  egress  = []
+  # No inline ingress or egress blocks.
+  # Rules are managed by aws_vpc_security_group_*_rule.
 
   tags = {
     Name = local.ssm_bastion_name
@@ -145,6 +152,11 @@ resource "aws_security_group" "ssm_bastion" {
 
 # ------------------------------------------------------------
 # 8. Bastion Outbound - HTTPS (443)
+#
+# Required for:
+#   ssm.ap-northeast-2.amazonaws.com
+#   ssmmessages.ap-northeast-2.amazonaws.com
+#   ec2messages.ap-northeast-2.amazonaws.com
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_egress_rule" "ssm_bastion_https" {
