@@ -61,9 +61,26 @@ app_secret_parameters = {
   frontend = {}
   backend = {
     AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS = "/needu/v2/staging/backend/AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS"
+    AI_SERVICE_TOKEN                    = "/needu/v2/staging/backend/AI_SERVICE_TOKEN"
+    JWT_SECRET                          = "/needu/v2/staging/backend/JWT_SECRET"
+    KAKAO_CLIENT_SECRET                 = "/needu/v2/staging/backend/KAKAO_CLIENT_SECRET"
+    KAKAO_FRIEND_REDIRECT_URI           = "/needu/v2/staging/backend/KAKAO_FRIEND_REDIRECT_URI"
+    KAKAO_REDIRECT_URI                  = "/needu/v2/staging/backend/KAKAO_REDIRECT_URI"
+    KAKAO_REST_API_KEY                  = "/needu/v2/staging/backend/KAKAO_REST_API_KEY"
     KAKAO_TOKEN_ENCRYPTION_KEY          = "/needu/v2/staging/backend/KAKAO_TOKEN_ENCRYPTION_KEY"
+    SENTRY_DSN                          = "/needu/v2/staging/backend/SENTRY_DSN"
   }
-  ai = {}
+  ai = {
+    EXTRACTION_MODEL_BASE_URL = "/needu/v2/staging/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME     = "/needu/v2/staging/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/staging/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME       = "/needu/v2/staging/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY        = "/needu/v2/staging/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL   = "/needu/v2/staging/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME       = "/needu/v2/staging/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN             = "/needu/v2/staging/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY           = "/needu/v2/staging/ai/UPSTAGE_API_KEY"
+  }
 }
 
 # AI 팀 실행 명령 확정 전에는 빈 값으로 유지
