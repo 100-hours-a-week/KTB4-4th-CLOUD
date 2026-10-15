@@ -2,13 +2,14 @@
 # ============================================================
 # NeedU V2 Dev - SSM Bastion
 #
-# 목적:
-# - MacBook -> SSM Session Manager -> EC2 -> Private RDS MySQL
-# - SSH(22) 포트 개방 없이 RDS 접속
-# - SSM Bastion 전용 IAM Permissions Boundary 적용
+# Architecture:
+# MacBook (DBeaver)
+#   -> AWS SSM Session Manager
+#   -> Bastion EC2 (Public Subnet)
+#   -> RDS MySQL      : 3306
+#   -> RDS PostgreSQL : 5432
 #
-# 위치:
-# terraform/environments/dev/ssm-bastion.tf
+# SSH inbound is not required.
 # ============================================================
 
 
@@ -22,7 +23,8 @@ locals {
   ssm_bastion_vpc_id    = "vpc-0f2478c01e376b1b6"
   ssm_bastion_subnet_id = "subnet-0d83afd6ba8e27647"
 
-  ssm_bastion_mysql_sg = "sg-000745c3009e4ae53"
+  ssm_bastion_mysql_sg    = "sg-000745c3009e4ae53"
+  ssm_bastion_postgres_sg = "sg-01eb272724fd8c8d1"
 }
 
 
@@ -52,7 +54,7 @@ data "aws_ami" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 3. IAM Assume Role
+# 3. IAM Assume Role Policy
 # ------------------------------------------------------------
 
 data "aws_iam_policy_document" "ssm_bastion_assume" {
@@ -72,8 +74,8 @@ data "aws_iam_policy_document" "ssm_bastion_assume" {
 # ------------------------------------------------------------
 # 4. SSM Bastion Permissions Boundary
 #
-# 기존 ECS Runtime Boundary와 분리
-# SSM Managed Instance에 필요한 최대 권한만 허용
+# Separate from the ECS Runtime Permissions Boundary.
+# Limits the maximum permissions of the EC2 IAM Role.
 # ------------------------------------------------------------
 
 data "aws_iam_policy_document" "ssm_bastion_boundary" {
@@ -103,7 +105,7 @@ data "aws_iam_policy_document" "ssm_bastion_boundary" {
 
 resource "aws_iam_policy" "ssm_bastion_boundary" {
   name        = "NeedU-V2-dev-SSMBastionPermissionsBoundary"
-  description = "Permissions boundary for NeedU Dev SSM Bastion EC2"
+  description = "Permissions boundary for NeedU Dev SSM Bastion"
 
   policy = data.aws_iam_policy_document.ssm_bastion_boundary.json
 
@@ -131,7 +133,7 @@ resource "aws_iam_role" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 6. Attach AmazonSSMManagedInstanceCore
+# 6. Attach SSM Managed Instance Policy
 # ------------------------------------------------------------
 
 resource "aws_iam_role_policy_attachment" "ssm_bastion" {
@@ -156,22 +158,20 @@ resource "aws_iam_instance_profile" "ssm_bastion" {
 # 8. Bastion Security Group
 #
 # Inbound:
-# - 없음
+#   None
 #
 # Outbound:
-# - HTTPS 443 -> AWS Systems Manager
-# - MySQL 3306 -> Dev RDS Security Group
+#   TCP 443  -> AWS Systems Manager
+#   TCP 3306 -> RDS MySQL
+#   TCP 5432 -> RDS PostgreSQL
 # ------------------------------------------------------------
 
 resource "aws_security_group" "ssm_bastion" {
   name_prefix = "${local.ssm_bastion_name}-"
 
-  description = "SSM port forwarding bastion for NeedU Dev RDS"
+  description = "SSM Bastion for NeedU Dev RDS MySQL and PostgreSQL"
 
   vpc_id = local.ssm_bastion_vpc_id
-
-  ingress = []
-  egress  = []
 
   tags = {
     Name = local.ssm_bastion_name
@@ -180,7 +180,7 @@ resource "aws_security_group" "ssm_bastion" {
 
 
 # ------------------------------------------------------------
-# 9. Bastion Outbound - HTTPS
+# 9. Bastion Outbound - HTTPS (SSM)
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_egress_rule" "ssm_bastion_https" {
@@ -189,9 +189,8 @@ resource "aws_vpc_security_group_egress_rule" "ssm_bastion_https" {
   description = "HTTPS access to AWS Systems Manager"
 
   ip_protocol = "tcp"
-
-  from_port = 443
-  to_port   = 443
+  from_port   = 443
+  to_port     = 443
 
   cidr_ipv4 = "0.0.0.0/0"
 }
@@ -207,18 +206,34 @@ resource "aws_vpc_security_group_egress_rule" "ssm_bastion_mysql" {
   description = "MySQL access to Dev RDS"
 
   ip_protocol = "tcp"
-
-  from_port = 3306
-  to_port   = 3306
+  from_port   = 3306
+  to_port     = 3306
 
   referenced_security_group_id = local.ssm_bastion_mysql_sg
 }
 
 
 # ------------------------------------------------------------
-# 11. RDS MySQL Inbound from SSM Bastion
+# 11. Bastion Outbound - PostgreSQL
+# ------------------------------------------------------------
+
+resource "aws_vpc_security_group_egress_rule" "ssm_bastion_postgres" {
+  security_group_id = aws_security_group.ssm_bastion.id
+
+  description = "PostgreSQL access to Dev RDS"
+
+  ip_protocol = "tcp"
+  from_port   = 5432
+  to_port     = 5432
+
+  referenced_security_group_id = local.ssm_bastion_postgres_sg
+}
+
+
+# ------------------------------------------------------------
+# 12. RDS MySQL Inbound from Bastion
 #
-# 기존 Backend / Catalog Sync 접근 규칙 유지
+# Existing Backend and Catalog Sync rules remain unchanged.
 # ------------------------------------------------------------
 
 resource "aws_vpc_security_group_ingress_rule" "mysql_from_ssm_bastion" {
@@ -227,21 +242,42 @@ resource "aws_vpc_security_group_ingress_rule" "mysql_from_ssm_bastion" {
   description = "Allow MySQL access from Dev SSM Bastion"
 
   ip_protocol = "tcp"
-
-  from_port = 3306
-  to_port   = 3306
+  from_port   = 3306
+  to_port     = 3306
 
   referenced_security_group_id = aws_security_group.ssm_bastion.id
 }
 
 
 # ------------------------------------------------------------
-# 12. EC2 Instance
+# 13. RDS PostgreSQL Inbound from Bastion
 #
-# Public Subnet:
-# - SSM HTTPS 통신을 위한 인터넷 경로
-# - SSH Key 불필요
-# - Inbound 포트 없음
+# Existing AI and Catalog access rules remain unchanged.
+# ------------------------------------------------------------
+
+resource "aws_vpc_security_group_ingress_rule" "postgres_from_ssm_bastion" {
+  security_group_id = local.ssm_bastion_postgres_sg
+
+  description = "Allow PostgreSQL access from Dev SSM Bastion"
+
+  ip_protocol = "tcp"
+  from_port   = 5432
+  to_port     = 5432
+
+  referenced_security_group_id = aws_security_group.ssm_bastion.id
+}
+
+
+# ------------------------------------------------------------
+# 14. Bastion EC2
+#
+# - Amazon Linux 2023
+# - t3.micro
+# - Public Subnet
+# - Public IPv4 for outbound HTTPS
+# - No SSH key
+# - IMDSv2 required
+# - Encrypted gp3 root volume
 # ------------------------------------------------------------
 
 resource "aws_instance" "ssm_bastion" {
@@ -276,23 +312,27 @@ resource "aws_instance" "ssm_bastion" {
 
   depends_on = [
     aws_iam_role_policy_attachment.ssm_bastion,
+
     aws_vpc_security_group_egress_rule.ssm_bastion_https,
     aws_vpc_security_group_egress_rule.ssm_bastion_mysql,
-    aws_vpc_security_group_ingress_rule.mysql_from_ssm_bastion
+    aws_vpc_security_group_egress_rule.ssm_bastion_postgres,
+
+    aws_vpc_security_group_ingress_rule.mysql_from_ssm_bastion,
+    aws_vpc_security_group_ingress_rule.postgres_from_ssm_bastion
   ]
 }
 
 
 # ------------------------------------------------------------
-# 13. Outputs
+# 15. Outputs
 # ------------------------------------------------------------
 
 output "ssm_bastion_instance_id" {
-  description = "EC2 Instance ID for SSM port forwarding"
+  description = "SSM Bastion EC2 Instance ID"
   value       = aws_instance.ssm_bastion.id
 }
 
 output "ssm_bastion_security_group_id" {
-  description = "Security Group ID of SSM Bastion"
+  description = "SSM Bastion Security Group ID"
   value       = aws_security_group.ssm_bastion.id
 }
