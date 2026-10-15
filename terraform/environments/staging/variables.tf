@@ -137,3 +137,14 @@ variable "app_secret_parameters" {
   type        = map(map(string))
   default     = {}
 }
+
+variable "v1_staging_migration_network" {
+  description = "V1 Staging MySQL을 DMS로 복제하기 위한 기존 네트워크 정보"
+  type = object({
+    vpc_id            = string
+    vpc_cidr          = string
+    route_table_id    = string
+    security_group_id = string
+    mysql_private_ip  = string
+  })
+}
