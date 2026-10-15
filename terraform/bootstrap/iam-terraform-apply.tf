@@ -195,6 +195,25 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     resources = ["*"]
   }
 
+  # Staging 마이그레이션에서만 V1·V2 VPC Peering을 관리합니다.
+  dynamic "statement" {
+    for_each = each.key == "staging" ? [1] : []
+
+    content {
+      sid    = "ManageStagingMigrationVpcPeering"
+      effect = "Allow"
+
+      actions = [
+        "ec2:CreateVpcPeeringConnection",
+        "ec2:AcceptVpcPeeringConnection",
+        "ec2:DeleteVpcPeeringConnection",
+        "ec2:ModifyVpcPeeringConnectionOptions"
+      ]
+
+      resources = ["*"]
+    }
+  }
+
   # Catalog S3 Bucket 생성 및 설정
   statement {
     sid    = "ManageEnvironmentCatalogBuckets"
