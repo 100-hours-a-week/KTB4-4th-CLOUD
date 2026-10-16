@@ -280,6 +280,12 @@ resource "aws_instance" "ssm_bastion" {
     Purpose = "SSM-RDS-PortForwarding"
   }
 
+  # Prevent unintended EC2 replacement when a newer AMI is released.
+  # AMI upgrades must be performed as a separate maintenance task.
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.ssm_bastion,
 
