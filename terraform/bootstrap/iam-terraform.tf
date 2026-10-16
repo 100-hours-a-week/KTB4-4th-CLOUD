@@ -123,7 +123,6 @@ resource "aws_iam_role" "terraform_github" {
 data "aws_iam_policy_document" "terraform_state" {
   for_each = local.terraform_roles
 
-  # S3 State 객체 조회
   statement {
     sid       = "ListEnvironmentStateObjects"
     effect    = "Allow"
@@ -144,7 +143,6 @@ data "aws_iam_policy_document" "terraform_state" {
     }
   }
 
-  # Terraform State 읽기
   statement {
     sid     = "ReadEnvironmentState"
     effect  = "Allow"
@@ -156,7 +154,6 @@ data "aws_iam_policy_document" "terraform_state" {
     ]
   }
 
-  # Terraform State 쓰기: Apply Role만
   dynamic "statement" {
     for_each = each.value.can_write_state ? [1] : []
 
@@ -172,7 +169,6 @@ data "aws_iam_policy_document" "terraform_state" {
     }
   }
 
-  # S3 Native State Lock
   dynamic "statement" {
     for_each = each.value.can_lock_state ? [1] : []
 
@@ -225,13 +221,14 @@ data "aws_iam_policy_document" "terraform_shared_grafana" {
     resources = ["*"]
   }
 
-  # 생성된 Workspace 관리
+  # 생성된 Workspace 관리 및 설정 조회
   statement {
     sid    = "ManageGrafanaWorkspace"
     effect = "Allow"
 
     actions = [
       "grafana:DescribeWorkspace",
+      "grafana:DescribeWorkspaceConfiguration",
       "grafana:UpdateWorkspace",
       "grafana:DeleteWorkspace",
       "grafana:TagResource",
@@ -245,7 +242,6 @@ data "aws_iam_policy_document" "terraform_shared_grafana" {
   }
 }
 
-# Shared Apply Role에만 Grafana 정책 연결
 resource "aws_iam_role_policy" "terraform_shared_grafana" {
   name   = "TerraformSharedGrafana"
   role   = aws_iam_role.terraform_github["shared"].id
@@ -320,14 +316,10 @@ resource "aws_iam_role_policy" "terraform_shared_grafana_iam" {
 
 # --------------------------------------------------
 # Shared Terraform - Grafana IAM Identity Center Access
-#
-# Allow Shared Terraform to query IAM Identity Center
-# registered regions and create the managed application.
 # --------------------------------------------------
 
 data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
 
-  # IAM Identity Center 등록 리전 조회
   statement {
     sid    = "DescribeGrafanaSSORegions"
     effect = "Allow"
@@ -339,8 +331,8 @@ data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
     resources = ["*"]
   }
 
-  # Grafana 관리형 애플리케이션 인스턴스 생성
-  # Resource ARN 제한에 따른 implicitDeny 여부 진단
+  # Workspace 생성 과정의 SSO 관리형 애플리케이션 생성 권한
+  # 현재 Resource 범위 문제 진단을 위해 "*" 사용
   statement {
     sid    = "CreateGrafanaManagedApplication"
     effect = "Allow"
