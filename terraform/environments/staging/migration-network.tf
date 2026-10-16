@@ -1,4 +1,4 @@
-# V1 Staging EC2 MySQL과 V2 Staging DMS가 Private IP로 통신하도록 VPC를 연결합니다.
+# V1 Staging EC2와 V2 Staging 마이그레이션 리소스가 Private IP로 통신하도록 VPC를 연결합니다.
 resource "aws_vpc_peering_connection" "v1_staging" {
   vpc_id      = module.v2.vpc_id
   peer_vpc_id = var.v1_staging_migration_network.vpc_id
@@ -10,14 +10,14 @@ resource "aws_vpc_peering_connection" "v1_staging" {
   }
 }
 
-# V2 DB 서브넷의 DMS가 V1 Staging 네트워크로 요청을 보낼 수 있게 합니다.
+# V2 DB 서브넷과 V1 Staging 네트워크가 통신할 수 있게 합니다.
 resource "aws_route" "v2_db_to_v1_staging" {
   route_table_id            = module.v2.db_route_table_id
   destination_cidr_block    = var.v1_staging_migration_network.vpc_cidr
   vpc_peering_connection_id = aws_vpc_peering_connection.v1_staging.id
 }
 
-# V1 Staging EC2가 DMS 응답을 V2 VPC로 돌려보낼 수 있게 합니다.
+# V1 Staging EC2가 V2 VPC로 요청과 응답을 전달할 수 있게 합니다.
 resource "aws_route" "v1_staging_to_v2" {
   route_table_id            = var.v1_staging_migration_network.route_table_id
   destination_cidr_block    = "10.1.0.0/16"
@@ -63,6 +63,18 @@ resource "aws_vpc_security_group_ingress_rule" "v2_mysql_from_dms" {
   to_port                      = 3306
   ip_protocol                  = "tcp"
   description                  = "V2 staging DMS writes V2 staging MySQL"
+}
+
+# V1 Staging EC2에서 생성한 PostgreSQL Dump를 V2 Staging RDS에 복원할 수 있게 합니다.
+resource "aws_vpc_security_group_ingress_rule" "v2_postgres_from_v1_staging" {
+  security_group_id            = module.v2.postgres_security_group_id
+  referenced_security_group_id = var.v1_staging_migration_network.security_group_id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  description                  = "V1 staging EC2 restores PostgreSQL dump to V2 staging RDS"
+
+  depends_on = [aws_vpc_peering_connection.v1_staging]
 }
 
 output "dms_network" {
