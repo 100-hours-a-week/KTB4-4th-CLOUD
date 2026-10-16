@@ -26,6 +26,11 @@ output "db_subnet_ids" {
   value = local.db_subnet_ids
 }
 
+output "db_route_table_id" {
+  description = "DB 서브넷이 사용하는 Route Table ID"
+  value       = aws_route_table.db.id
+}
+
 output "ecs_security_group_ids" {
   value = {
     fe = aws_security_group.fe.id

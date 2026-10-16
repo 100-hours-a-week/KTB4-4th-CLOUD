@@ -4,6 +4,15 @@
 
 environment = "staging"
 
+# V1 Staging EC2 MySQL과 V2 Staging DMS 사이의 전용 네트워크 연결 정보
+v1_staging_migration_network = {
+  vpc_id            = "vpc-076d38543cfa2ed9c"
+  vpc_cidr          = "10.0.0.0/16"
+  route_table_id    = "rtb-0d966016f4dab5171"
+  security_group_id = "sg-08f54201fddf75ac8"
+  mysql_private_ip  = "10.0.14.126"
+}
+
 public_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.48.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.49.0/24" }

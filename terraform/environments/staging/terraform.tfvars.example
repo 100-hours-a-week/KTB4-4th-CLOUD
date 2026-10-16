@@ -1,4 +1,13 @@
 environment = "staging"
+
+v1_staging_migration_network = {
+  vpc_id            = "vpc-xxxxxxxxxxxxxxxxx"
+  vpc_cidr          = "10.0.0.0/16"
+  route_table_id    = "rtb-xxxxxxxxxxxxxxxxx"
+  security_group_id = "sg-xxxxxxxxxxxxxxxxx"
+  mysql_private_ip  = "10.0.0.10"
+}
+
 public_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.48.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.49.0/24" }
