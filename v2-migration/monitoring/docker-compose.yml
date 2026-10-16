@@ -1,0 +1,74 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: needu-prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-remote-write-receiver"
+      - "--storage.tsdb.retention.time=7d"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.5
+    container_name: needu-loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: needu-grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    environment:
+      # Grafana 관리자 계정
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+
+      # AWS SSO Profile
+      AWS_PROFILE: ${AWS_PROFILE}
+      AWS_SDK_LOAD_CONFIG: "true"
+      AWS_EC2_METADATA_DISABLED: "true"
+
+      # AWS 설정 및 인증 파일 경로
+      AWS_CONFIG_FILE: /usr/share/grafana/.aws/config
+      AWS_SHARED_CREDENTIALS_FILE: /usr/share/grafana/.aws/credentials
+
+      # AWS SSO 캐시 탐색 경로
+      HOME: /usr/share/grafana
+
+    volumes:
+      # Grafana 데이터 영구 저장
+      - grafana-data:/var/lib/grafana
+
+      # Grafana 데이터 소스 및 대시보드 Provisioning 설정
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+      # Grafana 대시보드 JSON
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+
+      # MacBook AWS 설정 및 SSO 캐시 연결
+      - ${HOME}/.aws:/usr/share/grafana/.aws:ro
+
+    depends_on:
+      - prometheus
+      - loki
+
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:

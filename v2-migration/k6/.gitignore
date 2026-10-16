@@ -1,0 +1,3 @@
+data/users.json
+results/*
+!results/.gitkeep
