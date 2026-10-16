@@ -264,3 +264,56 @@ output "terraform_github_role_arns" {
     key => role.arn
   }
 }
+
+# --------------------------------------------------
+# Shared Terraform - Grafana Workspace IAM Role
+# --------------------------------------------------
+
+data "aws_iam_policy_document" "terraform_shared_grafana_iam" {
+  statement {
+    sid    = "ManageGrafanaWorkspaceRole"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole",
+      "iam:GetRole",
+      "iam:DeleteRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:ListRoleTags",
+      "iam:ListAttachedRolePolicies",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-v2-grafana-workspace"
+    ]
+  }
+
+  statement {
+    sid    = "PassGrafanaWorkspaceRole"
+    effect = "Allow"
+
+    actions = [
+      "iam:PassRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-v2-grafana-workspace"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["grafana.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_shared_grafana_iam" {
+  name   = "TerraformSharedGrafanaIAM"
+  role   = aws_iam_role.terraform_github["shared"].id
+  policy = data.aws_iam_policy_document.terraform_shared_grafana_iam.json
+}
