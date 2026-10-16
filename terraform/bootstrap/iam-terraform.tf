@@ -321,12 +321,13 @@ resource "aws_iam_role_policy" "terraform_shared_grafana_iam" {
 # --------------------------------------------------
 # Shared Terraform - Grafana IAM Identity Center Access
 #
-# Issue #108:
 # Allow Shared Terraform to query IAM Identity Center
-# registered regions during Grafana Workspace creation.
+# registered regions and create a managed application
+# instance during Grafana Workspace creation.
 # --------------------------------------------------
 
 data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
+  # IAM Identity Center 등록 리전 조회
   statement {
     sid    = "DescribeGrafanaSSORegions"
     effect = "Allow"
@@ -336,6 +337,21 @@ data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
     ]
 
     resources = ["*"]
+  }
+
+  # Grafana 관리형 애플리케이션 인스턴스 생성
+  statement {
+    sid    = "CreateGrafanaManagedApplication"
+    effect = "Allow"
+
+    actions = [
+      "sso:CreateManagedApplicationInstance"
+    ]
+
+    resources = [
+      "arn:aws:sso:::instance/ssoins-723071b816ac0655",
+      "arn:aws:sso::aws:applicationProvider/grafana"
+    ]
   }
 }
 
