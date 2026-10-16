@@ -317,3 +317,30 @@ resource "aws_iam_role_policy" "terraform_shared_grafana_iam" {
   role   = aws_iam_role.terraform_github["shared"].id
   policy = data.aws_iam_policy_document.terraform_shared_grafana_iam.json
 }
+
+# --------------------------------------------------
+# Shared Terraform - Grafana IAM Identity Center Access
+#
+# Issue #108:
+# Allow Shared Terraform to query IAM Identity Center
+# registered regions during Grafana Workspace creation.
+# --------------------------------------------------
+
+data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
+  statement {
+    sid    = "DescribeGrafanaSSORegions"
+    effect = "Allow"
+
+    actions = [
+      "sso:DescribeRegisteredRegions"
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_shared_grafana_sso" {
+  name   = "TerraformSharedGrafanaSSO"
+  role   = aws_iam_role.terraform_github["shared"].id
+  policy = data.aws_iam_policy_document.terraform_shared_grafana_sso.json
+}
