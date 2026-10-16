@@ -1,4 +1,3 @@
-
 locals {
   terraform_github_repository = "100-hours-a-week/KTB4-4th-CLOUD"
 
@@ -76,6 +75,7 @@ data "aws_iam_policy_document" "terraform_github_trust" {
 
     principals {
       type = "Federated"
+
       identifiers = [
         data.aws_iam_openid_connect_provider.github_actions_terraform.arn
       ]
@@ -86,9 +86,11 @@ data "aws_iam_policy_document" "terraform_github_trust" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
+
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
+
       values = [
         "repo:100-hours-a-week@167328634/KTB4-4th-CLOUD@1344657749:environment:${each.value.environment}"
       ]
@@ -131,6 +133,7 @@ data "aws_iam_policy_document" "terraform_state" {
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
+
       values = concat(
         each.value.state_keys,
         [
@@ -203,6 +206,51 @@ resource "aws_iam_role_policy" "terraform_state" {
   policy = data.aws_iam_policy_document.terraform_state[each.key].json
 }
 
+# --------------------------------------------------
+# Shared Terraform - Amazon Managed Grafana
+# --------------------------------------------------
+
+data "aws_iam_policy_document" "terraform_shared_grafana" {
+
+  # Workspace 생성 및 생성 시 태깅
+  statement {
+    sid    = "CreateGrafanaWorkspace"
+    effect = "Allow"
+
+    actions = [
+      "grafana:CreateWorkspace",
+      "grafana:TagResource"
+    ]
+
+    resources = ["*"]
+  }
+
+  # 생성된 Workspace 관리
+  statement {
+    sid    = "ManageGrafanaWorkspace"
+    effect = "Allow"
+
+    actions = [
+      "grafana:DescribeWorkspace",
+      "grafana:UpdateWorkspace",
+      "grafana:DeleteWorkspace",
+      "grafana:TagResource",
+      "grafana:UntagResource",
+      "grafana:ListTagsForResource"
+    ]
+
+    resources = [
+      "arn:aws:grafana:ap-northeast-2:${data.aws_caller_identity.current.account_id}:/workspaces/*"
+    ]
+  }
+}
+
+# Shared Apply Role에만 Grafana 정책 연결
+resource "aws_iam_role_policy" "terraform_shared_grafana" {
+  name   = "TerraformSharedGrafana"
+  role   = aws_iam_role.terraform_github["shared"].id
+  policy = data.aws_iam_policy_document.terraform_shared_grafana.json
+}
 
 # --------------------------------------------------
 # Outputs
