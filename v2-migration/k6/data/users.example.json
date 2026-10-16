@@ -1,3 +1,7 @@
 [
-  { "token": "REPLACE_WITH_JWT_01", "friendUserId": "101", "giftUserId": "201" }
+  {
+    "token": "REPLACE_WITH_JWT",
+    "friendUserId": "60",
+    "giftUserId": "60"
+  }
 ]
