@@ -1,20 +1,16 @@
+
 locals {
   terraform_github_repository = "100-hours-a-week/KTB4-4th-CLOUD"
 
-  terraform_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+  terraform_github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
 
   terraform_state_bucket = "needu-terraform-state-${data.aws_caller_identity.current.account_id}"
 
-  terraform_roles = {
+  terraform_github_roles = {
     plan = {
-      name        = "NeedU-V2-Terraform-Plan"
-      environment = "terraform-plan"
-      state_keys = [
-        "shared/terraform.tfstate",
-        "v2/dev/terraform.tfstate",
-        "v2/staging/terraform.tfstate",
-        "v2/prod/terraform.tfstate"
-      ]
+      name            = "NeedU-V2-Terraform-Plan"
+      environment     = "terraform-plan"
+      state_keys      = ["shared/terraform.tfstate", "v2/dev/terraform.tfstate", "v2/staging/terraform.tfstate", "v2/prod/terraform.tfstate"]
       can_write_state = false
       can_lock_state  = true
     }
@@ -53,20 +49,16 @@ locals {
   }
 }
 
-# --------------------------------------------------
-# Existing GitHub Actions OIDC Provider
-# --------------------------------------------------
+# ============================================================
+# GitHub Actions OIDC
+# ============================================================
 
 data "aws_iam_openid_connect_provider" "github_actions_terraform" {
-  arn = local.terraform_oidc_provider_arn
+  arn = local.terraform_github_oidc_provider_arn
 }
 
-# --------------------------------------------------
-# GitHub Actions OIDC Trust Policy
-# --------------------------------------------------
-
 data "aws_iam_policy_document" "terraform_github_trust" {
-  for_each = local.terraform_roles
+  for_each = local.terraform_github_roles
 
   statement {
     sid     = "GitHubEnvironmentOnly"
@@ -75,7 +67,6 @@ data "aws_iam_policy_document" "terraform_github_trust" {
 
     principals {
       type = "Federated"
-
       identifiers = [
         data.aws_iam_openid_connect_provider.github_actions_terraform.arn
       ]
@@ -98,36 +89,39 @@ data "aws_iam_policy_document" "terraform_github_trust" {
   }
 }
 
-# --------------------------------------------------
-# Terraform IAM Roles
-# --------------------------------------------------
-
 resource "aws_iam_role" "terraform_github" {
-  for_each = local.terraform_roles
+  for_each = local.terraform_github_roles
 
   name               = each.value.name
   assume_role_policy = data.aws_iam_policy_document.terraform_github_trust[each.key].json
 
+  # 기존 IAM Role 태그 유지
   tags = {
-    Project     = "NeedU"
-    ManagedBy   = "Terraform"
-    Purpose     = "TerraformGitHubActions"
     Environment = each.key
+    ManagedBy   = "Terraform"
+    Project     = "NeedU"
+    Purpose     = "TerraformGitHubActions"
   }
 }
 
-# --------------------------------------------------
-# Terraform Remote State Access Policy
-# --------------------------------------------------
+# ============================================================
+# Terraform State S3 Access
+# ============================================================
 
 data "aws_iam_policy_document" "terraform_state" {
-  for_each = local.terraform_roles
+  for_each = local.terraform_github_roles
 
   statement {
-    sid       = "ListEnvironmentStateObjects"
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = ["arn:aws:s3:::${local.terraform_state_bucket}"]
+    sid    = "ListEnvironmentStateObjects"
+    effect = "Allow"
+
+    actions = [
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${local.terraform_state_bucket}"
+    ]
 
     condition {
       test     = "StringLike"
@@ -144,9 +138,12 @@ data "aws_iam_policy_document" "terraform_state" {
   }
 
   statement {
-    sid     = "ReadEnvironmentState"
-    effect  = "Allow"
-    actions = ["s3:GetObject"]
+    sid    = "ReadEnvironmentState"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject"
+    ]
 
     resources = [
       for key in each.value.state_keys :
@@ -158,9 +155,12 @@ data "aws_iam_policy_document" "terraform_state" {
     for_each = each.value.can_write_state ? [1] : []
 
     content {
-      sid     = "WriteEnvironmentState"
-      effect  = "Allow"
-      actions = ["s3:PutObject"]
+      sid    = "WriteEnvironmentState"
+      effect = "Allow"
+
+      actions = [
+        "s3:PutObject"
+      ]
 
       resources = [
         for key in each.value.state_keys :
@@ -190,25 +190,20 @@ data "aws_iam_policy_document" "terraform_state" {
   }
 }
 
-# --------------------------------------------------
-# Attach Remote State Policy
-# --------------------------------------------------
-
 resource "aws_iam_role_policy" "terraform_state" {
-  for_each = local.terraform_roles
+  for_each = local.terraform_github_roles
 
+  # 기존 정책 이름 유지 (교체 방지)
   name   = "TerraformEnvironmentState"
-  role   = aws_iam_role.terraform_github[each.key].id
+  role   = aws_iam_role.terraform_github[each.key].name
   policy = data.aws_iam_policy_document.terraform_state[each.key].json
 }
 
-# --------------------------------------------------
-# Shared Terraform - Amazon Managed Grafana
-# --------------------------------------------------
+# ============================================================
+# Shared Terraform Role - Grafana Workspace
+# ============================================================
 
 data "aws_iam_policy_document" "terraform_shared_grafana" {
-
-  # Workspace 생성 및 생성 시 태깅
   statement {
     sid    = "CreateGrafanaWorkspace"
     effect = "Allow"
@@ -221,7 +216,6 @@ data "aws_iam_policy_document" "terraform_shared_grafana" {
     resources = ["*"]
   }
 
-  # 생성된 Workspace 관리 및 설정 조회
   statement {
     sid    = "ManageGrafanaWorkspace"
     effect = "Allow"
@@ -244,26 +238,13 @@ data "aws_iam_policy_document" "terraform_shared_grafana" {
 
 resource "aws_iam_role_policy" "terraform_shared_grafana" {
   name   = "TerraformSharedGrafana"
-  role   = aws_iam_role.terraform_github["shared"].id
+  role   = aws_iam_role.terraform_github["shared"].name
   policy = data.aws_iam_policy_document.terraform_shared_grafana.json
 }
 
-# --------------------------------------------------
-# Outputs
-# --------------------------------------------------
-
-output "terraform_github_role_arns" {
-  description = "GitHub Actions Terraform IAM Role ARNs"
-
-  value = {
-    for key, role in aws_iam_role.terraform_github :
-    key => role.arn
-  }
-}
-
-# --------------------------------------------------
-# Shared Terraform - Grafana Workspace IAM Role
-# --------------------------------------------------
+# ============================================================
+# Shared Terraform Role - Grafana IAM
+# ============================================================
 
 data "aws_iam_policy_document" "terraform_shared_grafana_iam" {
   statement {
@@ -310,16 +291,15 @@ data "aws_iam_policy_document" "terraform_shared_grafana_iam" {
 
 resource "aws_iam_role_policy" "terraform_shared_grafana_iam" {
   name   = "TerraformSharedGrafanaIAM"
-  role   = aws_iam_role.terraform_github["shared"].id
+  role   = aws_iam_role.terraform_github["shared"].name
   policy = data.aws_iam_policy_document.terraform_shared_grafana_iam.json
 }
 
-# --------------------------------------------------
-# Shared Terraform - Grafana IAM Identity Center Access
-# --------------------------------------------------
+# ============================================================
+# Shared Terraform Role - Grafana IAM Identity Center
+# ============================================================
 
 data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
-
   statement {
     sid    = "DescribeGrafanaSSORegions"
     effect = "Allow"
@@ -331,8 +311,6 @@ data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
     resources = ["*"]
   }
 
-  # Workspace 생성 과정의 SSO 관리형 애플리케이션 생성 권한
-  # 현재 Resource 범위 문제 진단을 위해 "*" 사용
   statement {
     sid    = "CreateGrafanaManagedApplication"
     effect = "Allow"
@@ -347,6 +325,19 @@ data "aws_iam_policy_document" "terraform_shared_grafana_sso" {
 
 resource "aws_iam_role_policy" "terraform_shared_grafana_sso" {
   name   = "TerraformSharedGrafanaSSO"
-  role   = aws_iam_role.terraform_github["shared"].id
+  role   = aws_iam_role.terraform_github["shared"].name
   policy = data.aws_iam_policy_document.terraform_shared_grafana_sso.json
+}
+
+# ============================================================
+# Outputs
+# ============================================================
+
+output "terraform_github_role_arns" {
+  description = "Terraform GitHub Actions IAM Role ARNs"
+
+  value = {
+    for key, role in aws_iam_role.terraform_github :
+    key => role.arn
+  }
 }
