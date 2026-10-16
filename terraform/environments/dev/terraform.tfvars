@@ -106,14 +106,14 @@ task_memory = {
   ai       = 1024
 }
 
-task_desired_count = 1
+task_desired_count = 2
 
 # ==================================================
 # ECS Auto Scaling
 # ==================================================
 
-autoscaling_min = 1
-autoscaling_max = 2
+autoscaling_min = 2
+autoscaling_max = 4
 
 # ==================================================
 # Monitoring
