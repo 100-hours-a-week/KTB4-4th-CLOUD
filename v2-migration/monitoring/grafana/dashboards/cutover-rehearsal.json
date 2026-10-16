@@ -24,6 +24,1060 @@
   "panels": [
     {
       "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "V2 Staging — RDS PostgreSQL Read Latency",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-postgres"
+          },
+          "expression": "",
+          "id": "",
+          "label": "V2 PostgreSQL Read Latency",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "ReadLatency",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        }
+      ],
+      "title": "V2 Staging — RDS PostgreSQL Read Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "V2 Staging — RDS Write Latency",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-mysql"
+          },
+          "expression": "",
+          "id": "",
+          "label": "",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "WriteLatency",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-postgres"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "WriteLatency",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "default",
+          "sqlExpression": "",
+          "statistic": "Average"
+        }
+      ],
+      "title": "V2 Staging — RDS Write Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "V2 Staging — RDS Free Storage Space",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-mysql"
+          },
+          "expression": "",
+          "id": "",
+          "label": "Staging MySQL",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "FreeStorageSpace",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-postgres"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "Staging PostgreSQL",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "FreeStorageSpace",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        }
+      ],
+      "title": "V2 Staging — RDS Free Storage Space",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "V2 Staging — RDS CPU Utilization",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-mysql"
+          },
+          "expression": "",
+          "id": "",
+          "label": "Staging MySQL",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-postgres"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "Staging PostgreSQL\n",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        }
+      ],
+      "title": "V2 Staging — RDS CPU Utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "PostgreSQL — Database Connections (V1 / V2)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-postgres"
+          },
+          "expression": "",
+          "id": "",
+          "label": "V2 RDS PostgreSQL",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "DatabaseConnections",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {},
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "V1 PostgreSQL\n",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "PostgreSQLConnections",
+          "metricQueryType": 0,
+          "namespace": "NeedU/V1",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "default",
+          "sqlExpression": "",
+          "statistic": "Average"
+        }
+      ],
+      "title": "PostgreSQL — Database Connections (V1 / V2)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "MySQL — Database Connections (V1 / V2)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "DBInstanceIdentifier": "needu-staging-mysql"
+          },
+          "expression": "",
+          "id": "",
+          "label": "V2 RDS MySQL\n",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "DatabaseConnections",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {},
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "V1 EC2 MySQL",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "MySQLThreadsConnected",
+          "metricQueryType": 0,
+          "namespace": "NeedU/V1",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        }
+      ],
+      "title": "MySQL — Database Connections (V1 / V2)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "V2 Staging — ALB HTTP 5xx Error Rate",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "LoadBalancer": "app/needu-staging-alb/056f1191d3b56186"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "m1",
+          "label": "",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Sum"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "LoadBalancer": "app/needu-staging-alb/056f1191d3b56186"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "m2",
+          "label": "",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "RequestCount",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60s",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "default",
+          "sqlExpression": "",
+          "statistic": "Sum"
+        }
+      ],
+      "title": "V2 Staging — ALB HTTP 5xx Error Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "needu-cloudwatch"
+      },
+      "description": "V2 Staging — ALB Target Response Time p95",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "LoadBalancer": "app/needu-staging-alb/056f1191d3b56186"
+          },
+          "expression": "",
+          "id": "",
+          "label": "V2 ALB p95",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "TargetResponseTime",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "p95"
+        }
+      ],
+      "title": "V2 Staging — ALB Target Response Time p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
         "type": "prometheus",
         "uid": "needu-prometheus"
       },
@@ -87,7 +1141,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 64
       },
       "id": 8,
       "options": {
@@ -181,7 +1235,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 72
       },
       "id": 7,
       "options": {
@@ -215,7 +1269,7 @@
         "type": "cloudwatch",
         "uid": "needu-cloudwatch"
       },
-      "description": "V2 ALB Request Count",
+      "description": "V1 / V2 Staging — Request Rate (RPS)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -275,7 +1329,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 80
       },
       "id": 6,
       "options": {
@@ -302,24 +1356,67 @@
             "LoadBalancer": "app/needu-staging-alb/056f1191d3b56186"
           },
           "expression": "",
+          "hide": true,
           "id": "",
-          "label": "",
+          "label": "V2 Staging ALB",
           "logGroups": [],
           "matchExact": true,
           "metricEditorMode": 0,
           "metricName": "RequestCount",
           "metricQueryType": 0,
           "namespace": "AWS/ApplicationELB",
-          "period": "",
+          "period": "60",
           "queryLanguage": "CWLI",
           "queryMode": "Metrics",
           "refId": "A",
           "region": "ap-northeast-2",
           "sqlExpression": "",
           "statistic": "Sum"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {},
+          "expression": "fields @timestamp, @logStream\n| filter @logStream = \"access-i-0576742bcb4121640\"\n| stats count(*) / 60 as V1_Staging_RPS by bin(1m)",
+          "hide": false,
+          "id": "",
+          "label": "",
+          "logGroups": [
+            {
+              "accountId": "919551759796",
+              "arn": "arn:aws:logs:ap-northeast-2:919551759796:log-group:/needu/prod/nginx:*",
+              "name": "/needu/prod/nginx"
+            }
+          ],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "",
+          "metricQueryType": 0,
+          "namespace": "",
+          "period": "",
+          "queryLanguage": "CWLI",
+          "queryMode": "Logs",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average",
+          "statsGroups": ["bin(1m)"]
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "$A / 60",
+          "hide": false,
+          "refId": "C",
+          "type": "math"
         }
       ],
-      "title": "V2 ALB Request Count",
+      "title": "V1 / V2 Staging — Request Rate (RPS)",
       "type": "timeseries"
     },
     {
@@ -387,7 +1484,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 88
       },
       "id": 5,
       "options": {
@@ -433,9 +1530,7 @@
           "region": "ap-northeast-2",
           "sqlExpression": "",
           "statistic": "Average",
-          "statsGroups": [
-            "bin(1m)"
-          ]
+          "statsGroups": ["bin(1m)"]
         }
       ],
       "title": "V1 Nginx 4xx Errors",
@@ -506,7 +1601,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 96
       },
       "id": 4,
       "options": {
@@ -552,9 +1647,7 @@
           "region": "ap-northeast-2",
           "sqlExpression": "",
           "statistic": "Average",
-          "statsGroups": [
-            "bin(1m)"
-          ]
+          "statsGroups": ["bin(1m)"]
         }
       ],
       "title": "V1 Nginx Request Rate",
@@ -565,7 +1658,7 @@
         "type": "cloudwatch",
         "uid": "needu-cloudwatch"
       },
-      "description": "V1 Nginx 5xx Errors",
+      "description": "V1 / V2 Staging — HTTP 5xx Errors",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -625,7 +1718,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 104
       },
       "id": 3,
       "options": {
@@ -649,7 +1742,8 @@
             "uid": "needu-cloudwatch"
           },
           "dimensions": {},
-          "expression": "fields @timestamp, @message, @logStream\n| filter @logStream = \"access-i-0576742bcb4121640\"\n| parse @message /\"[^\"]*\" (?<status>[0-9]{3}) /\n| filter status like /^5[0-9][0-9]$/\n| stats count(*) as errors by bin(1m)",
+          "expression": "fields @timestamp, @message, @logStream\n| filter @logStream = \"access-i-0576742bcb4121640\"\n| parse @message /\"[^\"]*\" (?<status>[0-9]{3}) /\n| filter status like /^5[0-9][0-9]$/\n| stats count(*) as V1_5xx by bin(1m)",
+          "hide": false,
           "id": "",
           "label": "",
           "logGroups": [
@@ -671,12 +1765,62 @@
           "region": "ap-northeast-2",
           "sqlExpression": "",
           "statistic": "Average",
-          "statsGroups": [
-            "bin(1m)"
-          ]
+          "statsGroups": ["bin(1m)"]
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "LoadBalancer": "app/needu-staging-alb/056f1191d3b56186"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "V2 Target 5xx",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Sum"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "LoadBalancer": "app/needu-staging-alb/056f1191d3b56186"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "V2 ALB 5xx",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "HTTPCode_ELB_5XX_Count",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "C",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Sum"
         }
       ],
-      "title": "V1 Nginx 5xx Errors",
+      "title": "V1 / V2 Staging — HTTP 5xx Errors",
       "type": "timeseries"
     },
     {
@@ -684,7 +1828,7 @@
         "type": "cloudwatch",
         "uid": "needu-cloudwatch"
       },
-      "description": "V1 EC2 Network Traffic",
+      "description": "V1 V2 EC2 Network Traffic",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -744,7 +1888,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 112
       },
       "id": 2,
       "options": {
@@ -772,7 +1916,7 @@
           },
           "expression": "",
           "id": "",
-          "label": "Network In",
+          "label": "V1 Network In",
           "logGroups": [],
           "matchExact": true,
           "metricEditorMode": 0,
@@ -798,7 +1942,7 @@
           "expression": "",
           "hide": false,
           "id": "",
-          "label": "Network Out",
+          "label": "V1 Network Out",
           "logGroups": [],
           "matchExact": true,
           "metricEditorMode": 0,
@@ -812,9 +1956,63 @@
           "region": "ap-northeast-2",
           "sqlExpression": "",
           "statistic": "Sum"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "ClusterName": "needu-staging-cluster",
+            "ServiceName": "needu-staging-backend"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "V2 Network In",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "NetworkIn",
+          "metricQueryType": 0,
+          "namespace": "AWS/ECS",
+          "period": "",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "C",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Sum"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "ClusterName": "needu-staging-cluster",
+            "ServiceName": "needu-staging-backend"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "V2 Network Out",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "NetworkOut",
+          "metricQueryType": 0,
+          "namespace": "AWS/EC2",
+          "period": "",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "D",
+          "region": "default",
+          "sqlExpression": "",
+          "statistic": "Sum"
         }
       ],
-      "title": "V1 EC2 Network Traffic",
+      "title": "V1 V2 Network Traffic",
       "type": "timeseries"
     },
     {
@@ -881,7 +2079,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 120
       },
       "id": 1,
       "options": {
@@ -923,9 +2121,63 @@
           "region": "ap-northeast-2",
           "sqlExpression": "",
           "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "ClusterName": "needu-staging-cluster",
+            "ServiceName": "needu-staging-backend"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/EC2",
+          "period": "",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "sqlExpression": "",
+          "statistic": "Average"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "needu-cloudwatch"
+          },
+          "dimensions": {
+            "ClusterName": "needu-staging-cluster",
+            "ServiceName": "needu-staging-ai"
+          },
+          "expression": "",
+          "hide": false,
+          "id": "",
+          "label": "",
+          "logGroups": [],
+          "matchExact": true,
+          "metricEditorMode": 0,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/EC2",
+          "period": "",
+          "queryLanguage": "CWLI",
+          "queryMode": "Metrics",
+          "refId": "C",
+          "region": "default",
+          "sqlExpression": "",
+          "statistic": "Average"
         }
       ],
-      "title": "V1 EC2 CPU Utilization",
+      "title": "CPU Utilization — V1 / V2 Staging",
       "type": "timeseries"
     }
   ],
@@ -943,5 +2195,5 @@
   "timezone": "browser",
   "title": "NeedU V1-V2 Cutover Rehearsal",
   "uid": "c1476d19-ef66-4360-a031-dfa0bb282e13",
-  "version": 9
+  "version": 23
 }
