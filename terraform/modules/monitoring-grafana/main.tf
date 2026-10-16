@@ -41,7 +41,7 @@ resource "aws_iam_role_policy_attachment" "grafana_cloudwatch" {
 
 resource "aws_grafana_workspace" "main" {
   name        = var.workspace_name
-  description = "NeedU V2 integrated monitoring"
+  description = "NeedU V2 integrated monitoring - initial deployment"
 
   account_access_type      = "CURRENT_ACCOUNT"
   authentication_providers = ["AWS_SSO"]
