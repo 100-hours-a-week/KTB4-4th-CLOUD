@@ -29,6 +29,11 @@ locals {
     "iam:Get*",
     "iam:List*",
 
+    # Grafana Workspace 조회
+    "grafana:DescribeWorkspace",
+    "grafana:DescribeWorkspaceConfiguration",
+    "grafana:ListTagsForResource",
+
     # SSM Parameter 목록 조회
     "ssm:DescribeParameters",
 
@@ -98,7 +103,7 @@ data "aws_iam_policy_document" "terraform_read" {
 # Plan / Shared / Dev / Staging / Prod Role에
 # 공통 조회 정책 부여
 resource "aws_iam_role_policy" "terraform_read" {
-  for_each = local.terraform_roles
+  for_each = local.terraform_github_roles
 
   name   = "TerraformResourceRead"
   role   = aws_iam_role.terraform_github[each.key].id
