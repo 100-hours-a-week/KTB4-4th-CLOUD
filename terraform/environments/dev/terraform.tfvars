@@ -146,6 +146,7 @@ app_secret_parameters = {
     AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS = "/needu/v2/dev/backend/AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS"
     AI_SERVICE_TOKEN                    = "/needu/v2/dev/backend/AI_SERVICE_TOKEN"
     JWT_SECRET                          = "/needu/v2/dev/backend/JWT_SECRET"
+    KAKAO_ADMIN_KEY                     = "/needu/v2/dev/backend/KAKAO_ADMIN_KEY"
     KAKAO_CLIENT_SECRET                 = "/needu/v2/dev/backend/KAKAO_CLIENT_SECRET"
     KAKAO_FRIEND_REDIRECT_URI           = "/needu/v2/dev/backend/KAKAO_FRIEND_REDIRECT_URI"
     KAKAO_REDIRECT_URI                  = "/needu/v2/dev/backend/KAKAO_REDIRECT_URI"
