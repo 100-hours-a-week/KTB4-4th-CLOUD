@@ -146,5 +146,17 @@ variable "v1_staging_migration_network" {
     route_table_id    = string
     security_group_id = string
     mysql_private_ip  = string
+    app_private_ip    = string
   })
+}
+
+variable "staging_cutover_initial_target" {
+  description = "Initial target used only when the staging ALB cutover rules are first created"
+  type        = string
+  default     = "v1"
+
+  validation {
+    condition     = contains(["v1", "v2"], var.staging_cutover_initial_target)
+    error_message = "staging_cutover_initial_target must be either v1 or v2."
+  }
 }

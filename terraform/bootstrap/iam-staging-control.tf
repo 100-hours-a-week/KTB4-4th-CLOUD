@@ -128,6 +128,41 @@ data "aws_iam_policy_document" "staging_control" {
     resources = ["*"]
   }
 
+  # Staging ALB cutover workflows inspect target health before changing listener rules.
+  statement {
+    sid    = "ReadStagingLoadBalancerStatus"
+    effect = "Allow"
+
+    actions = [
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "elasticloadbalancing:DescribeRules",
+      "elasticloadbalancing:DescribeTags",
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeTargetHealth"
+    ]
+
+    resources = ["*"]
+  }
+
+  # Only the listener and listener rules that belong to the Staging ALB can be changed.
+  statement {
+    sid    = "ManageStagingALBCutoverRules"
+    effect = "Allow"
+
+    actions = [
+      "elasticloadbalancing:AddTags",
+      "elasticloadbalancing:CreateRule",
+      "elasticloadbalancing:DeleteRule",
+      "elasticloadbalancing:ModifyRule"
+    ]
+
+    resources = [
+      "arn:aws:elasticloadbalancing:ap-northeast-2:${data.aws_caller_identity.current.account_id}:listener/app/needu-staging-alb/*/*",
+      "arn:aws:elasticloadbalancing:ap-northeast-2:${data.aws_caller_identity.current.account_id}:listener-rule/app/needu-staging-alb/*/*/*"
+    ]
+  }
+
   # Cutover 공통 도메인의 V1/V2 연결 대상만 변경할 수 있다.
   statement {
     sid    = "ChangeStagingCutoverRecord"
@@ -179,6 +214,6 @@ resource "aws_iam_role_policy" "staging_control" {
 }
 
 output "staging_control_role_arn" {
-  description = "Staging ECS·RDS 실행 상태 및 Cutover DNS 제어용 GitHub Actions IAM Role ARN"
+  description = "Staging ECS, RDS, and ALB cutover control role for GitHub Actions"
   value       = aws_iam_role.staging_control.arn
 }

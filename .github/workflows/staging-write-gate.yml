@@ -1,0 +1,163 @@
+name: Staging Write Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Staging 쓰기 차단 상태"
+        required: true
+        type: choice
+        options: [status, enable, disable]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: staging-alb-control
+  cancel-in-progress: false
+
+jobs:
+  write-gate:
+    name: Write Gate ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    env:
+      AWS_REGION: ap-northeast-2
+      ALB_NAME: needu-staging-alb
+      METHOD_RULE_PRIORITY: "1"
+      CALLBACK_RULE_PRIORITY: "2"
+      GATE_TAG_VALUE: StagingMigrationWriteGate
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Staging-Control
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: staging-write-gate-${{ github.run_id }}
+
+      - name: Resolve HTTPS listener
+        id: listener
+        shell: bash
+        run: |
+          set -euo pipefail
+          alb_arn="$(aws elbv2 describe-load-balancers --names "$ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text)"
+          listener_arn="$(aws elbv2 describe-listeners --load-balancer-arn "$alb_arn" --query 'Listeners[?Port==`443`].ListenerArn | [0]' --output text)"
+          if [[ -z "$listener_arn" || "$listener_arn" == "None" ]]; then
+            echo "::error::HTTPS listener not found."
+            exit 1
+          fi
+          echo "listener_arn=$listener_arn" >> "$GITHUB_OUTPUT"
+
+      - name: Manage write gate
+        id: gate
+        shell: bash
+        env:
+          LISTENER_ARN: ${{ steps.listener.outputs.listener_arn }}
+        run: |
+          set -euo pipefail
+
+          find_rule_by_priority() {
+            aws elbv2 describe-rules --listener-arn "$LISTENER_ARN" --query "Rules[?Priority=='$1'].RuleArn | [0]" --output text
+          }
+          is_gate_rule() {
+            local rule_arn="$1"
+            [[ "$(aws elbv2 describe-tags --resource-arns "$rule_arn" --query "TagDescriptions[0].Tags[?Key=='Purpose'].Value | [0]" --output text)" == "$GATE_TAG_VALUE" ]]
+          }
+
+          method_rule_arn="$(find_rule_by_priority "$METHOD_RULE_PRIORITY")"
+          callback_rule_arn="$(find_rule_by_priority "$CALLBACK_RULE_PRIORITY")"
+
+          if [[ "${{ inputs.action }}" == "enable" ]]; then
+            for existing_rule in "$method_rule_arn" "$callback_rule_arn"; do
+              if [[ -n "$existing_rule" && "$existing_rule" != "None" ]] && ! is_gate_rule "$existing_rule"; then
+                echo "::error::Reserved Write Gate priority is already used: $existing_rule"
+                exit 1
+              fi
+            done
+
+            fixed_response_actions="$(jq -cn '[{Type:"fixed-response",FixedResponseConfig:{MessageBody:"{\"code\":\"MIGRATION_IN_PROGRESS\"}",StatusCode:"503",ContentType:"application/json"}}]')"
+
+            if [[ -z "$method_rule_arn" || "$method_rule_arn" == "None" ]]; then
+              method_conditions="$(jq -cn '[
+                {Field:"host-header",HostHeaderConfig:{Values:["*.needu.gift"]}},
+                {Field:"http-request-method",HttpRequestMethodConfig:{Values:["POST","PUT","PATCH","DELETE"]}}
+              ]')"
+              method_rule_arn="$(aws elbv2 create-rule \
+                --listener-arn "$LISTENER_ARN" \
+                --priority "$METHOD_RULE_PRIORITY" \
+                --conditions "$method_conditions" \
+                --actions "$fixed_response_actions" \
+                --tags "Key=Purpose,Value=$GATE_TAG_VALUE" \
+                --query 'Rules[0].RuleArn' --output text)"
+            fi
+
+            if [[ -z "$callback_rule_arn" || "$callback_rule_arn" == "None" ]]; then
+              callback_conditions="$(jq -cn '[
+                {Field:"host-header",HostHeaderConfig:{Values:["*.needu.gift"]}},
+                {Field:"path-pattern",PathPatternConfig:{Values:[
+                  "/api/v1/auth/csrf",
+                  "/api/v1/auth/kakao/*",
+                  "/api/v1/friends/kakao/*"
+                ]}}
+              ]')"
+              callback_rule_arn="$(aws elbv2 create-rule \
+                --listener-arn "$LISTENER_ARN" \
+                --priority "$CALLBACK_RULE_PRIORITY" \
+                --conditions "$callback_conditions" \
+                --actions "$fixed_response_actions" \
+                --tags "Key=Purpose,Value=$GATE_TAG_VALUE" \
+                --query 'Rules[0].RuleArn' --output text)"
+            fi
+          elif [[ "${{ inputs.action }}" == "disable" ]]; then
+            for gate_rule in "$method_rule_arn" "$callback_rule_arn"; do
+              if [[ -n "$gate_rule" && "$gate_rule" != "None" ]]; then
+                if ! is_gate_rule "$gate_rule"; then
+                  echo "::error::Refusing to delete a rule not owned by this workflow: $gate_rule"
+                  exit 1
+                fi
+                aws elbv2 delete-rule --rule-arn "$gate_rule"
+              fi
+            done
+          fi
+
+          rules_json="$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN")"
+          method_count="$(jq -r --arg priority "$METHOD_RULE_PRIORITY" '[.Rules[] | select(.Priority == $priority)] | length' <<<"$rules_json")"
+          callback_count="$(jq -r --arg priority "$CALLBACK_RULE_PRIORITY" '[.Rules[] | select(.Priority == $priority)] | length' <<<"$rules_json")"
+          if [[ "$method_count" == "1" && "$callback_count" == "1" ]]; then
+            method_rule_arn="$(find_rule_by_priority "$METHOD_RULE_PRIORITY")"
+            callback_rule_arn="$(find_rule_by_priority "$CALLBACK_RULE_PRIORITY")"
+            if is_gate_rule "$method_rule_arn" && is_gate_rule "$callback_rule_arn"; then
+              gate_status="enabled"
+            else
+              gate_status="conflict"
+            fi
+          elif [[ "$method_count" == "0" && "$callback_count" == "0" ]]; then
+            gate_status="disabled"
+          else
+            gate_status="partial"
+          fi
+
+          if [[ "${{ inputs.action }}" == "enable" && "$gate_status" != "enabled" ]]; then
+            echo "::error::Write Gate enable verification failed: $gate_status"
+            exit 1
+          fi
+          if [[ "${{ inputs.action }}" == "disable" && "$gate_status" != "disabled" ]]; then
+            echo "::error::Write Gate disable verification failed: $gate_status"
+            exit 1
+          fi
+          echo "status=$gate_status" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Staging Write Gate 결과"
+            echo
+            echo "- 실행자: @${{ github.actor }}"
+            echo "- 요청: \`${{ inputs.action }}\`"
+            echo "- 상태: \`${{ steps.gate.outputs.status || '확인 실패' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

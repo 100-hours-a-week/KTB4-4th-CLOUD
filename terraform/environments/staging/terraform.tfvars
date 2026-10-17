@@ -11,7 +11,11 @@ v1_staging_migration_network = {
   route_table_id    = "rtb-0d966016f4dab5171"
   security_group_id = "sg-08f54201fddf75ac8"
   mysql_private_ip  = "10.0.14.126"
+  app_private_ip    = "10.0.14.126"
 }
+
+# Preserve the current V2 traffic on the first apply. Runtime cutovers are managed by the workflow.
+staging_cutover_initial_target = "v2"
 
 public_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.48.0/24" }

@@ -81,6 +81,12 @@ resource "aws_lb_listener_rule" "api" {
       values = ["/api/v1/*"]
     }
   }
+
+  condition {
+    host_header {
+      values = [var.domain_name]
+    }
+  }
 }
 resource "aws_route53_record" "app" {
   count   = var.create_dns_record ? 1 : 0
