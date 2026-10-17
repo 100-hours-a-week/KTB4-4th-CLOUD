@@ -65,16 +65,12 @@ resource "aws_acm_certificate_validation" "environment" {
   )
 }
 
-# 최초에는 V1을 바라보고, 이후 연결 대상은 Cutover Workflow에서 전환한다.
+# staging.needu.gift permanently enters through the shared staging ALB.
+# V1/V2 switching is handled by ALB listener rules, not DNS updates.
 resource "aws_route53_record" "staging_cutover" {
   zone_id = data.aws_route53_zone.needu.zone_id
   name    = "staging.needu.gift"
   type    = "CNAME"
   ttl     = 60
-  records = ["v1.needu.gift"]
-
-  lifecycle {
-    # 리허설 중 Workflow가 변경한 V1/V2 연결 대상을 Terraform이 되돌리지 않는다.
-    ignore_changes = [records]
-  }
+  records = ["v2.needu.gift"]
 }

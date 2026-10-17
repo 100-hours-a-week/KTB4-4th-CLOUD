@@ -22,6 +22,11 @@ output "public_subnet_ids" {
   value = local.public_subnet_ids
 }
 
+output "public_route_table_id" {
+  description = "Public subnets route table ID"
+  value       = aws_route_table.public.id
+}
+
 output "db_subnet_ids" {
   value = local.db_subnet_ids
 }
@@ -29,6 +34,26 @@ output "db_subnet_ids" {
 output "db_route_table_id" {
   description = "DB 서브넷이 사용하는 Route Table ID"
   value       = aws_route_table.db.id
+}
+
+output "alb_security_group_id" {
+  description = "Application Load Balancer security group ID"
+  value       = aws_security_group.alb.id
+}
+
+output "https_listener_arn" {
+  description = "HTTPS listener ARN"
+  value       = aws_lb_listener.https.arn
+}
+
+output "frontend_target_group_arn" {
+  description = "Frontend target group ARN"
+  value       = aws_lb_target_group.fe.arn
+}
+
+output "backend_target_group_arn" {
+  description = "Backend target group ARN"
+  value       = aws_lb_target_group.be.arn
 }
 
 output "ecs_security_group_ids" {
