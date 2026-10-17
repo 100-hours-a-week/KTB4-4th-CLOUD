@@ -29,9 +29,10 @@ resource "aws_lb_target_group" "v1_staging" {
 }
 
 resource "aws_lb_target_group_attachment" "v1_staging" {
-  target_group_arn = aws_lb_target_group.v1_staging.arn
-  target_id        = var.v1_staging_migration_network.app_private_ip
-  port             = 443
+  target_group_arn  = aws_lb_target_group.v1_staging.arn
+  target_id         = var.v1_staging_migration_network.app_private_ip
+  port              = 443
+  availability_zone = "all"
 
   depends_on = [
     aws_route.v2_public_to_v1_staging,
