@@ -34,9 +34,9 @@ ecr_repository_urls = {
 
 # 최초 Task Definition 생성에 사용할 ECR 이미지 태그
 image_tags = {
-  frontend = "9d4001cb8698203eb781bf493d6eca8c7008d722"
-  backend  = "9dd8711bb29b80a98eef3ebde3df15ae7d9924f7"
-  ai       = "b60fb08c350c8076aa546f710566da5d631f89f5"
+  frontend = "v2-afd3be29f46bfa73ce7f3d13005b8552dcc2a7fa"
+  backend  = "v2-ef2543dbcb18b4edf826ffaaac42b83efd7f53d9"
+  ai       = "v2-c4c9b2471df60a368305289acf6002a9b521b67a"
 }
 
 mysql_engine_version     = "8.4.11"
