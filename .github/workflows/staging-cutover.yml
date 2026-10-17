@@ -1,4 +1,4 @@
-name: Staging Cutover
+name: Staging ALB Cutover
 
 on:
   workflow_dispatch:
@@ -7,30 +7,32 @@ on:
         description: "staging.needu.gift 연결 대상"
         required: true
         type: choice
-        options:
-          - v1
-          - v2
+        options: [v1, v2]
 
 permissions:
   contents: read
   id-token: write
 
-# Staging Runtime Control 및 Terraform Apply와 동시에 실행되지 않게 한다.
 concurrency:
-  group: terraform-apply-staging
+  group: staging-alb-control
   cancel-in-progress: false
 
 jobs:
   cutover:
-    name: Switch staging.needu.gift to ${{ inputs.target }}
+    name: Switch staging ALB to ${{ inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: staging
-
     env:
       AWS_REGION: ap-northeast-2
-      HOSTED_ZONE_ID: Z10258582M6TRCEOCUBUW
-      RECORD_NAME: staging.needu.gift
+      ALB_NAME: needu-staging-alb
+      V1_TARGET_GROUP: needu-staging-v1
+      FRONTEND_TARGET_GROUP: needu-staging-fe
+      BACKEND_TARGET_GROUP: needu-staging-be
+      API_RULE_PRIORITY: "5"
+      FRONTEND_RULE_PRIORITY: "20"
+      WRITE_METHOD_RULE_PRIORITY: "1"
+      WRITE_CALLBACK_RULE_PRIORITY: "2"
 
     steps:
       - name: Configure AWS credentials
@@ -38,65 +40,133 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Staging-Control
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: staging-cutover-${{ github.run_id }}
+          role-session-name: staging-alb-cutover-${{ github.run_id }}
 
-      - name: Switch Staging target
-        id: switch
+      - name: Resolve cutover resources
+        id: resources
         shell: bash
         run: |
           set -euo pipefail
+          alb_arn="$(aws elbv2 describe-load-balancers --names "$ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text)"
+          listener_arn="$(aws elbv2 describe-listeners --load-balancer-arn "$alb_arn" --query 'Listeners[?Port==`443`].ListenerArn | [0]' --output text)"
+          rules_json="$(aws elbv2 describe-rules --listener-arn "$listener_arn")"
+          api_rule_arn="$(jq -r --arg priority "$API_RULE_PRIORITY" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+          frontend_rule_arn="$(jq -r --arg priority "$FRONTEND_RULE_PRIORITY" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+          v1_tg_arn="$(aws elbv2 describe-target-groups --names "$V1_TARGET_GROUP" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+          frontend_tg_arn="$(aws elbv2 describe-target-groups --names "$FRONTEND_TARGET_GROUP" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+          backend_tg_arn="$(aws elbv2 describe-target-groups --names "$BACKEND_TARGET_GROUP" --query 'TargetGroups[0].TargetGroupArn' --output text)"
 
-          case "${{ inputs.target }}" in
-            v1) target_domain="v1.needu.gift" ;;
-            v2) target_domain="v2.needu.gift" ;;
-            *)
-              echo "::error::지원하지 않는 전환 대상입니다: ${{ inputs.target }}"
+          for value in "$listener_arn" "$api_rule_arn" "$frontend_rule_arn" "$v1_tg_arn" "$frontend_tg_arn" "$backend_tg_arn"; do
+            if [[ -z "$value" || "$value" == "None" || "$value" == "null" ]]; then
+              echo "::error::Staging ALB cutover resource resolution failed."
               exit 1
-              ;;
-          esac
+            fi
+          done
 
-          change_id="$(aws route53 change-resource-record-sets \
-            --hosted-zone-id "$HOSTED_ZONE_ID" \
-            --change-batch "{
-              \"Comment\": \"Staging cutover to ${{ inputs.target }} by GitHub Actions\",
-              \"Changes\": [{
-                \"Action\": \"UPSERT\",
-                \"ResourceRecordSet\": {
-                  \"Name\": \"$RECORD_NAME\",
-                  \"Type\": \"CNAME\",
-                  \"TTL\": 60,
-                  \"ResourceRecords\": [{\"Value\": \"$target_domain\"}]
-                }
-              }]
-            }" \
-            --query 'ChangeInfo.Id' \
-            --output text)"
+          {
+            echo "listener_arn=$listener_arn"
+            echo "api_rule_arn=$api_rule_arn"
+            echo "frontend_rule_arn=$frontend_rule_arn"
+            echo "v1_tg_arn=$v1_tg_arn"
+            echo "frontend_tg_arn=$frontend_tg_arn"
+            echo "backend_tg_arn=$backend_tg_arn"
+          } >> "$GITHUB_OUTPUT"
 
-          aws route53 wait resource-record-sets-changed --id "$change_id"
-
-          current_target="$(aws route53 list-resource-record-sets \
-            --hosted-zone-id "$HOSTED_ZONE_ID" \
-            --query "ResourceRecordSets[?Name == '${RECORD_NAME}.'] | [0].ResourceRecords[0].Value" \
-            --output text)"
-
-          if [[ "$current_target" != "$target_domain" ]]; then
-            echo "::error::DNS 전환 결과가 예상과 다릅니다: $current_target"
+      - name: Verify write gate and target health
+        shell: bash
+        env:
+          LISTENER_ARN: ${{ steps.resources.outputs.listener_arn }}
+          V1_TG_ARN: ${{ steps.resources.outputs.v1_tg_arn }}
+          FRONTEND_TG_ARN: ${{ steps.resources.outputs.frontend_tg_arn }}
+          BACKEND_TG_ARN: ${{ steps.resources.outputs.backend_tg_arn }}
+        run: |
+          set -euo pipefail
+          rules_json="$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN")"
+          method_gate_arn="$(jq -r --arg priority "$WRITE_METHOD_RULE_PRIORITY" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+          callback_gate_arn="$(jq -r --arg priority "$WRITE_CALLBACK_RULE_PRIORITY" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+          if [[ -z "$method_gate_arn" || -z "$callback_gate_arn" ]]; then
+            echo "::error::Write Gate must be enabled before an ALB cutover."
             exit 1
           fi
+          for gate_rule_arn in "$method_gate_arn" "$callback_gate_arn"; do
+            gate_purpose="$(aws elbv2 describe-tags --resource-arns "$gate_rule_arn" --query "TagDescriptions[0].Tags[?Key=='Purpose'].Value | [0]" --output text)"
+            if [[ "$gate_purpose" != "StagingMigrationWriteGate" ]]; then
+              echo "::error::Reserved Write Gate priority is not owned by the Write Gate workflow."
+              exit 1
+            fi
+          done
 
-          echo "target_domain=$target_domain" >> "$GITHUB_OUTPUT"
-          echo "change_id=$change_id" >> "$GITHUB_OUTPUT"
+          if [[ "${{ inputs.target }}" == "v1" ]]; then
+            target_groups=("$V1_TG_ARN")
+          else
+            target_groups=("$FRONTEND_TG_ARN" "$BACKEND_TG_ARN")
+          fi
+          for target_group_arn in "${target_groups[@]}"; do
+            healthy_count="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --query "length(TargetHealthDescriptions[?TargetHealth.State=='healthy'])" --output text)"
+            if [[ "$healthy_count" -lt 1 ]]; then
+              echo "::error::No healthy targets in $target_group_arn"
+              exit 1
+            fi
+          done
+
+      - name: Switch API and frontend rules
+        id: switch
+        shell: bash
+        env:
+          API_RULE_ARN: ${{ steps.resources.outputs.api_rule_arn }}
+          FRONTEND_RULE_ARN: ${{ steps.resources.outputs.frontend_rule_arn }}
+          V1_TG_ARN: ${{ steps.resources.outputs.v1_tg_arn }}
+          FRONTEND_TG_ARN: ${{ steps.resources.outputs.frontend_tg_arn }}
+          BACKEND_TG_ARN: ${{ steps.resources.outputs.backend_tg_arn }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.target }}" == "v1" ]]; then
+            v1_weight=100
+            v2_weight=0
+          else
+            v1_weight=0
+            v2_weight=100
+          fi
+
+          api_actions="$(jq -cn --arg v1 "$V1_TG_ARN" --arg v2 "$BACKEND_TG_ARN" --argjson v1Weight "$v1_weight" --argjson v2Weight "$v2_weight" '[{Type:"forward",ForwardConfig:{TargetGroups:[{TargetGroupArn:$v1,Weight:$v1Weight},{TargetGroupArn:$v2,Weight:$v2Weight}]}}]')"
+          frontend_actions="$(jq -cn --arg v1 "$V1_TG_ARN" --arg v2 "$FRONTEND_TG_ARN" --argjson v1Weight "$v1_weight" --argjson v2Weight "$v2_weight" '[{Type:"forward",ForwardConfig:{TargetGroups:[{TargetGroupArn:$v1,Weight:$v1Weight},{TargetGroupArn:$v2,Weight:$v2Weight}]}}]')"
+
+          # Change API first while the write gate prevents cross-version writes.
+          aws elbv2 modify-rule --rule-arn "$API_RULE_ARN" --actions "$api_actions" >/dev/null
+          aws elbv2 modify-rule --rule-arn "$FRONTEND_RULE_ARN" --actions "$frontend_actions" >/dev/null
+          echo "switched_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Verify cutover weights
+        shell: bash
+        env:
+          API_RULE_ARN: ${{ steps.resources.outputs.api_rule_arn }}
+          FRONTEND_RULE_ARN: ${{ steps.resources.outputs.frontend_rule_arn }}
+        run: |
+          set -euo pipefail
+          expected_v1_weight=0
+          expected_v2_weight=100
+          if [[ "${{ inputs.target }}" == "v1" ]]; then
+            expected_v1_weight=100
+            expected_v2_weight=0
+          fi
+          for rule_arn in "$API_RULE_ARN" "$FRONTEND_RULE_ARN"; do
+            weights="$(aws elbv2 describe-rules --rule-arns "$rule_arn" --query 'Rules[0].Actions[0].ForwardConfig.TargetGroups[].Weight' --output text)"
+            if [[ "$weights" != "$expected_v1_weight"$'\t'"$expected_v2_weight" ]]; then
+              echo "::error::Unexpected target weights for $rule_arn: $weights"
+              exit 1
+            fi
+          done
 
       - name: Write summary
         if: always()
         shell: bash
         run: |
           {
-            echo "## Staging Cutover 결과"
+            echo "## Staging ALB Cutover 결과"
             echo
             echo "- 실행자: @${{ github.actor }}"
             echo "- 공통 도메인: \`staging.needu.gift\`"
             echo "- 선택한 환경: \`${{ inputs.target }}\`"
-            echo "- 연결 대상: \`${{ steps.switch.outputs.target_domain || '전환 실패' }}\`"
-            echo "- Route 53 변경 ID: \`${{ steps.switch.outputs.change_id || '없음' }}\`"
+            echo "- 전환 시각(UTC): \`${{ steps.switch.outputs.switched_at || '전환 실패' }}\`"
+            echo "- Write Gate: 전환 후에도 활성 상태 유지"
           } >> "$GITHUB_STEP_SUMMARY"
