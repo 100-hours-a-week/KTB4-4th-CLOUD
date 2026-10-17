@@ -141,6 +141,9 @@ jobs:
         env:
           API_RULE_ARN: ${{ steps.resources.outputs.api_rule_arn }}
           FRONTEND_RULE_ARN: ${{ steps.resources.outputs.frontend_rule_arn }}
+          V1_TG_ARN: ${{ steps.resources.outputs.v1_tg_arn }}
+          FRONTEND_TG_ARN: ${{ steps.resources.outputs.frontend_tg_arn }}
+          BACKEND_TG_ARN: ${{ steps.resources.outputs.backend_tg_arn }}
         run: |
           set -euo pipefail
           expected_v1_weight=0
@@ -149,13 +152,41 @@ jobs:
             expected_v1_weight=100
             expected_v2_weight=0
           fi
-          for rule_arn in "$API_RULE_ARN" "$FRONTEND_RULE_ARN"; do
-            weights="$(aws elbv2 describe-rules --rule-arns "$rule_arn" --query 'Rules[0].Actions[0].ForwardConfig.TargetGroups[].Weight' --output text)"
-            if [[ "$weights" != "$expected_v1_weight"$'\t'"$expected_v2_weight" ]]; then
-              echo "::error::Unexpected target weights for $rule_arn: $weights"
+
+          target_weight() {
+            local rule_json="$1"
+            local target_group_arn="$2"
+            jq -r --arg target_group_arn "$target_group_arn" '
+              .Rules[0].Actions[]
+              | select(.Type == "forward")
+              | .ForwardConfig.TargetGroups[]
+              | select(.TargetGroupArn == $target_group_arn)
+              | .Weight
+            ' <<<"$rule_json"
+          }
+
+          verify_rule_weights() {
+            local rule_name="$1"
+            local rule_arn="$2"
+            local v2_target_group_arn="$3"
+            local rule_json
+            local actual_v1_weight
+            local actual_v2_weight
+
+            rule_json="$(aws elbv2 describe-rules --rule-arns "$rule_arn" --output json)"
+            actual_v1_weight="$(target_weight "$rule_json" "$V1_TG_ARN")"
+            actual_v2_weight="$(target_weight "$rule_json" "$v2_target_group_arn")"
+
+            echo "$rule_name weights: V1=$actual_v1_weight, V2=$actual_v2_weight"
+
+            if [[ "$actual_v1_weight" != "$expected_v1_weight" || "$actual_v2_weight" != "$expected_v2_weight" ]]; then
+              echo "::error::$rule_name target weights are unexpected. Expected V1=$expected_v1_weight, V2=$expected_v2_weight; actual V1=${actual_v1_weight:-missing}, V2=${actual_v2_weight:-missing}."
               exit 1
             fi
-          done
+          }
+
+          verify_rule_weights "API rule" "$API_RULE_ARN" "$BACKEND_TG_ARN"
+          verify_rule_weights "Frontend rule" "$FRONTEND_RULE_ARN" "$FRONTEND_TG_ARN"
 
       - name: Write summary
         if: always()
