@@ -60,7 +60,7 @@ services:
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
 
       # MacBook AWS 설정 및 SSO 캐시 연결
-      - ${HOME}/.aws:/usr/share/grafana/.aws:ro
+      - ${HOME}/.aws:/usr/share/grafana/.aws:rw
 
     depends_on:
       - prometheus
