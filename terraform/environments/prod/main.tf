@@ -46,6 +46,7 @@ module "v2" {
   mysql_instance_class     = var.mysql_instance_class
   postgres_instance_class  = var.postgres_instance_class
   mysql_storage_gb         = var.mysql_storage_gb
+  mysql_parameter_group    = var.mysql_parameter_group
   postgres_storage_gb      = var.postgres_storage_gb
   redis_node_type          = var.redis_node_type
   redis_num_nodes          = var.redis_num_nodes

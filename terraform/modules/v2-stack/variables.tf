@@ -61,6 +61,17 @@ variable "mysql_storage_gb" {
   type = number
 }
 
+variable "mysql_parameter_group" {
+  description = "MySQL 전용 Parameter Group 설정. null이면 AWS 기본 Parameter Group을 사용합니다."
+  type = object({
+    name                      = string
+    description               = string
+    net_read_timeout_seconds  = number
+    net_write_timeout_seconds = number
+  })
+  default = null
+}
+
 variable "postgres_storage_gb" {
   type = number
 }
