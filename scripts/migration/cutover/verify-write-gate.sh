@@ -15,8 +15,8 @@ status_code="$(curl \
   --request POST \
   --header 'Content-Type: application/json' \
   --data '{}' \
-  --connect-timeout 10 \
-  --max-time 20 \
+  --connect-timeout 3 \
+  --max-time 5 \
   "$probe_url")"
 
 if [[ "$status_code" != "503" ]]; then
