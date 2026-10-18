@@ -36,7 +36,6 @@ resource "aws_lb_target_group_attachment" "v1_prod" {
   availability_zone = "all"
 
   depends_on = [
-    aws_route.v2_prod_public_to_v1,
     aws_vpc_security_group_egress_rule.prod_alb_to_v1_https,
     aws_vpc_security_group_ingress_rule.v1_prod_https_from_v2_alb
   ]

@@ -34,6 +34,7 @@ module "v2" {
 
   environment              = var.environment
   public_subnets           = var.public_subnets
+  additional_public_routes = { (var.v1_staging_migration_network.vpc_cidr) = aws_vpc_peering_connection.v1_staging.id }
   db_subnets               = var.db_subnets
   certificate_arn          = data.aws_ssm_parameter.certificate_arn.value
   hosted_zone_id           = var.hosted_zone_id

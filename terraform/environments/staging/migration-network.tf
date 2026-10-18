@@ -17,11 +17,13 @@ resource "aws_route" "v2_db_to_v1_staging" {
   vpc_peering_connection_id = aws_vpc_peering_connection.v1_staging.id
 }
 
-# The shared staging ALB is in the public subnets and reaches the V1 Nginx target over VPC peering.
-resource "aws_route" "v2_public_to_v1_staging" {
-  route_table_id            = module.v2.public_route_table_id
-  destination_cidr_block    = var.v1_staging_migration_network.vpc_cidr
-  vpc_peering_connection_id = aws_vpc_peering_connection.v1_staging.id
+# 기존 별도 Route의 상태만 해제하고, 같은 경로는 V2 네트워크 모듈의 Route Table에서 계속 관리합니다.
+removed {
+  from = aws_route.v2_public_to_v1_staging
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 # V1 Staging EC2가 V2 VPC로 요청과 응답을 전달할 수 있게 합니다.

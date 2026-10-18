@@ -4,6 +4,7 @@ v1_prod_migration_network = {
   peering_connection_id = "pcx-xxxxxxxxxxxxxxxxx"
   vpc_cidr              = "10.0.0.0/16"
   security_group_id     = "sg-xxxxxxxxxxxxxxxxx"
+  mysql_private_ip      = "10.0.0.10"
   app_private_ip        = "10.0.0.10"
 }
 
