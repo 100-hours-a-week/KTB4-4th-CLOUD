@@ -19,7 +19,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: prod-migration-control
+  group: prod-migration-preflight
   cancel-in-progress: false
 
 jobs:
@@ -49,7 +49,10 @@ jobs:
       V1_EIP: 13.124.155.10
       V1_INSTANCE_ID: i-071de18816cfae436
       DMS_TASK_ID: ${{ vars.MIGRATION_DMS_TASK_ID }}
-      # Do not set this to true without implementing actual MySQL/PG reconciliation.
+      DNS_PHASE: after
+      SSM_BASTION_INSTANCE_ID: i-0fc4a029b4d5b90ca
+      MYSQL_LOCAL_PORT: "23306"
+      POSTGRES_LOCAL_PORT: "25432"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -109,11 +112,56 @@ jobs:
         shell: bash
         run: bash scripts/migration/preflight/check-dms-prod.sh
 
-      - name: Require MySQL and PostgreSQL reconciliation integration
+      - name: Install database tunnel tools
+        id: tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo dpkg -i "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq default-mysql-client postgresql-client netcat-openbsd
+
+      - name: Resolve target database connection metadata
+        id: database-metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql_json="$(aws rds describe-db-instances --db-instance-identifier "$MYSQL_DB_IDENTIFIER" --query 'DBInstances[0]')"
+          postgres_json="$(aws rds describe-db-instances --db-instance-identifier "$POSTGRES_DB_IDENTIFIER" --query 'DBInstances[0]')"
+          mysql_secret="$(aws secretsmanager get-secret-value --secret-id "$(jq -r '.MasterUserSecret.SecretArn' <<<"$mysql_json")" --query SecretString --output text)"
+          postgres_secret="$(aws secretsmanager get-secret-value --secret-id "$(jq -r '.MasterUserSecret.SecretArn' <<<"$postgres_json")" --query SecretString --output text)"
+          mysql_password="$(jq -r '.password' <<<"$mysql_secret")"
+          postgres_password="$(jq -r '.password' <<<"$postgres_secret")"
+          echo "::add-mask::$mysql_password"
+          echo "::add-mask::$postgres_password"
+          {
+            echo "MYSQL_HOST=$(jq -r '.Endpoint.Address' <<<"$mysql_json")"
+            echo "MYSQL_USERNAME=$(jq -r '.username' <<<"$mysql_secret")"
+            echo "MYSQL_PASSWORD=$mysql_password"
+            echo "POSTGRES_HOST=$(jq -r '.Endpoint.Address' <<<"$postgres_json")"
+            echo "POSTGRES_USERNAME=$(jq -r '.username' <<<"$postgres_secret")"
+            echo "POSTGRES_PASSWORD=$postgres_password"
+          } >> "$GITHUB_ENV"
+
+      - name: Open target database tunnels
+        id: database-tunnel
+        shell: bash
+        run: bash scripts/migration/preflight/start-db-tunnel.sh
+
+      - name: Verify target database data and structure
         id: data
         continue-on-error: true
         shell: bash
         run: bash scripts/migration/preflight/check-data-prod.sh
+
+      - name: Close database tunnels
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/preflight-tunnel-pids" ]]; then
+            xargs kill < "$RUNNER_TEMP/preflight-tunnel-pids" 2>/dev/null || true
+          fi
 
       - name: Finalize checks and evidence
         id: finalize
@@ -128,11 +176,14 @@ jobs:
           RDS_STEP: ${{ steps.rds.outcome }}
           DMS_STEP: ${{ steps.dms.outcome }}
           DATA_STEP: ${{ steps.data.outcome }}
+          TOOLS_STEP: ${{ steps.tools.outcome }}
+          METADATA_STEP: ${{ steps.database-metadata.outcome }}
+          TUNNEL_STEP: ${{ steps.database-tunnel.outcome }}
         run: |
           set -euo pipefail
           file="$PREFLIGHT_RESULT_DIR/checks.tsv"
           touch "$file"
-          for item in "AWS:$AWS_STEP" "Account:$ACCOUNT_STEP" "DNS:$DNS_STEP" "ALB:$ALB_STEP" "ECS:$ECS_STEP" "RDS:$RDS_STEP" "DMS:$DMS_STEP" "Data reconciliation:$DATA_STEP"; do
+          for item in "AWS:$AWS_STEP" "Account:$ACCOUNT_STEP" "DNS:$DNS_STEP" "ALB:$ALB_STEP" "ECS:$ECS_STEP" "RDS:$RDS_STEP" "DMS:$DMS_STEP" "Database tools:$TOOLS_STEP" "Database metadata:$METADATA_STEP" "Database tunnel:$TUNNEL_STEP" "Data reconciliation:$DATA_STEP"; do
             name="${item%%:*}"
             outcome="${item#*:}"
             if [[ "$outcome" != success ]]; then
@@ -161,7 +212,7 @@ jobs:
             echo '```'
             cat "$file"
             echo '```'
-            echo 'This is not a Cutover approval; DB reconciliation must be implemented.'
+            echo 'This validates the target databases against DMS table statistics and the expected PostgreSQL catalog baseline.'
           } >> "$GITHUB_STEP_SUMMARY"
           test "$result" = PASS
 

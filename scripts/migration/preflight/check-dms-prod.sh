@@ -15,4 +15,5 @@ stats="$(aws dms describe-table-statistics --replication-task-arn "$arn" --outpu
 jq -e '(.TableStatistics|length)>0 and ([.TableStatistics[] | select((.ValidationFailedRecords // 0)>0 or (.ValidationPendingRecords // 0)>0 or (.ValidationSuspendedRecords // 0)>0 or (.TableState != "Table completed" and .TableState != "Table is being replicated"))] | length)==0' <<< "$stats" >/dev/null || fail DMS 'DMS validation errors/pending or tables not ready'
 # ValidationEnabled and CDC latency checks must be reviewed for the actual task before cutover.
 printf '%s' "$arn" > "$PREFLIGHT_RESULT_DIR/dms-task-arn.txt"
+printf '%s\n' "$stats" > "$PREFLIGHT_RESULT_DIR/dms.json"
 pass DMS "Prod DMS running; full-load 100%; table stats no pending/failed validation (CDC lag still requires review)"

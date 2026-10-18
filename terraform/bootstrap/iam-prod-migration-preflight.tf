@@ -65,6 +65,8 @@ resource "aws_iam_role_policy" "prod_migration_preflight" {
 
           "rds:DescribeDBInstances",
 
+          "ec2:DescribeAddresses",
+
           "ssm:DescribeInstanceInformation",
 
           "route53:ListHostedZones",
@@ -75,6 +77,27 @@ resource "aws_iam_role_policy" "prod_migration_preflight" {
         ]
 
         Resource = "*"
+      },
+      {
+        Sid      = "ReadProdRDSManagedSecrets"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = "arn:aws:secretsmanager:ap-northeast-2:919551759796:secret:rds!db-*"
+      },
+      {
+        Sid    = "OpenProdDatabaseTunnels"
+        Effect = "Allow"
+        Action = ["ssm:StartSession"]
+        Resource = [
+          "arn:aws:ec2:ap-northeast-2:919551759796:instance/i-0fc4a029b4d5b90ca",
+          "arn:aws:ssm:ap-northeast-2::document/AWS-StartPortForwardingSessionToRemoteHost"
+        ]
+      },
+      {
+        Sid      = "CloseOwnDatabaseTunnels"
+        Effect   = "Allow"
+        Action   = ["ssm:TerminateSession"]
+        Resource = "arn:aws:ssm:*:919551759796:session/*"
       }
     ]
   })
