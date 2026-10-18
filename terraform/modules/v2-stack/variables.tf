@@ -12,6 +12,12 @@ variable "public_subnets" {
   type = map(object({ az = string, cidr = string }))
 }
 
+variable "additional_public_routes" {
+  description = "환경별 Public Route Table에 추가할 CIDR별 VPC Peering 경로"
+  type        = map(string)
+  default     = {}
+}
+
 variable "db_subnets" {
   type = map(object({ az = string, cidr = string }))
 }

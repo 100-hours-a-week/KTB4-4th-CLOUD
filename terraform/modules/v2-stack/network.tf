@@ -28,10 +28,21 @@ resource "aws_subnet" "db" {
 }
 resource "aws_route_table" "public" {
   vpc_id = data.aws_vpc.selected.id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = data.aws_internet_gateway.selected.id
   }
+
+  dynamic "route" {
+    for_each = var.additional_public_routes
+
+    content {
+      cidr_block                = route.key
+      vpc_peering_connection_id = route.value
+    }
+  }
+
   tags = { Name = "needu-${var.environment}-public-rt" }
 }
 resource "aws_route_table_association" "public" {

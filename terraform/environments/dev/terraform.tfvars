@@ -161,15 +161,22 @@ app_secret_parameters = {
     WEB_PUSH_TTL                        = "/needu/v2/dev/backend/WEB_PUSH_TTL"
   }
   ai = {
-    EXTRACTION_MODEL_BASE_URL = "/needu/v2/dev/ai/EXTRACTION_MODEL_BASE_URL"
-    EXTRACTION_MODEL_NAME     = "/needu/v2/dev/ai/EXTRACTION_MODEL_NAME"
-    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/dev/ai/JUDGMENT_MODEL_BASE_URL"
-    JUDGMENT_MODEL_NAME       = "/needu/v2/dev/ai/JUDGMENT_MODEL_NAME"
-    OPENROUTER_API_KEY        = "/needu/v2/dev/ai/OPENROUTER_API_KEY"
-    RESPONSE_MODEL_BASE_URL   = "/needu/v2/dev/ai/RESPONSE_MODEL_BASE_URL"
-    RESPONSE_MODEL_NAME       = "/needu/v2/dev/ai/RESPONSE_MODEL_NAME"
-    SERVICE_TOKEN             = "/needu/v2/dev/ai/SERVICE_TOKEN"
-    UPSTAGE_API_KEY           = "/needu/v2/dev/ai/UPSTAGE_API_KEY"
+    EXTRACTION_MODEL_BASE_URL          = "/needu/v2/dev/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME              = "/needu/v2/dev/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL            = "/needu/v2/dev/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME                = "/needu/v2/dev/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY                 = "/needu/v2/dev/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL            = "/needu/v2/dev/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME                = "/needu/v2/dev/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN                      = "/needu/v2/dev/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY                    = "/needu/v2/dev/ai/UPSTAGE_API_KEY"
+    RUNPOD_API_KEY                     = "/needu/v2/dev/ai/RUNPOD_API_KEY"
+    RUNPOD_POD_NAME_PREFIX             = "/needu/v2/dev/ai/RUNPOD_POD_NAME_PREFIX"
+    MODEL_API_KEY                      = "/needu/v2/dev/ai/MODEL_API_KEY"
+    RESPONSE_FALLBACK_MODEL_BASE_URL   = "/needu/v2/dev/ai/RESPONSE_FALLBACK_MODEL_BASE_URL"
+    RESPONSE_FALLBACK_MODEL_NAME       = "/needu/v2/dev/ai/RESPONSE_FALLBACK_MODEL_NAME"
+    EXTRACTION_FALLBACK_MODEL_BASE_URL = "/needu/v2/dev/ai/EXTRACTION_FALLBACK_MODEL_BASE_URL"
+    EXTRACTION_FALLBACK_MODEL_NAME     = "/needu/v2/dev/ai/EXTRACTION_FALLBACK_MODEL_NAME"
   }
 }
 

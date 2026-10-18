@@ -144,6 +144,7 @@ variable "v1_prod_migration_network" {
     peering_connection_id = string
     vpc_cidr              = string
     security_group_id     = string
+    mysql_private_ip      = string
     app_private_ip        = string
   })
 }

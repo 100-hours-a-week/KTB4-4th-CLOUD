@@ -10,6 +10,7 @@ v1_prod_migration_network = {
   peering_connection_id = "pcx-054d267c5e20dcc78"
   vpc_cidr              = "10.0.0.0/16"
   security_group_id     = "sg-0ed5c197b7041c81d"
+  mysql_private_ip      = "10.0.5.11"
   app_private_ip        = "10.0.5.11"
 }
 
@@ -91,15 +92,22 @@ app_secret_parameters = {
     WEB_PUSH_TTL               = "/needu/v2/prod/backend/WEB_PUSH_TTL"
   }
   ai = {
-    EXTRACTION_MODEL_BASE_URL = "/needu/v2/prod/ai/EXTRACTION_MODEL_BASE_URL"
-    EXTRACTION_MODEL_NAME     = "/needu/v2/prod/ai/EXTRACTION_MODEL_NAME"
-    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/prod/ai/JUDGMENT_MODEL_BASE_URL"
-    JUDGMENT_MODEL_NAME       = "/needu/v2/prod/ai/JUDGMENT_MODEL_NAME"
-    OPENROUTER_API_KEY        = "/needu/v2/prod/ai/OPENROUTER_API_KEY"
-    RESPONSE_MODEL_BASE_URL   = "/needu/v2/prod/ai/RESPONSE_MODEL_BASE_URL"
-    RESPONSE_MODEL_NAME       = "/needu/v2/prod/ai/RESPONSE_MODEL_NAME"
-    SERVICE_TOKEN             = "/needu/v2/prod/ai/SERVICE_TOKEN"
-    UPSTAGE_API_KEY           = "/needu/v2/prod/ai/UPSTAGE_API_KEY"
+    EXTRACTION_MODEL_BASE_URL          = "/needu/v2/prod/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME              = "/needu/v2/prod/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL            = "/needu/v2/prod/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME                = "/needu/v2/prod/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY                 = "/needu/v2/prod/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL            = "/needu/v2/prod/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME                = "/needu/v2/prod/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN                      = "/needu/v2/prod/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY                    = "/needu/v2/prod/ai/UPSTAGE_API_KEY"
+    RUNPOD_API_KEY                     = "/needu/v2/prod/ai/RUNPOD_API_KEY"
+    RUNPOD_POD_NAME_PREFIX             = "/needu/v2/prod/ai/RUNPOD_POD_NAME_PREFIX"
+    MODEL_API_KEY                      = "/needu/v2/prod/ai/MODEL_API_KEY"
+    RESPONSE_FALLBACK_MODEL_BASE_URL   = "/needu/v2/prod/ai/RESPONSE_FALLBACK_MODEL_BASE_URL"
+    RESPONSE_FALLBACK_MODEL_NAME       = "/needu/v2/prod/ai/RESPONSE_FALLBACK_MODEL_NAME"
+    EXTRACTION_FALLBACK_MODEL_BASE_URL = "/needu/v2/prod/ai/EXTRACTION_FALLBACK_MODEL_BASE_URL"
+    EXTRACTION_FALLBACK_MODEL_NAME     = "/needu/v2/prod/ai/EXTRACTION_FALLBACK_MODEL_NAME"
   }
 }
 
