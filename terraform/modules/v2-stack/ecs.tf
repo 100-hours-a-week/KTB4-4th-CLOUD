@@ -308,7 +308,7 @@ resource "aws_ecs_service" "service" {
 # ==================================================
 
 resource "aws_appautoscaling_target" "ecs" {
-  for_each = var.environment == "staging" ? {} : local.services
+  for_each = contains(["staging", "prod"], var.environment) ? {} : local.services
 
   max_capacity = var.autoscaling_max
   min_capacity = var.autoscaling_min
@@ -319,9 +319,9 @@ resource "aws_appautoscaling_target" "ecs" {
   service_namespace  = "ecs"
 }
 
-# Staging은 Runtime Control Workflow가 최소 실행 수를 관리한다.
+# Staging과 Prod는 Runtime Control Workflow가 최소 실행 수를 관리한다.
 resource "aws_appautoscaling_target" "ecs_runtime_controlled" {
-  for_each = var.environment == "staging" ? local.services : {}
+  for_each = contains(["staging", "prod"], var.environment) ? local.services : {}
 
   max_capacity = var.autoscaling_max
   min_capacity = var.autoscaling_min
