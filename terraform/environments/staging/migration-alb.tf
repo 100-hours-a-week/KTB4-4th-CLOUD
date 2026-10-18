@@ -35,7 +35,6 @@ resource "aws_lb_target_group_attachment" "v1_staging" {
   availability_zone = "all"
 
   depends_on = [
-    aws_route.v2_public_to_v1_staging,
     aws_vpc_security_group_egress_rule.alb_to_v1_https,
     aws_vpc_security_group_ingress_rule.v1_https_from_v2_alb
   ]

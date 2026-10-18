@@ -1,8 +1,10 @@
-# V1과 V2가 이미 공유하는 VPC Peering을 통해 Prod ALB가 V1 Nginx에 접근합니다.
-resource "aws_route" "v2_prod_public_to_v1" {
-  route_table_id            = module.v2.public_route_table_id
-  destination_cidr_block    = var.v1_prod_migration_network.vpc_cidr
-  vpc_peering_connection_id = var.v1_prod_migration_network.peering_connection_id
+# 기존 별도 Route의 상태만 해제하고, 같은 경로는 V2 네트워크 모듈의 Route Table에서 계속 관리합니다.
+removed {
+  from = aws_route.v2_prod_public_to_v1
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "aws_vpc_security_group_egress_rule" "prod_alb_to_v1_https" {
