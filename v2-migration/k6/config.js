@@ -5,15 +5,15 @@ export const endpoints = [
   },
   {
     name: "friend-detail",
-    path: (u) => `/api/v1/friends/${encodeURIComponent(u.friendUserId)}`,
+    path: (user) => `/api/v1/friends/${user.friendUserId}`,
   },
   {
-    name: "personal",
+    name: "personal-recommendations",
     path: "/api/v1/users/me/personal-recommendations",
   },
   {
-    name: "gift",
-    path: (u) =>
-      `/api/v1/users/${encodeURIComponent(u.giftUserId)}/gift-recommendations?size=20`,
+    name: "gift-recommendations",
+    path: (user) =>
+      `/api/v1/users/${user.giftUserId}/gift-recommendations?size=20`,
   },
 ];

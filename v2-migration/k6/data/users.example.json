@@ -1,7 +1,22 @@
 [
-  {
-    "token": "REPLACE_WITH_JWT",
-    "friendUserId": "60",
-    "giftUserId": "60"
-  }
+  { "token": "REPLACE_WITH_JWT_59", "friendUserId": "60", "giftUserId": "60" },
+  { "token": "REPLACE_WITH_JWT_60", "friendUserId": "61", "giftUserId": "61" },
+  { "token": "REPLACE_WITH_JWT_61", "friendUserId": "62", "giftUserId": "62" },
+  { "token": "REPLACE_WITH_JWT_62", "friendUserId": "63", "giftUserId": "63" },
+  { "token": "REPLACE_WITH_JWT_63", "friendUserId": "64", "giftUserId": "64" },
+  { "token": "REPLACE_WITH_JWT_64", "friendUserId": "65", "giftUserId": "65" },
+  { "token": "REPLACE_WITH_JWT_65", "friendUserId": "66", "giftUserId": "66" },
+  { "token": "REPLACE_WITH_JWT_66", "friendUserId": "67", "giftUserId": "67" },
+  { "token": "REPLACE_WITH_JWT_67", "friendUserId": "68", "giftUserId": "68" },
+  { "token": "REPLACE_WITH_JWT_68", "friendUserId": "69", "giftUserId": "69" },
+  { "token": "REPLACE_WITH_JWT_69", "friendUserId": "70", "giftUserId": "70" },
+  { "token": "REPLACE_WITH_JWT_70", "friendUserId": "71", "giftUserId": "71" },
+  { "token": "REPLACE_WITH_JWT_71", "friendUserId": "72", "giftUserId": "72" },
+  { "token": "REPLACE_WITH_JWT_72", "friendUserId": "73", "giftUserId": "73" },
+  { "token": "REPLACE_WITH_JWT_73", "friendUserId": "74", "giftUserId": "74" },
+  { "token": "REPLACE_WITH_JWT_74", "friendUserId": "75", "giftUserId": "75" },
+  { "token": "REPLACE_WITH_JWT_75", "friendUserId": "76", "giftUserId": "76" },
+  { "token": "REPLACE_WITH_JWT_76", "friendUserId": "77", "giftUserId": "77" },
+  { "token": "REPLACE_WITH_JWT_77", "friendUserId": "78", "giftUserId": "78" },
+  { "token": "REPLACE_WITH_JWT_78", "friendUserId": "59", "giftUserId": "59" }
 ]

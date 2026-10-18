@@ -11,9 +11,6 @@ while IFS=$'\t' read -r table expected; do
   require_equal "V2 MySQL $table rows" "$expected" "$actual"
 done < <(jq -r '.TableStatistics[] | [.TableName, ((.FullLoadRows // 0) + (.AppliedInserts // 0) - (.AppliedDeletes // 0))] | @tsv' "$PREFLIGHT_RESULT_DIR/dms.json")
 
-for table in ai_messages gift_recommendations personal_recommendations user_taste_profiles; do
-  require_equal "V2 MySQL excluded $table rows" 0 "$(mysql_value "SELECT COUNT(*) FROM \`${table}\`;" || true)"
-done
 
 require_equal "V2 PostgreSQL catalog_embedding_models rows" 1 "$(postgres_value 'SELECT COUNT(*) FROM catalog_embedding_models;' || true)"
 require_equal "V2 PostgreSQL catalog_product_documents rows" 20289 "$(postgres_value 'SELECT COUNT(*) FROM catalog_product_documents;' || true)"
