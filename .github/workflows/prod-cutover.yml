@@ -1,0 +1,147 @@
+name: Prod ALB Cutover
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Prod 공통 ALB 연결 대상"
+        required: true
+        type: choice
+        options: [v1, v2]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prod-alb-control
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    name: Switch prod ALB to ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: prod
+    env:
+      AWS_REGION: ap-northeast-2
+      ALB_NAME: needu-prod-alb
+      V1_TARGET_GROUP: needu-prod-v1
+      FRONTEND_TARGET_GROUP: needu-prod-fe
+      BACKEND_TARGET_GROUP: needu-prod-be
+      API_RULE_PRIORITY: "5"
+      FRONTEND_RULE_PRIORITY: "20"
+      WRITE_METHOD_RULE_PRIORITY: "1"
+      WRITE_CALLBACK_RULE_PRIORITY: "2"
+      GATE_TAG_VALUE: ProdMigrationWriteGate
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Prod-Control
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-alb-cutover-${{ github.run_id }}
+
+      - name: Resolve cutover resources
+        id: resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          alb_arn="$(aws elbv2 describe-load-balancers --names "$ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text)"
+          listener_arn="$(aws elbv2 describe-listeners --load-balancer-arn "$alb_arn" --query 'Listeners[?Port==`443`].ListenerArn | [0]' --output text)"
+          rules_json="$(aws elbv2 describe-rules --listener-arn "$listener_arn")"
+          api_rule_arn="$(jq -r --arg priority "$API_RULE_PRIORITY" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+          frontend_rule_arn="$(jq -r --arg priority "$FRONTEND_RULE_PRIORITY" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+          v1_tg_arn="$(aws elbv2 describe-target-groups --names "$V1_TARGET_GROUP" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+          frontend_tg_arn="$(aws elbv2 describe-target-groups --names "$FRONTEND_TARGET_GROUP" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+          backend_tg_arn="$(aws elbv2 describe-target-groups --names "$BACKEND_TARGET_GROUP" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+
+          for value in "$listener_arn" "$api_rule_arn" "$frontend_rule_arn" "$v1_tg_arn" "$frontend_tg_arn" "$backend_tg_arn"; do
+            [[ -n "$value" && "$value" != "None" && "$value" != "null" ]] || { echo "::error::Prod ALB cutover resource resolution failed."; exit 1; }
+          done
+
+          {
+            echo "listener_arn=$listener_arn"
+            echo "api_rule_arn=$api_rule_arn"
+            echo "frontend_rule_arn=$frontend_rule_arn"
+            echo "v1_tg_arn=$v1_tg_arn"
+            echo "frontend_tg_arn=$frontend_tg_arn"
+            echo "backend_tg_arn=$backend_tg_arn"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify write gate and target health
+        shell: bash
+        env:
+          LISTENER_ARN: ${{ steps.resources.outputs.listener_arn }}
+          V1_TG_ARN: ${{ steps.resources.outputs.v1_tg_arn }}
+          FRONTEND_TG_ARN: ${{ steps.resources.outputs.frontend_tg_arn }}
+          BACKEND_TG_ARN: ${{ steps.resources.outputs.backend_tg_arn }}
+        run: |
+          set -euo pipefail
+          rules_json="$(aws elbv2 describe-rules --listener-arn "$LISTENER_ARN")"
+          for priority in "$WRITE_METHOD_RULE_PRIORITY" "$WRITE_CALLBACK_RULE_PRIORITY"; do
+            gate_arn="$(jq -r --arg priority "$priority" '.Rules[] | select(.Priority == $priority) | .RuleArn' <<<"$rules_json")"
+            [[ -n "$gate_arn" ]] || { echo "::error::Write Gate must be enabled before an ALB cutover."; exit 1; }
+            gate_purpose="$(aws elbv2 describe-tags --resource-arns "$gate_arn" --query "TagDescriptions[0].Tags[?Key=='Purpose'].Value | [0]" --output text)"
+            [[ "$gate_purpose" == "$GATE_TAG_VALUE" ]] || { echo "::error::Reserved Write Gate priority is not owned by the Prod Write Gate workflow."; exit 1; }
+          done
+
+          if [[ "${{ inputs.target }}" == "v1" ]]; then target_groups=("$V1_TG_ARN"); else target_groups=("$FRONTEND_TG_ARN" "$BACKEND_TG_ARN"); fi
+          for target_group_arn in "${target_groups[@]}"; do
+            healthy_count="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --query "length(TargetHealthDescriptions[?TargetHealth.State=='healthy'])" --output text)"
+            [[ "$healthy_count" -ge 1 ]] || { echo "::error::No healthy targets in $target_group_arn"; exit 1; }
+          done
+
+      - name: Switch API and frontend rules
+        id: switch
+        shell: bash
+        env:
+          API_RULE_ARN: ${{ steps.resources.outputs.api_rule_arn }}
+          FRONTEND_RULE_ARN: ${{ steps.resources.outputs.frontend_rule_arn }}
+          V1_TG_ARN: ${{ steps.resources.outputs.v1_tg_arn }}
+          FRONTEND_TG_ARN: ${{ steps.resources.outputs.frontend_tg_arn }}
+          BACKEND_TG_ARN: ${{ steps.resources.outputs.backend_tg_arn }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.target }}" == "v1" ]]; then v1_weight=100; v2_weight=0; else v1_weight=0; v2_weight=100; fi
+          api_actions="$(jq -cn --arg v1 "$V1_TG_ARN" --arg v2 "$BACKEND_TG_ARN" --argjson v1Weight "$v1_weight" --argjson v2Weight "$v2_weight" '[{Type:"forward",ForwardConfig:{TargetGroups:[{TargetGroupArn:$v1,Weight:$v1Weight},{TargetGroupArn:$v2,Weight:$v2Weight}]}}]')"
+          frontend_actions="$(jq -cn --arg v1 "$V1_TG_ARN" --arg v2 "$FRONTEND_TG_ARN" --argjson v1Weight "$v1_weight" --argjson v2Weight "$v2_weight" '[{Type:"forward",ForwardConfig:{TargetGroups:[{TargetGroupArn:$v1,Weight:$v1Weight},{TargetGroupArn:$v2,Weight:$v2Weight}]}}]')"
+          aws elbv2 modify-rule --rule-arn "$API_RULE_ARN" --actions "$api_actions" >/dev/null
+          aws elbv2 modify-rule --rule-arn "$FRONTEND_RULE_ARN" --actions "$frontend_actions" >/dev/null
+          echo "switched_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Verify cutover weights
+        shell: bash
+        env:
+          API_RULE_ARN: ${{ steps.resources.outputs.api_rule_arn }}
+          FRONTEND_RULE_ARN: ${{ steps.resources.outputs.frontend_rule_arn }}
+          V1_TG_ARN: ${{ steps.resources.outputs.v1_tg_arn }}
+          FRONTEND_TG_ARN: ${{ steps.resources.outputs.frontend_tg_arn }}
+          BACKEND_TG_ARN: ${{ steps.resources.outputs.backend_tg_arn }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.target }}" == "v1" ]]; then expected_v1=100; expected_v2=0; else expected_v1=0; expected_v2=100; fi
+          verify_rule() {
+            local name="$1" rule_arn="$2" v2_arn="$3" json actual_v1 actual_v2
+            json="$(aws elbv2 describe-rules --rule-arns "$rule_arn")"
+            actual_v1="$(jq -r --arg arn "$V1_TG_ARN" '.Rules[0].Actions[] | select(.Type=="forward") | .ForwardConfig.TargetGroups[] | select(.TargetGroupArn==$arn) | .Weight' <<<"$json")"
+            actual_v2="$(jq -r --arg arn "$v2_arn" '.Rules[0].Actions[] | select(.Type=="forward") | .ForwardConfig.TargetGroups[] | select(.TargetGroupArn==$arn) | .Weight' <<<"$json")"
+            echo "$name weights: V1=$actual_v1, V2=$actual_v2"
+            [[ "$actual_v1" == "$expected_v1" && "$actual_v2" == "$expected_v2" ]] || { echo "::error::$name target weights are unexpected."; exit 1; }
+          }
+          verify_rule "API rule" "$API_RULE_ARN" "$BACKEND_TG_ARN"
+          verify_rule "Frontend rule" "$FRONTEND_RULE_ARN" "$FRONTEND_TG_ARN"
+
+      - name: Write summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Prod ALB Cutover 결과"
+            echo
+            echo "- 실행자: @${{ github.actor }}"
+            echo "- 선택한 환경: \`${{ inputs.target }}\`"
+            echo "- 전환 시각(UTC): \`${{ steps.switch.outputs.switched_at || '전환 실패' }}\`"
+            echo "- Write Gate: 전환 후에도 활성 상태 유지"
+          } >> "$GITHUB_STEP_SUMMARY"

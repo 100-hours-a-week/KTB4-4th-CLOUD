@@ -137,3 +137,24 @@ variable "app_secret_parameters" {
   type        = map(map(string))
   default     = {}
 }
+
+variable "v1_prod_migration_network" {
+  description = "기존 V1 Prod 서버를 V2 Prod ALB에 연결하기 위한 네트워크 정보"
+  type = object({
+    peering_connection_id = string
+    vpc_cidr              = string
+    security_group_id     = string
+    app_private_ip        = string
+  })
+}
+
+variable "prod_cutover_initial_target" {
+  description = "Prod ALB 전환 규칙을 최초 생성할 때 연결할 대상"
+  type        = string
+  default     = "v1"
+
+  validation {
+    condition     = contains(["v1", "v2"], var.prod_cutover_initial_target)
+    error_message = "prod_cutover_initial_target은 v1 또는 v2여야 합니다."
+  }
+}

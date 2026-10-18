@@ -4,6 +4,18 @@
 
 environment = "prod"
 
+# V1 Prod와 V2 공통 VPC 사이의 기존 Peering을 재사용한다.
+# 두 V2 환경이 같은 VPC를 사용하므로 별도의 Peering을 만들지 않는다.
+v1_prod_migration_network = {
+  peering_connection_id = "pcx-054d267c5e20dcc78"
+  vpc_cidr              = "10.0.0.0/16"
+  security_group_id     = "sg-0ed5c197b7041c81d"
+  app_private_ip        = "10.0.5.11"
+}
+
+# 최초 생성 시 실제 운영 트래픽은 계속 V1으로 전달한다.
+prod_cutover_initial_target = "v1"
+
 public_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.16.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.17.0/24" }
