@@ -34,6 +34,7 @@ module "v2" {
 
   environment              = var.environment
   public_subnets           = var.public_subnets
+  additional_public_routes = { (var.v1_prod_migration_network.vpc_cidr) = var.v1_prod_migration_network.peering_connection_id }
   db_subnets               = var.db_subnets
   certificate_arn          = data.aws_ssm_parameter.certificate_arn.value
   hosted_zone_id           = var.hosted_zone_id
@@ -45,6 +46,7 @@ module "v2" {
   mysql_instance_class     = var.mysql_instance_class
   postgres_instance_class  = var.postgres_instance_class
   mysql_storage_gb         = var.mysql_storage_gb
+  mysql_parameter_group    = var.mysql_parameter_group
   postgres_storage_gb      = var.postgres_storage_gb
   redis_node_type          = var.redis_node_type
   redis_num_nodes          = var.redis_num_nodes

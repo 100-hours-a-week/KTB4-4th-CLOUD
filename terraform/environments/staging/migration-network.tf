@@ -17,6 +17,15 @@ resource "aws_route" "v2_db_to_v1_staging" {
   vpc_peering_connection_id = aws_vpc_peering_connection.v1_staging.id
 }
 
+# 기존 별도 Route의 상태만 해제하고, 같은 경로는 V2 네트워크 모듈의 Route Table에서 계속 관리합니다.
+removed {
+  from = aws_route.v2_public_to_v1_staging
+
+  lifecycle {
+    destroy = false
+  }
+}
+
 # V1 Staging EC2가 V2 VPC로 요청과 응답을 전달할 수 있게 합니다.
 resource "aws_route" "v1_staging_to_v2" {
   route_table_id            = var.v1_staging_migration_network.route_table_id
@@ -51,6 +60,29 @@ resource "aws_vpc_security_group_ingress_rule" "v1_mysql_from_dms" {
   to_port                      = 3306
   ip_protocol                  = "tcp"
   description                  = "V2 staging DMS reads V1 staging MySQL"
+
+  depends_on = [aws_vpc_peering_connection.v1_staging]
+}
+
+# ALB nodes use private addresses from the public subnets when connecting to the V1 target.
+resource "aws_vpc_security_group_egress_rule" "alb_to_v1_https" {
+  security_group_id = module.v2.alb_security_group_id
+  cidr_ipv4         = "${var.v1_staging_migration_network.app_private_ip}/32"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  description       = "Shared staging ALB forwards HTTPS traffic to V1 staging"
+
+  depends_on = [aws_vpc_peering_connection.v1_staging]
+}
+
+resource "aws_vpc_security_group_ingress_rule" "v1_https_from_v2_alb" {
+  security_group_id            = var.v1_staging_migration_network.security_group_id
+  referenced_security_group_id = module.v2.alb_security_group_id
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  description                  = "Shared staging ALB reaches V1 Nginx"
 
   depends_on = [aws_vpc_peering_connection.v1_staging]
 }

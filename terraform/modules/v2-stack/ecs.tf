@@ -1,4 +1,7 @@
 locals {
+  # V1 운영 로그 그룹과 이름이 겹치지 않도록 Prod V2 로그를 별도 경로에 저장한다.
+  service_log_group_prefix = var.environment == "prod" ? "/needu/prod/v2" : "/needu/${var.environment}"
+
   services = {
     frontend = { port = 3000, sg = aws_security_group.fe.id }
     backend  = { port = 8080, sg = aws_security_group.be.id }
@@ -100,7 +103,7 @@ resource "aws_service_discovery_http_namespace" "connect" {
 resource "aws_cloudwatch_log_group" "service" {
   for_each = local.services
 
-  name              = "/needu/${var.environment}/${each.key}"
+  name              = "${local.service_log_group_prefix}/${each.key}"
   retention_in_days = var.environment == "dev" ? 7 : 30
 }
 
@@ -305,7 +308,7 @@ resource "aws_ecs_service" "service" {
 # ==================================================
 
 resource "aws_appautoscaling_target" "ecs" {
-  for_each = var.environment == "staging" ? {} : local.services
+  for_each = contains(["staging", "prod"], var.environment) ? {} : local.services
 
   max_capacity = var.autoscaling_max
   min_capacity = var.autoscaling_min
@@ -316,9 +319,9 @@ resource "aws_appautoscaling_target" "ecs" {
   service_namespace  = "ecs"
 }
 
-# Staging은 Runtime Control Workflow가 최소 실행 수를 관리한다.
+# Staging과 Prod는 Runtime Control Workflow가 최소 실행 수를 관리한다.
 resource "aws_appautoscaling_target" "ecs_runtime_controlled" {
-  for_each = var.environment == "staging" ? local.services : {}
+  for_each = contains(["staging", "prod"], var.environment) ? local.services : {}
 
   max_capacity = var.autoscaling_max
   min_capacity = var.autoscaling_min

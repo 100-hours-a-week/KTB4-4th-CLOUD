@@ -56,6 +56,8 @@ locals {
     "elasticloadbalancing:ModifyTargetGroup",
     "elasticloadbalancing:ModifyTargetGroupAttributes",
     "elasticloadbalancing:DeleteTargetGroup",
+    "elasticloadbalancing:RegisterTargets",
+    "elasticloadbalancing:DeregisterTargets",
     "elasticloadbalancing:CreateListener",
     "elasticloadbalancing:ModifyListener",
     "elasticloadbalancing:DeleteListener",

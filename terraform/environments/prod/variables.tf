@@ -47,6 +47,16 @@ variable "mysql_storage_gb" {
   type = number
 }
 
+variable "mysql_parameter_group" {
+  description = "Prod MySQL 전용 Parameter Group 설정"
+  type = object({
+    name                      = string
+    description               = string
+    net_read_timeout_seconds  = number
+    net_write_timeout_seconds = number
+  })
+}
+
 variable "postgres_storage_gb" {
   type = number
 }
@@ -136,4 +146,26 @@ variable "app_secret_parameters" {
   description = "AWS의 /needu/v2/prod 경로에 별도 등록한 값을 ECS에 주입할 서비스별 SSM Parameter 이름과 경로"
   type        = map(map(string))
   default     = {}
+}
+
+variable "v1_prod_migration_network" {
+  description = "기존 V1 Prod 서버를 V2 Prod ALB에 연결하기 위한 네트워크 정보"
+  type = object({
+    peering_connection_id = string
+    vpc_cidr              = string
+    security_group_id     = string
+    mysql_private_ip      = string
+    app_private_ip        = string
+  })
+}
+
+variable "prod_cutover_initial_target" {
+  description = "Prod ALB 전환 규칙을 최초 생성할 때 연결할 대상"
+  type        = string
+  default     = "v1"
+
+  validation {
+    condition     = contains(["v1", "v2"], var.prod_cutover_initial_target)
+    error_message = "prod_cutover_initial_target은 v1 또는 v2여야 합니다."
+  }
 }

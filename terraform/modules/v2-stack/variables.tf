@@ -12,6 +12,12 @@ variable "public_subnets" {
   type = map(object({ az = string, cidr = string }))
 }
 
+variable "additional_public_routes" {
+  description = "환경별 Public Route Table에 추가할 CIDR별 VPC Peering 경로"
+  type        = map(string)
+  default     = {}
+}
+
 variable "db_subnets" {
   type = map(object({ az = string, cidr = string }))
 }
@@ -53,6 +59,17 @@ variable "postgres_instance_class" {
 
 variable "mysql_storage_gb" {
   type = number
+}
+
+variable "mysql_parameter_group" {
+  description = "MySQL 전용 Parameter Group 설정. null이면 AWS 기본 Parameter Group을 사용합니다."
+  type = object({
+    name                      = string
+    description               = string
+    net_read_timeout_seconds  = number
+    net_write_timeout_seconds = number
+  })
+  default = null
 }
 
 variable "postgres_storage_gb" {

@@ -1,0 +1,54 @@
+name: Prod Migration Rehearsal - Phase Checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'Read-only phase to verify; does not change AWS resources'
+        required: true
+        type: choice
+        options: [before, after-ecs, after-dns, freeze, after-dms-stop, after-cutover, after-release]
+      confirm:
+        description: 'Type VERIFY ONLY'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prod-migration-phase-checks
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ inputs.confirm == 'VERIFY ONLY' }}
+    runs-on: ubuntu-latest
+    environment: prod-migration
+    timeout-minutes: 20
+    env:
+      AWS_REGION: ap-northeast-2
+      AWS_ACCOUNT_ID: '919551759796'
+      ECS_CLUSTER: needu-prod-cluster
+      PROD_ALB_NAME: needu-prod-alb
+      PROD_DMS_TASK_ARN: ${{ vars.MIGRATION_PROD_DMS_TASK_ARN }}
+      PHASE: ${{ inputs.phase }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assume read-only migration role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.MIGRATION_PREFLIGHT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Verify phase and collect evidence
+        shell: bash
+        run: bash scripts/migration/prod/verify-phase.sh
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-migration-${{ inputs.phase }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/prod-migration-evidence
+          retention-days: 30
+          if-no-files-found: warn

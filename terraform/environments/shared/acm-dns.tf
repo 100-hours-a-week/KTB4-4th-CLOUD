@@ -54,6 +54,28 @@ resource "aws_route53_record" "staging_cutover_acm_validation" {
   allow_overwrite = true
 }
 
+# 최종 운영 도메인 needu.gift를 Prod 공통 ALB에서 사용할 수 있도록 검증합니다.
+resource "aws_route53_record" "prod_cutover_acm_validation" {
+  for_each = { prod = "needu.gift" }
+
+  zone_id = data.aws_route53_zone.needu.zone_id
+  name = one([
+    for option in aws_acm_certificate.prod_cutover.domain_validation_options :
+    option.resource_record_name if option.domain_name == each.value
+  ])
+  type = one([
+    for option in aws_acm_certificate.prod_cutover.domain_validation_options :
+    option.resource_record_type if option.domain_name == each.value
+  ])
+  ttl = 300
+  records = [one([
+    for option in aws_acm_certificate.prod_cutover.domain_validation_options :
+    option.resource_record_value if option.domain_name == each.value
+  ])]
+
+  allow_overwrite = true
+}
+
 resource "aws_acm_certificate_validation" "environment" {
   for_each = aws_acm_certificate.environment
 
@@ -65,16 +87,22 @@ resource "aws_acm_certificate_validation" "environment" {
   )
 }
 
-# 최초에는 V1을 바라보고, 이후 연결 대상은 Cutover Workflow에서 전환한다.
+resource "aws_acm_certificate_validation" "prod_cutover" {
+  certificate_arn = aws_acm_certificate.prod_cutover.arn
+
+  # prod.needu.gift의 기존 검증 레코드는 같은 계정에서 재사용할 수 있습니다.
+  validation_record_fqdns = [
+    aws_route53_record.acm_validation["prod"].fqdn,
+    aws_route53_record.prod_cutover_acm_validation["prod"].fqdn
+  ]
+}
+
+# staging.needu.gift permanently enters through the shared staging ALB.
+# V1/V2 switching is handled by ALB listener rules, not DNS updates.
 resource "aws_route53_record" "staging_cutover" {
   zone_id = data.aws_route53_zone.needu.zone_id
   name    = "staging.needu.gift"
   type    = "CNAME"
   ttl     = 60
-  records = ["v1.needu.gift"]
-
-  lifecycle {
-    # 리허설 중 Workflow가 변경한 V1/V2 연결 대상을 Terraform이 되돌리지 않는다.
-    ignore_changes = [records]
-  }
+  records = ["v2.needu.gift"]
 }

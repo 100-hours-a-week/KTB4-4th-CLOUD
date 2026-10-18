@@ -11,7 +11,11 @@ v1_staging_migration_network = {
   route_table_id    = "rtb-0d966016f4dab5171"
   security_group_id = "sg-08f54201fddf75ac8"
   mysql_private_ip  = "10.0.14.126"
+  app_private_ip    = "10.0.14.126"
 }
+
+# Preserve the current V2 traffic on the first apply. Runtime cutovers are managed by the workflow.
+staging_cutover_initial_target = "v2"
 
 public_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.48.0/24" }
@@ -34,9 +38,9 @@ ecr_repository_urls = {
 
 # 최초 Task Definition 생성에 사용할 ECR 이미지 태그
 image_tags = {
-  frontend = "9d4001cb8698203eb781bf493d6eca8c7008d722"
-  backend  = "9dd8711bb29b80a98eef3ebde3df15ae7d9924f7"
-  ai       = "b60fb08c350c8076aa546f710566da5d631f89f5"
+  frontend = "v2-afd3be29f46bfa73ce7f3d13005b8552dcc2a7fa"
+  backend  = "v2-ef2543dbcb18b4edf826ffaaac42b83efd7f53d9"
+  ai       = "v2-c4c9b2471df60a368305289acf6002a9b521b67a"
 }
 
 mysql_engine_version     = "8.4.11"
@@ -72,23 +76,37 @@ app_secret_parameters = {
     AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS = "/needu/v2/staging/backend/AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS"
     AI_SERVICE_TOKEN                    = "/needu/v2/staging/backend/AI_SERVICE_TOKEN"
     JWT_SECRET                          = "/needu/v2/staging/backend/JWT_SECRET"
+    KAKAO_ADMIN_KEY                     = "/needu/v2/staging/backend/KAKAO_ADMIN_KEY"
     KAKAO_CLIENT_SECRET                 = "/needu/v2/staging/backend/KAKAO_CLIENT_SECRET"
     KAKAO_FRIEND_REDIRECT_URI           = "/needu/v2/staging/backend/KAKAO_FRIEND_REDIRECT_URI"
     KAKAO_REDIRECT_URI                  = "/needu/v2/staging/backend/KAKAO_REDIRECT_URI"
     KAKAO_REST_API_KEY                  = "/needu/v2/staging/backend/KAKAO_REST_API_KEY"
     KAKAO_TOKEN_ENCRYPTION_KEY          = "/needu/v2/staging/backend/KAKAO_TOKEN_ENCRYPTION_KEY"
     SENTRY_DSN                          = "/needu/v2/staging/backend/SENTRY_DSN"
+    VAPID_PRIVATE_KEY                   = "/needu/v2/staging/backend/VAPID_PRIVATE_KEY"
+    VAPID_PUBLIC_KEY                    = "/needu/v2/staging/backend/VAPID_PUBLIC_KEY"
+    VAPID_SUBJECT                       = "/needu/v2/staging/backend/VAPID_SUBJECT"
+    WEB_PUSH_ENABLED                    = "/needu/v2/staging/backend/WEB_PUSH_ENABLED"
+    WEB_PUSH_REQUEST_TIMEOUT            = "/needu/v2/staging/backend/WEB_PUSH_REQUEST_TIMEOUT"
+    WEB_PUSH_TTL                        = "/needu/v2/staging/backend/WEB_PUSH_TTL"
   }
   ai = {
-    EXTRACTION_MODEL_BASE_URL = "/needu/v2/staging/ai/EXTRACTION_MODEL_BASE_URL"
-    EXTRACTION_MODEL_NAME     = "/needu/v2/staging/ai/EXTRACTION_MODEL_NAME"
-    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/staging/ai/JUDGMENT_MODEL_BASE_URL"
-    JUDGMENT_MODEL_NAME       = "/needu/v2/staging/ai/JUDGMENT_MODEL_NAME"
-    OPENROUTER_API_KEY        = "/needu/v2/staging/ai/OPENROUTER_API_KEY"
-    RESPONSE_MODEL_BASE_URL   = "/needu/v2/staging/ai/RESPONSE_MODEL_BASE_URL"
-    RESPONSE_MODEL_NAME       = "/needu/v2/staging/ai/RESPONSE_MODEL_NAME"
-    SERVICE_TOKEN             = "/needu/v2/staging/ai/SERVICE_TOKEN"
-    UPSTAGE_API_KEY           = "/needu/v2/staging/ai/UPSTAGE_API_KEY"
+    EXTRACTION_MODEL_BASE_URL          = "/needu/v2/staging/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME              = "/needu/v2/staging/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL            = "/needu/v2/staging/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME                = "/needu/v2/staging/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY                 = "/needu/v2/staging/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL            = "/needu/v2/staging/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME                = "/needu/v2/staging/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN                      = "/needu/v2/staging/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY                    = "/needu/v2/staging/ai/UPSTAGE_API_KEY"
+    RUNPOD_API_KEY                     = "/needu/v2/staging/ai/RUNPOD_API_KEY"
+    RUNPOD_POD_NAME_PREFIX             = "/needu/v2/staging/ai/RUNPOD_POD_NAME_PREFIX"
+    MODEL_API_KEY                      = "/needu/v2/staging/ai/MODEL_API_KEY"
+    RESPONSE_FALLBACK_MODEL_BASE_URL   = "/needu/v2/staging/ai/RESPONSE_FALLBACK_MODEL_BASE_URL"
+    RESPONSE_FALLBACK_MODEL_NAME       = "/needu/v2/staging/ai/RESPONSE_FALLBACK_MODEL_NAME"
+    EXTRACTION_FALLBACK_MODEL_BASE_URL = "/needu/v2/staging/ai/EXTRACTION_FALLBACK_MODEL_BASE_URL"
+    EXTRACTION_FALLBACK_MODEL_NAME     = "/needu/v2/staging/ai/EXTRACTION_FALLBACK_MODEL_NAME"
   }
 }
 

@@ -1,0 +1,176 @@
+name: Staging Migration Preflight
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      result:
+        description: "Preflight PASS 또는 FAIL"
+        value: ${{ jobs.preflight.outputs.result }}
+      completed_at:
+        description: "Preflight 완료 시각(KST)"
+        value: ${{ jobs.preflight.outputs.completed_at }}
+      dms_task_arn:
+        description: "검증한 DMS Task ARN"
+        value: ${{ jobs.preflight.outputs.dms_task_arn }}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: staging-migration-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate staging migration readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    outputs:
+      result: ${{ steps.finalize.outputs.result }}
+      completed_at: ${{ steps.finalize.outputs.completed_at }}
+      dms_task_arn: ${{ steps.finalize.outputs.dms_task_arn }}
+    env:
+      AWS_REGION: ap-northeast-2
+      ALB_NAME: needu-staging-alb
+      V1_TARGET_GROUP: needu-staging-v1
+      FRONTEND_TARGET_GROUP: needu-staging-fe
+      BACKEND_TARGET_GROUP: needu-staging-be
+      API_RULE_PRIORITY: "5"
+      FRONTEND_RULE_PRIORITY: "20"
+      ECS_CLUSTER: needu-staging-cluster
+      DMS_TASK_ID: needu-v1-to-v2-staging
+      SSM_BASTION_INSTANCE_ID: i-0fc4a029b4d5b90ca
+      MYSQL_LOCAL_PORT: "13306"
+      POSTGRES_LOCAL_PORT: "15432"
+      V1_SMOKE_URL: https://staging.needu.gift/
+      V2_SMOKE_URL: https://v2.needu.gift/
+      V1_BACKEND_URL: https://staging.needu.gift/api/v1/actuator/health
+      V2_BACKEND_URL: https://v2.needu.gift/api/v1/actuator/health
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure read-only AWS credentials
+        id: aws
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Staging-Migration-Preflight
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: staging-migration-preflight-${{ github.run_id }}
+
+      - name: Prepare result directory
+        shell: bash
+        run: |
+          result_dir="$RUNNER_TEMP/migration-preflight"
+          mkdir -p "$result_dir"
+          echo "PREFLIGHT_RESULT_DIR=$result_dir" >> "$GITHUB_ENV"
+
+      - name: Verify ALB baseline and Write Gate
+        id: alb-check
+        continue-on-error: true
+        run: scripts/migration/preflight/check-alb.sh
+
+      - name: Verify ECS services and target health
+        id: ecs-check
+        continue-on-error: true
+        run: scripts/migration/preflight/check-ecs.sh
+
+      - name: Verify DMS Full Load, CDC and validation
+        id: dms-check
+        continue-on-error: true
+        run: scripts/migration/preflight/check-dms.sh
+
+      - name: Verify V1 and V2 HTTP paths
+        id: http-check
+        continue-on-error: true
+        run: scripts/migration/preflight/check-http.sh
+
+      - name: Install database tunnel tools
+        id: tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo dpkg -i "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq default-mysql-client postgresql-client netcat-openbsd
+
+      - name: Resolve database connection metadata
+        id: database-metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql_json="$(aws rds describe-db-instances --db-instance-identifier needu-staging-mysql --query 'DBInstances[0]')"
+          postgres_json="$(aws rds describe-db-instances --db-instance-identifier needu-staging-postgres --query 'DBInstances[0]')"
+          mysql_secret="$(aws secretsmanager get-secret-value --secret-id "$(jq -r '.MasterUserSecret.SecretArn' <<<"$mysql_json")" --query SecretString --output text)"
+          postgres_secret="$(aws secretsmanager get-secret-value --secret-id "$(jq -r '.MasterUserSecret.SecretArn' <<<"$postgres_json")" --query SecretString --output text)"
+          mysql_password="$(jq -r '.password' <<<"$mysql_secret")"
+          postgres_password="$(jq -r '.password' <<<"$postgres_secret")"
+          echo "::add-mask::$mysql_password"
+          echo "::add-mask::$postgres_password"
+          {
+            echo "MYSQL_HOST=$(jq -r '.Endpoint.Address' <<<"$mysql_json")"
+            echo "MYSQL_USERNAME=$(jq -r '.username' <<<"$mysql_secret")"
+            echo "MYSQL_PASSWORD=$mysql_password"
+            echo "POSTGRES_HOST=$(jq -r '.Endpoint.Address' <<<"$postgres_json")"
+            echo "POSTGRES_USERNAME=$(jq -r '.username' <<<"$postgres_secret")"
+            echo "POSTGRES_PASSWORD=$postgres_password"
+          } >> "$GITHUB_ENV"
+
+      - name: Open read-only database tunnels
+        id: database-tunnel
+        run: scripts/migration/preflight/start-db-tunnel.sh
+
+      - name: Verify V2 database data and structure
+        id: database-check
+        continue-on-error: true
+        run: scripts/migration/preflight/check-databases.sh
+
+      - name: Close database tunnels
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/preflight-tunnel-pids" ]]; then
+            xargs kill < "$RUNNER_TEMP/preflight-tunnel-pids" 2>/dev/null || true
+          fi
+
+      - name: Record workflow infrastructure failures
+        if: always()
+        shell: bash
+        env:
+          AWS_STEP: ${{ steps.aws.outcome }}
+          TOOLS_STEP: ${{ steps.tools.outcome }}
+          METADATA_STEP: ${{ steps.database-metadata.outcome }}
+          TUNNEL_STEP: ${{ steps.database-tunnel.outcome }}
+          DATABASE_STEP: ${{ steps.database-check.outcome }}
+          ALB_STEP: ${{ steps.alb-check.outcome }}
+          ECS_STEP: ${{ steps.ecs-check.outcome }}
+          DMS_STEP: ${{ steps.dms-check.outcome }}
+          HTTP_STEP: ${{ steps.http-check.outcome }}
+        run: |
+          source scripts/migration/common/common.sh
+          for item in "AWS credentials:$AWS_STEP" "ALB checks:$ALB_STEP" "ECS checks:$ECS_STEP" "DMS checks:$DMS_STEP" "HTTP checks:$HTTP_STEP" "Database tools:$TOOLS_STEP" "Database metadata:$METADATA_STEP" "Database tunnel:$TUNNEL_STEP" "Database checks:$DATABASE_STEP"; do
+            name="${item%%:*}"
+            outcome="${item#*:}"
+            if [[ "$outcome" != "success" ]]; then
+              record_check "$name" FAIL "workflow step outcome=$outcome"
+            fi
+          done
+
+      - name: Finalize preflight result
+        id: finalize
+        if: always()
+        run: scripts/migration/preflight/finalize.sh
+
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-migration-preflight-${{ github.run_id }}
+          path: ${{ env.PREFLIGHT_RESULT_DIR }}
+          if-no-files-found: error
+          retention-days: 14
