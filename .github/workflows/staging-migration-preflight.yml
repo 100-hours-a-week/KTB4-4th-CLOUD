@@ -34,7 +34,6 @@ jobs:
       dms_task_arn: ${{ steps.finalize.outputs.dms_task_arn }}
     env:
       AWS_REGION: ap-northeast-2
-      PREFLIGHT_RESULT_DIR: ${{ runner.temp }}/migration-preflight
       ALB_NAME: needu-staging-alb
       V1_TARGET_GROUP: needu-staging-v1
       FRONTEND_TARGET_GROUP: needu-staging-fe
@@ -65,7 +64,10 @@ jobs:
 
       - name: Prepare result directory
         shell: bash
-        run: mkdir -p "$PREFLIGHT_RESULT_DIR"
+        run: |
+          result_dir="$RUNNER_TEMP/migration-preflight"
+          mkdir -p "$result_dir"
+          echo "PREFLIGHT_RESULT_DIR=$result_dir" >> "$GITHUB_ENV"
 
       - name: Verify ALB baseline and Write Gate
         id: alb-check
