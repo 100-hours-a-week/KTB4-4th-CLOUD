@@ -1,17 +1,12 @@
-name: Prod Migration Cutover (guarded)
+name: Prod Migration Cutover
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type SWITCH needu.gift TO V2 (case sensitive)"
+        description: "Type CUTOVER needu.gift TO V2"
         required: true
         type: string
-      enable_dns_change:
-        description: "Actually change production DNS (false = validation only)"
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -22,242 +17,163 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    if: ${{ inputs.confirm == 'CUTOVER needu.gift TO V2' }}
+    uses: ./.github/workflows/prod-migration-preflight.yml
+    permissions:
+      contents: read
+      id-token: write
+
   cutover:
-    if: ${{ inputs.confirm == 'SWITCH needu.gift TO V2' }}
+    needs: preflight
+    if: ${{ inputs.confirm == 'CUTOVER needu.gift TO V2' && needs.preflight.outputs.result == 'PASS' }}
     runs-on: ubuntu-latest
     environment: prod-migration-cutover
     timeout-minutes: 30
-
     env:
       AWS_REGION: ap-northeast-2
       EXPECTED_ACCOUNT_ID: "919551759796"
-
       HOSTED_ZONE_ID: Z10258582M6TRCEOCUBUW
       LIVE_HOST: needu.gift
       PROD_HOST: prod.needu.gift
       V1_EIP: 13.124.155.10
-
-      PROD_ALB_DNS: needu-prod-alb-314721872.ap-northeast-2.elb.amazonaws.com
       PROD_ALB_NAME: needu-prod-alb
-
-      CONFIRM_PHRASE: ${{ inputs.confirm }}
-      ENABLE_PROD_DNS_CHANGE: ${{ inputs.enable_dns_change && 'YES' || 'NO' }}
-
-      DB_CUTOVER_APPROVED: ${{ vars.MIGRATION_DB_CUTOVER_APPROVED }}
+      PROD_ALB_DNS: needu-prod-alb-314721872.ap-northeast-2.elb.amazonaws.com
       V1_INSTANCE_ID: i-071de18816cfae436
-
+      ECS_CLUSTER: needu-prod-cluster
+      FE_SERVICE: needu-prod-frontend
+      BE_SERVICE: needu-prod-backend
+      EXPECTED_TASK_COUNT: "2"
       DMS_TASK_ARN: ${{ vars.MIGRATION_PROD_DMS_TASK_ARN }}
       DMS_INSTANCE_ID: ${{ vars.MIGRATION_PROD_DMS_INSTANCE_ID }}
       EXPECTED_DMS_TABLES: ${{ vars.MIGRATION_PROD_DMS_TABLES }}
-
-      POSTGRES_VALIDATED: ${{ vars.MIGRATION_POSTGRES_VALIDATED }}
-      FINAL_DMS_VALIDATED: ${{ vars.MIGRATION_FINAL_DMS_VALIDATED }}
+      MYSQL_DB_IDENTIFIER: needu-prod-mysql
+      POSTGRES_DB_IDENTIFIER: needu-prod-postgres
+      SSM_BASTION_INSTANCE_ID: i-0fc4a029b4d5b90ca
+      MYSQL_LOCAL_PORT: "23306"
+      POSTGRES_LOCAL_PORT: "25432"
 
     steps:
-      # --------------------------------------------------
-      # 1. Checkout / Evidence
-      # --------------------------------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Prepare evidence directory
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "EVIDENCE_DIR=$RUNNER_TEMP/prod-cutover-evidence" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/prod-cutover-evidence"
-
-      # --------------------------------------------------
-      # 2. AWS Authentication
-      # --------------------------------------------------
+      - uses: actions/checkout@v4
       - name: Configure production cutover AWS role
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.MIGRATION_CUTOVER_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: prod-migration-cutover-${{ github.run_id }}
-
-      # --------------------------------------------------
-      # 3. Pre-cutover Readiness
-      # --------------------------------------------------
-      - name: Validate DNS baseline and ALB readiness
+      - name: Prepare evidence directory
         shell: bash
         run: |
-          set -euo pipefail
-          bash scripts/migration/cutover/check-prod-readiness.sh
-
-      - name: Require independently completed Prod Preflight
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/prod-cutover-evidence" >> "$GITHUB_ENV"
+          echo "PREFLIGHT_RESULT_DIR=$RUNNER_TEMP/prod-cutover-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/prod-cutover-evidence"
+      - name: Verify Preflight PASS
         shell: bash
         env:
-          PREFLIGHT_RUN_ID: ${{ vars.MIGRATION_APPROVED_PREFLIGHT_RUN_ID }}
-          GH_TOKEN: ${{ github.token }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.outputs.result }}
+          PREFLIGHT_DMS_TASK_ARN: ${{ needs.preflight.outputs.dms_task_arn }}
         run: |
           set -euo pipefail
-
-          [[ "$PREFLIGHT_RUN_ID" =~ ^[0-9]+$ ]] || {
-            echo '::error::Missing approved preflight run ID'
-            exit 1
-          }
-
-          run_json="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${PREFLIGHT_RUN_ID}")"
-
-          jq -e --arg sha "$GITHUB_SHA" \
-            '.name == "Prod Migration Preflight (read-only)"
-             and .conclusion == "success"
-             and .head_sha == $sha' \
-            <<< "$run_json" >/dev/null || {
-              echo '::error::Preflight did not PASS on this commit'
-              exit 1
-            }
-
-      # --------------------------------------------------
-      # 4. Production Safety Guard
-      # --------------------------------------------------
-      # 실제 Prod 변경은 아직 허용하지 않는다.
-      # DNS 변경, DMS 중지, Write Gate 제어가 실행되지 않도록 차단.
-      - name: Block live mutation until reconciliation is implemented
-        if: ${{ inputs.enable_dns_change }}
+          test "$PREFLIGHT_RESULT" = PASS
+          test "$PREFLIGHT_DMS_TASK_ARN" = "$DMS_TASK_ARN"
+      - name: Install database tunnel tools
         shell: bash
         run: |
           set -euo pipefail
-
-          echo '::error::LIVE CUTOVER DISABLED.'
-          echo '::error::Post-stop MySQL/PostgreSQL reconciliation, ALB Write Gate safety and rollback are not production-validated.'
-          exit 1
-
-      # --------------------------------------------------
-      # 5. Prod ALB Write Gate Verification
-      # --------------------------------------------------
-      # Write Gate 활성화는 별도 prod-write-gate.yml에서 수행.
-      # 이 Workflow는 ALB Gate를 활성화하지 않고 상태만 확인.
-      #
-      # 주의: 현재 live mutation 차단 단계 때문에
-      # enable_dns_change=true 실행 시 이 단계에는 도달하지 않는다.
-      - name: Verify Prod ALB Write Gate
-        if: ${{ inputs.enable_dns_change }}
+          curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo dpkg -i "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq default-mysql-client postgresql-client netcat-openbsd
+      - name: Resolve target database connection metadata
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/migration/cutover/verify-v1-gate.sh
-
-      # --------------------------------------------------
-      # 6. Database / DMS Verification
-      # --------------------------------------------------
-      - name: Verify V1 MySQL and PostgreSQL transactions
-        if: ${{ inputs.enable_dns_change }}
+          mysql_json="$(aws rds describe-db-instances --db-instance-identifier "$MYSQL_DB_IDENTIFIER" --query 'DBInstances[0]')"
+          postgres_json="$(aws rds describe-db-instances --db-instance-identifier "$POSTGRES_DB_IDENTIFIER" --query 'DBInstances[0]')"
+          mysql_secret="$(aws secretsmanager get-secret-value --secret-id "$(jq -r '.MasterUserSecret.SecretArn' <<<"$mysql_json")" --query SecretString --output text)"
+          postgres_secret="$(aws secretsmanager get-secret-value --secret-id "$(jq -r '.MasterUserSecret.SecretArn' <<<"$postgres_json")" --query SecretString --output text)"
+          mysql_password="$(jq -r '.password' <<<"$mysql_secret")"
+          postgres_password="$(jq -r '.password' <<<"$postgres_secret")"
+          echo "::add-mask::$mysql_password"
+          echo "::add-mask::$postgres_password"
+          {
+            echo "MYSQL_HOST=$(jq -r '.Endpoint.Address' <<<"$mysql_json")"
+            echo "MYSQL_USERNAME=$(jq -r '.username' <<<"$mysql_secret")"
+            echo "MYSQL_PASSWORD=$mysql_password"
+            echo "POSTGRES_HOST=$(jq -r '.Endpoint.Address' <<<"$postgres_json")"
+            echo "POSTGRES_USERNAME=$(jq -r '.username' <<<"$postgres_secret")"
+            echo "POSTGRES_PASSWORD=$postgres_password"
+          } >> "$GITHUB_ENV"
+      - name: Open target database tunnels
+        shell: bash
+        run: bash scripts/migration/preflight/start-db-tunnel.sh
+      - name: Verify readiness before any mutation
+        shell: bash
+        run: bash scripts/migration/cutover/check-prod-readiness.sh
+      - name: Enable and verify Write Gate
         shell: bash
         run: |
-          set -euo pipefail
-          bash scripts/migration/cutover/check-transactions-prod.sh
-
-      - name: Verify Prod DMS CDC before stopping
-        if: ${{ inputs.enable_dns_change }}
+          echo 'GATE_CHANGE_STARTED=1' >> "$GITHUB_ENV"
+          GATE_ACTION=enable bash scripts/migration/cutover/manage-write-gate-prod.sh
+          bash scripts/migration/cutover/verify-write-gate-prod.sh
+          echo "GATE_ON_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+      - name: Verify zero open transactions twice
         shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/migration/cutover/check-dms-prod-final.sh
-
-      # --------------------------------------------------
-      # 7. Final Approval
-      # --------------------------------------------------
-      - name: Require final manual cutover attestations
-        if: ${{ inputs.enable_dns_change }}
+        run: bash scripts/migration/cutover/check-transactions-prod.sh
+      - name: Verify final DMS CDC and validation
+        shell: bash
+        run: bash scripts/migration/cutover/check-dms-prod-final.sh
+      - name: Stop DMS and confirm stopped
         shell: bash
         env:
-          HUMAN_APPROVAL: ${{ vars.MIGRATION_HUMAN_FINAL_APPROVAL }}
-        run: |
-          set -euo pipefail
-
-          [[ "$HUMAN_APPROVAL" == YES &&
-             "$DB_CUTOVER_APPROVED" == YES &&
-             "$POSTGRES_VALIDATED" == YES &&
-             "$FINAL_DMS_VALIDATED" == YES ]] || {
-            echo '::error::Missing independent DB/DMS/Postgres/final human approvals'
-            exit 1
-          }
-
-          echo 'ALB_WRITE_GATE_VERIFIED=YES' >> "$GITHUB_ENV"
-
-      # --------------------------------------------------
-      # 8. DMS Stop
-      # --------------------------------------------------
-      # 현재 안전 차단 단계 때문에 실행되지 않는다.
-      - name: Stop Prod DMS only after explicit approval
-        if: ${{ inputs.enable_dns_change }}
-        shell: bash
-        env:
-          DMS_STOP_APPROVED: ${{ vars.MIGRATION_DMS_STOP_APPROVED }}
+          DMS_STOP_APPROVED: YES
           GATE_VERIFIED: YES
           TRANSACTIONS_VERIFIED: YES
           CDC_VERIFIED: YES
-        run: |
-          set -euo pipefail
-          bash scripts/migration/cutover/stop-dms-prod.sh
-
-      # --------------------------------------------------
-      # 9. Post-stop Reconciliation Guard
-      # --------------------------------------------------
-      - name: Require independent post-stop MySQL and PostgreSQL reconciliation
-        if: ${{ inputs.enable_dns_change }}
+        run: bash scripts/migration/cutover/stop-dms-prod.sh
+      - name: Reconcile target databases after DMS stop
         shell: bash
-        env:
-          POST_STOP_RECONCILIATION_ID: ${{ vars.MIGRATION_POST_STOP_RECONCILIATION_ID }}
         run: |
-          set -euo pipefail
-
-          echo '::error::Post-DMS-stop SQL-level MySQL and PostgreSQL reconciliation must be implemented with recorded evidence.'
-          echo '::error::DNS change is deliberately blocked.'
-          exit 1
-
-      # --------------------------------------------------
-      # 10. DNS Cutover
-      # --------------------------------------------------
-      # DNS 변경은 현재 비활성화 상태.
-      - name: Switch Route53 A record to Prod ALB
-        if: ${{ inputs.enable_dns_change }}
+          bash scripts/migration/preflight/check-data-prod.sh
+          ! grep -q $'\tFAIL\t' "$PREFLIGHT_RESULT_DIR/checks.tsv"
+      - name: Switch API and frontend to V2
+        shell: bash
+        run: CUTOVER_TARGET=v2 bash scripts/migration/cutover/switch-alb-prod.sh
+      - name: Verify V2 read paths before releasing gate
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/migration/cutover/switch-dns-prod.sh
-
-      - name: Verify Route53 new target
-        if: ${{ inputs.enable_dns_change }}
+          curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "https://$LIVE_HOST/" >/dev/null
+          curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "https://$LIVE_HOST/api/v1/actuator/health" | jq -e '.status=="UP"' >/dev/null
+      - name: Disable Write Gate
         shell: bash
         run: |
-          set -euo pipefail
-          bash scripts/migration/cutover/verify-dns-prod.sh
-
-      # --------------------------------------------------
-      # 11. Summary
-      # --------------------------------------------------
+          GATE_ACTION=disable bash scripts/migration/cutover/manage-write-gate-prod.sh
+          echo 'GATE_OFF_CONFIRMED=1' >> "$GITHUB_ENV"
+          echo "GATE_OFF_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+      - name: Recover V1 before Write Gate release
+        if: ${{ failure() && env.GATE_CHANGE_STARTED == '1' && env.GATE_OFF_CONFIRMED != '1' }}
+        shell: bash
+        run: bash scripts/migration/cutover/recover-prod-before-release.sh
+      - name: Close database tunnels
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/preflight-tunnel-pids" ]]; then
+            xargs kill < "$RUNNER_TEMP/preflight-tunnel-pids" 2>/dev/null || true
+          fi
       - name: Cutover summary
         if: always()
         shell: bash
         run: |
           {
             echo '## Prod Migration Cutover'
-            echo ""
-            echo "- Job status: ${{ job.status }}"
-            echo "- DNS mutation requested: $ENABLE_PROD_DNS_CHANGE"
-            echo ""
-            echo '### Write Gate'
-            echo '- Managed by the separate Prod Write Gate workflow.'
-            echo '- Applied at the shared Prod ALB, not V1 Nginx.'
-            echo '- Blocks POST/PUT/PATCH/DELETE on both production hosts.'
-            echo '- Blocks configured CSRF and Kakao callback paths for all methods.'
-            echo '- General GET requests are not universally blocked.'
-            echo ""
-            echo '### Safety'
-            echo '- No automatic rollback or gate release is implemented.'
-            echo '- DMS stop and DNS mutation remain disabled.'
-            echo '- Post-stop MySQL/PostgreSQL reconciliation is not yet implemented.'
+            echo "- Result: ${{ job.status }}"
+            echo "- Gate ON: ${GATE_ON_AT:-not confirmed}"
+            echo "- Gate OFF: ${GATE_OFF_AT:-not confirmed}"
+            echo '- Failure before Gate release automatically restores ALB V1 and removes the Gate.'
+            echo '- DMS is never restarted automatically after it has been stopped.'
           } >> "$GITHUB_STEP_SUMMARY"
-
-      # --------------------------------------------------
-      # 12. Evidence Upload
-      # --------------------------------------------------
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -13,9 +13,12 @@ jq -e '.ReplicationTasks|length==1' <<< "$task" >/dev/null || die 'DMS task not 
 jq -e '.ReplicationTasks[0].Status=="running" and .ReplicationTasks[0].MigrationType=="full-load-and-cdc" and .ReplicationTasks[0].ReplicationTaskStats.FullLoadProgressPercent==100' <<< "$task" >/dev/null || die 'DMS not ready'
 stats=$(aws dms describe-table-statistics --replication-task-arn "$DMS_TASK_ARN" --output json)
 IFS=, read -r -a tables <<< "$EXPECTED_DMS_TABLES"
+[[ "$(jq '.TableStatistics | length' <<< "$stats")" == "${#tables[@]}" ]] || die 'DMS table count differs from the approved mapping'
 for table in "${tables[@]}"; do
  jq -e --arg t "$table" '[.TableStatistics[]|select(.TableName==$t and (.ValidationFailedRecords//0)==0 and (.ValidationPendingRecords//0)==0 and (.ValidationSuspendedRecords//0)==0 and .ValidationState=="Validated")]|length==1' <<< "$stats" >/dev/null || die "DMS table not validated: $table"
 done
+printf '%s\n' "$task" > "$EVIDENCE_DIR/dms-task.json"
+printf '%s\n' "$stats" > "$EVIDENCE_DIR/dms.json"
 # CloudWatch metrics must be recent; use GNU date on ubuntu runner.
 for metric in CDCLatencySource CDCLatencyTarget; do
  start=$(date -u -d '10 minutes ago' +'%Y-%m-%dT%H:%M:%SZ'); end=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -29,4 +32,4 @@ for metric in CDCLatencySource CDCLatencyTarget; do
  awk -v v="$value" 'BEGIN{exit !(v>=0 && v<=5)}' || die "Excessive $metric: $value"
  log "$metric=$value, age=${age}s"
 done
-log 'DMS CDC and validated table checks passed; independent final DB reconciliation is still mandatory.'
+log 'DMS CDC and validated table checks passed.'

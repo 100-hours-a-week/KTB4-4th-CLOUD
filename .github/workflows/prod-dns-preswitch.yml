@@ -1,0 +1,57 @@
+name: Prod DNS Pre-switch to ALB
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type PRESWITCH needu.gift TO PROD ALB"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prod-migration-control
+  cancel-in-progress: false
+
+jobs:
+  preswitch:
+    if: ${{ inputs.confirm == 'PRESWITCH needu.gift TO PROD ALB' }}
+    runs-on: ubuntu-latest
+    environment: prod-migration-cutover
+    timeout-minutes: 10
+    env:
+      AWS_REGION: ap-northeast-2
+      EXPECTED_ACCOUNT_ID: "919551759796"
+      HOSTED_ZONE_ID: Z10258582M6TRCEOCUBUW
+      LIVE_HOST: needu.gift
+      PROD_HOST: prod.needu.gift
+      V1_EIP: 13.124.155.10
+      PROD_ALB_NAME: needu-prod-alb
+      DNS_PRESWITCH_APPROVED: YES
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure production cutover AWS role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.MIGRATION_CUTOVER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-dns-preswitch-${{ github.run_id }}
+      - name: Prepare evidence directory
+        shell: bash
+        run: |
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/prod-dns-preswitch" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/prod-dns-preswitch"
+      - name: Pre-switch live DNS to Prod ALB
+        shell: bash
+        run: bash scripts/migration/cutover/switch-dns-prod.sh
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-dns-preswitch-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
