@@ -1,23 +1,36 @@
 name: Staging Migration Cutover
+
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type CUTOVER to confirm write freeze and DMS stop'
+        description: "Type CUTOVER to confirm write freeze and DMS stop"
         required: true
         type: string
+
 permissions:
   id-token: write
   contents: read
+
 concurrency:
   group: staging-alb-control
   cancel-in-progress: false
+
 jobs:
-  cutover:
+  preflight:
     if: ${{ inputs.confirm == 'CUTOVER' }}
+    uses: ./.github/workflows/staging-migration-preflight.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  cutover:
+    needs: preflight
+    if: ${{ inputs.confirm == 'CUTOVER' && needs.preflight.outputs.result == 'PASS' }}
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 25
+
     env:
       AWS_REGION: ap-northeast-2
       DMS_TASK_ARN: arn:aws:dms:ap-northeast-2:919551759796:task:BQMH5JA3RNCDNGPD2DWZA3VZJU
@@ -25,53 +38,178 @@ jobs:
       V1_INSTANCE_ID: i-0576742bcb4121640
       ALB_NAME: needu-staging-alb
       STAGING_HOST: staging.needu.gift
+      SSM_BASTION_INSTANCE_ID: i-0fc4a029b4d5b90ca
+      MYSQL_LOCAL_PORT: '13306'
+      MYSQL_DATABASE: needu
+      POLICY_TEST_USER_MIN: '59'
+      POLICY_TEST_USER_MAX: '78'
+      CUTOVER_POLICY_APPROVED: 'YES'
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Staging-Control
           aws-region: ap-northeast-2
+
+      - name: Verify Preflight PASS
+        env:
+          PREFLIGHT_RESULT: ${{ needs.preflight.outputs.result }}
+          PREFLIGHT_COMPLETED_AT: ${{ needs.preflight.outputs.completed_at }}
+          PREFLIGHT_DMS_TASK_ARN: ${{ needs.preflight.outputs.dms_task_arn }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test "$PREFLIGHT_RESULT" = "PASS" || {
+            echo "::error::Preflight did not PASS"
+            exit 1
+          }
+
+          test "$PREFLIGHT_DMS_TASK_ARN" = "$DMS_TASK_ARN" || {
+            echo "::error::Preflight checked a different DMS task"
+            exit 1
+          }
+
+          echo "Preflight result: $PREFLIGHT_RESULT"
+          echo "Preflight completed: $PREFLIGHT_COMPLETED_AT"
+
       - name: Verify prerequisites BEFORE any changes
         shell: bash
         run: |
           set -euo pipefail
-          for cmd in aws jq curl; do command -v "$cmd" >/dev/null; done
+
+          for cmd in aws jq curl; do
+            command -v "$cmd" >/dev/null
+          done
+
           for file in scripts/migration/cutover/{check-dms,check-transactions,stop-dms}.sh; do
             test -f "$file"
             bash -n "$file"
           done
-          # The policy transformation is intentionally mandatory, not guessed.
+
           test -f scripts/migration/cutover/transform-policy.sh || {
-            echo '::error::Missing verified V2 MySQL policy transform: transform-policy.sh'
+            echo "::error::Missing verified V2 MySQL policy transform: transform-policy.sh"
             exit 1
           }
+
           bash -n scripts/migration/cutover/transform-policy.sh
-          # Check DMS running and replication healthy before write freeze.
+
           bash scripts/migration/cutover/check-dms.sh
+
       - name: Resolve listener and verify target groups
         id: resolve
         shell: bash
         run: |
           set -euo pipefail
-          alb=$(aws elbv2 describe-load-balancers --names "$ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text)
-          listener=$(aws elbv2 describe-listeners --load-balancer-arn "$alb" --query 'Listeners[?Port==`443`].ListenerArn | [0]' --output text)
-          test "$listener" != None
+
+          alb=$(aws elbv2 describe-load-balancers \
+            --names "$ALB_NAME" \
+            --query 'LoadBalancers[0].LoadBalancerArn' \
+            --output text)
+
+          listener=$(aws elbv2 describe-listeners \
+            --load-balancer-arn "$alb" \
+            --query 'Listeners[?Port==`443`].ListenerArn | [0]' \
+            --output text)
+
+          test "$listener" != "None"
           echo "listener=$listener" >> "$GITHUB_OUTPUT"
+
           for name in needu-staging-v1 needu-staging-fe needu-staging-be; do
-            arn=$(aws elbv2 describe-target-groups --names "$name" --query 'TargetGroups[0].TargetGroupArn' --output text)
-            test "$arn" != None
-            healthy=$(aws elbv2 describe-target-health --target-group-arn "$arn" --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' --output text)
-            test "$healthy" -ge 1 || { echo "::error::No healthy targets in $name"; exit 1; }
+            arn=$(aws elbv2 describe-target-groups \
+              --names "$name" \
+              --query 'TargetGroups[0].TargetGroupArn' \
+              --output text)
+
+            test "$arn" != "None"
+
+            healthy=$(aws elbv2 describe-target-health \
+              --target-group-arn "$arn" \
+              --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' \
+              --output text)
+
+            test "$healthy" -ge 1 || {
+              echo "::error::No healthy targets in $name"
+              exit 1
+            }
+
             case "$name" in
-              needu-staging-v1) echo "v1=$arn" >> "$GITHUB_OUTPUT" ;;
-              needu-staging-fe) echo "fe=$arn" >> "$GITHUB_OUTPUT" ;;
-              needu-staging-be) echo "be=$arn" >> "$GITHUB_OUTPUT" ;;
+              needu-staging-v1)
+                echo "v1=$arn" >> "$GITHUB_OUTPUT"
+                ;;
+              needu-staging-fe)
+                echo "fe=$arn" >> "$GITHUB_OUTPUT"
+                ;;
+              needu-staging-be)
+                echo "be=$arn" >> "$GITHUB_OUTPUT"
+                ;;
             esac
           done
-          rules=$(aws elbv2 describe-rules --listener-arn "$listener")
+
+          rules=$(aws elbv2 describe-rules \
+            --listener-arn "$listener")
+
           for priority in 5 20; do
-            echo "$rules" | jq -e --arg p "$priority" '[.Rules[] | select(.Priority==$p)] | length == 1' >/dev/null
+            jq -e --arg p "$priority" \
+              '[.Rules[] | select(.Priority==$p)] | length == 1' \
+              <<< "$rules" >/dev/null
           done
+
+      - name: Install MySQL policy transform prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq netcat-openbsd
+          python3 -m venv "$RUNNER_TEMP/cutover-venv"
+          "$RUNNER_TEMP/cutover-venv/bin/python" -m pip install 'PyMySQL==1.1.1'
+          echo "$RUNNER_TEMP/cutover-venv/bin" >> "$GITHUB_PATH"
+          curl -fsSL https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb -o "$RUNNER_TEMP/session-manager-plugin.deb"
+          sudo dpkg -i "$RUNNER_TEMP/session-manager-plugin.deb"
+          command -v session-manager-plugin
+
+      - name: Resolve and verify Staging MySQL connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          db=$(aws rds describe-db-instances --db-instance-identifier needu-staging-mysql --output json)
+          endpoint=$(jq -er '.DBInstances[0].Endpoint.Address' <<< "$db")
+          secret=$(jq -er '.DBInstances[0].MasterUserSecret.SecretArn' <<< "$db")
+          status=$(jq -er '.DBInstances[0].DBInstanceStatus' <<< "$db")
+          test "$status" = available
+          test "$(jq -r '.DBInstances[0].DBInstanceIdentifier' <<< "$db")" = needu-staging-mysql
+          credentials=$(aws secretsmanager get-secret-value --secret-id "$secret" --query SecretString --output text)
+          username=$(jq -er '.username' <<< "$credentials")
+          password=$(jq -er '.password' <<< "$credentials")
+          echo "::add-mask::$username"
+          echo "::add-mask::$password"
+          {
+            echo "MYSQL_HOST=$endpoint"
+            echo "EXPECTED_MYSQL_HOST=$endpoint"
+            echo "MYSQL_USERNAME=$username"
+            echo "MYSQL_PASSWORD=$password"
+          } >> "$GITHUB_ENV"
+
+      - name: Open Staging MySQL tunnel
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws ssm start-session \
+            --target "$SSM_BASTION_INSTANCE_ID" \
+            --document-name AWS-StartPortForwardingSessionToRemoteHost \
+            --parameters "$(jq -cn --arg host "$MYSQL_HOST" --arg port "$MYSQL_LOCAL_PORT" '{host:[$host],portNumber:["3306"],localPortNumber:[$port]}')" \
+            > "$RUNNER_TEMP/cutover-mysql-tunnel.log" 2>&1 &
+          echo "MYSQL_TUNNEL_PID=$!" >> "$GITHUB_ENV"
+          for _ in {1..30}; do
+            if nc -z 127.0.0.1 "$MYSQL_LOCAL_PORT"; then exit 0; fi
+            sleep 1
+          done
+          echo '::error::MySQL tunnel failed to open'
+          exit 1
       - name: Enable Write Gate
         id: gate
         shell: bash
@@ -79,42 +217,112 @@ jobs:
           LISTENER: ${{ steps.resolve.outputs.listener }}
         run: |
           set -euo pipefail
-          rules=$(aws elbv2 describe-rules --listener-arn "$LISTENER")
+
+          rules=$(aws elbv2 describe-rules \
+            --listener-arn "$LISTENER")
+
           for priority in 1 2; do
-            if jq -e --arg p "$priority" '[.Rules[] | select(.Priority==$p)] | length > 0' <<< "$rules" >/dev/null; then
-              echo "::error::Rule priority $priority already exists; refusing to modify unknown gate"
+            if jq -e --arg p "$priority" \
+              '[.Rules[] | select(.Priority==$p)] | length > 0' \
+              <<< "$rules" >/dev/null; then
+              echo "::error::Rule priority $priority already exists"
               exit 1
             fi
           done
-          action=$(jq -cn '{Type:"fixed-response",FixedResponseConfig:{StatusCode:"503",ContentType:"application/json",MessageBody:"{\"code\":\"MIGRATION_IN_PROGRESS\"}"}}')
-          methods=$(jq -cn --arg host "$STAGING_HOST" '[{Field:"host-header",HostHeaderConfig:{Values:[$host]}},{Field:"http-request-method",HttpRequestMethodConfig:{Values:["POST","PUT","PATCH","DELETE"]}}]')
-          paths=$(jq -cn --arg host "$STAGING_HOST" '[{Field:"host-header",HostHeaderConfig:{Values:[$host]}},{Field:"path-pattern",PathPatternConfig:{Values:["/api/v1/auth/*callback*","/api/v1/auth/*/callback*"]}}]')
+
+          action=$(jq -cn '{
+            Type:"fixed-response",
+            FixedResponseConfig:{
+              StatusCode:"503",
+              ContentType:"application/json",
+              MessageBody:"{\"code\":\"MIGRATION_IN_PROGRESS\"}"
+            }
+          }')
+
+          methods=$(jq -cn --arg host "$STAGING_HOST" '[
+            {
+              Field:"host-header",
+              HostHeaderConfig:{Values:[$host]}
+            },
+            {
+              Field:"http-request-method",
+              HttpRequestMethodConfig:{
+                Values:["POST","PUT","PATCH","DELETE"]
+              }
+            }
+          ]')
+
+          paths=$(jq -cn --arg host "$STAGING_HOST" '[
+            {
+              Field:"host-header",
+              HostHeaderConfig:{Values:[$host]}
+            },
+            {
+              Field:"path-pattern",
+              PathPatternConfig:{
+                Values:[
+                  "/api/v1/auth/*callback*",
+                  "/api/v1/auth/*/callback*"
+                ]
+              }
+            }
+          ]')
+
           create() {
-            local priority="$1" conditions="$2"
+            local priority="$1"
+            local conditions="$2"
             local arn
-            arn=$(aws elbv2 create-rule --listener-arn "$LISTENER" --priority "$priority" \
-              --conditions "$conditions" --actions "$action" \
+
+            arn=$(aws elbv2 create-rule \
+              --listener-arn "$LISTENER" \
+              --priority "$priority" \
+              --conditions "$conditions" \
+              --actions "$action" \
               --tags Key=Purpose,Value=StagingMigrationWriteGate \
-              --query 'Rules[0].RuleArn' --output text)
+              --query 'Rules[0].RuleArn' \
+              --output text)
+
             echo "Created gate rule: $arn"
           }
-          # Record intent before changing the ALB. Failure requires manual gate inspection.
+
           echo 'GATE_CHANGE_STARTED=1' >> "$GITHUB_ENV"
+
           create 1 "$methods"
           create 2 "$paths"
-          current=$(aws elbv2 describe-rules --listener-arn "$LISTENER")
+
+          current=$(aws elbv2 describe-rules \
+            --listener-arn "$LISTENER")
+
           for p in 1 2; do
-            jq -e --arg p "$p" '[.Rules[] | select(.Priority==$p and .Actions[0].FixedResponseConfig.StatusCode=="503")] | length == 1' <<< "$current" >/dev/null
+            jq -e --arg p "$p" \
+              '[.Rules[] |
+                select(
+                  .Priority==$p and
+                  .Actions[0].FixedResponseConfig.StatusCode=="503"
+                )
+              ] | length == 1' \
+              <<< "$current" >/dev/null
           done
-          echo "GATE_ON_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+          echo "GATE_ON_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            >> "$GITHUB_ENV"
+
       - name: Verify zero open transactions twice
+        shell: bash
         run: bash scripts/migration/cutover/check-transactions.sh
+
       - name: Verify final CDC and validation
+        shell: bash
         run: bash scripts/migration/cutover/check-dms.sh
+
       - name: Stop DMS and confirm stopped
+        shell: bash
         run: bash scripts/migration/cutover/stop-dms.sh
-      - name: Transform V2 MySQL policy (verified implementation required)
+
+      - name: Transform V2 MySQL policy
+        shell: bash
         run: bash scripts/migration/cutover/transform-policy.sh
+
       - name: Switch API then frontend to V2
         shell: bash
         env:
@@ -124,58 +332,132 @@ jobs:
           BE_TG: ${{ steps.resolve.outputs.be }}
         run: |
           set -euo pipefail
-          rules=$(aws elbv2 describe-rules --listener-arn "$LISTENER")
-          api=$(jq -r '.Rules[] | select(.Priority=="5") | .RuleArn' <<< "$rules")
-          frontend=$(jq -r '.Rules[] | select(.Priority=="20") | .RuleArn' <<< "$rules")
+
+          rules=$(aws elbv2 describe-rules \
+            --listener-arn "$LISTENER")
+
+          api=$(jq -r \
+            '.Rules[] | select(.Priority=="5") | .RuleArn' \
+            <<< "$rules")
+
+          frontend=$(jq -r \
+            '.Rules[] | select(.Priority=="20") | .RuleArn' \
+            <<< "$rules")
+
           for pair in "${api}|${BE_TG}" "${frontend}|${FE_TG}"; do
-            rule=${pair%%|*}; target=${pair#*|}
-            action=$(jq -cn --arg v1 "$V1_TG" --arg v2 "$target" '{Type:"forward",ForwardConfig:{TargetGroups:[{TargetGroupArn:$v1,Weight:0},{TargetGroupArn:$v2,Weight:100}]}}')
-            aws elbv2 modify-rule --rule-arn "$rule" --actions "$action" >/dev/null
-            actual=$(aws elbv2 describe-rules --rule-arns "$rule")
-            jq -e --arg v1 "$V1_TG" --arg v2 "$target" '
+            rule=${pair%%|*}
+            target=${pair#*|}
+
+            action=$(jq -cn \
+              --arg v1 "$V1_TG" \
+              --arg v2 "$target" \
+              '{
+                Type:"forward",
+                ForwardConfig:{
+                  TargetGroups:[
+                    {TargetGroupArn:$v1,Weight:0},
+                    {TargetGroupArn:$v2,Weight:100}
+                  ]
+                }
+              }')
+
+            aws elbv2 modify-rule \
+              --rule-arn "$rule" \
+              --actions "$action" >/dev/null
+
+            actual=$(aws elbv2 describe-rules \
+              --rule-arns "$rule")
+
+            jq -e \
+              --arg v1 "$V1_TG" \
+              --arg v2 "$target" \
+              '
               .Rules[0].Actions[0].ForwardConfig.TargetGroups as $tg |
-              ([$tg[] | select(.TargetGroupArn==$v1 and .Weight==0)] | length)==1 and
-              ([$tg[] | select(.TargetGroupArn==$v2 and .Weight==100)] | length)==1
-            ' <<< "$actual" >/dev/null
+              ([$tg[] |
+                select(.TargetGroupArn==$v1 and .Weight==0)
+              ] | length)==1 and
+              ([$tg[] |
+                select(.TargetGroupArn==$v2 and .Weight==100)
+              ] | length)==1
+              ' <<< "$actual" >/dev/null
           done
+
       - name: Check V2 target health before releasing gate
+        shell: bash
         env:
           FE_TG: ${{ steps.resolve.outputs.fe }}
           BE_TG: ${{ steps.resolve.outputs.be }}
-        shell: bash
         run: |
           set -euo pipefail
+
           for tg in "$FE_TG" "$BE_TG"; do
-            healthy=$(aws elbv2 describe-target-health --target-group-arn "$tg" --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' --output text)
+            healthy=$(aws elbv2 describe-target-health \
+              --target-group-arn "$tg" \
+              --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' \
+              --output text)
+
             test "$healthy" -ge 1
           done
-          # A health check is not equivalent to a successful authenticated write.
+
       - name: Disable Write Gate
         shell: bash
         env:
           LISTENER: ${{ steps.resolve.outputs.listener }}
         run: |
           set -euo pipefail
-          rules=$(aws elbv2 describe-rules --listener-arn "$LISTENER")
+
+          rules=$(aws elbv2 describe-rules \
+            --listener-arn "$LISTENER")
+
           for priority in 1 2; do
-            arn=$(jq -r --arg p "$priority" '.Rules[] | select(.Priority==$p) | .RuleArn' <<< "$rules")
+            arn=$(jq -r --arg p "$priority" \
+              '.Rules[] |
+                select(.Priority==$p) |
+                .RuleArn' <<< "$rules")
+
             test -n "$arn"
-            purpose=$(aws elbv2 describe-tags --resource-arns "$arn" --query 'TagDescriptions[0].Tags[?Key==`Purpose`].Value | [0]' --output text)
-            test "$purpose" = StagingMigrationWriteGate
+
+            purpose=$(aws elbv2 describe-tags \
+              --resource-arns "$arn" \
+              --query 'TagDescriptions[0].Tags[?Key==`Purpose`].Value | [0]' \
+              --output text)
+
+            test "$purpose" = "StagingMigrationWriteGate"
+
             aws elbv2 delete-rule --rule-arn "$arn"
           done
-          current=$(aws elbv2 describe-rules --listener-arn "$LISTENER")
-          jq -e '[.Rules[] | select(.Priority=="1" or .Priority=="2")] | length==0' <<< "$current" >/dev/null
-          echo "GATE_OFF_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+          current=$(aws elbv2 describe-rules \
+            --listener-arn "$LISTENER")
+
+          jq -e \
+            '[.Rules[] |
+              select(.Priority=="1" or .Priority=="2")
+            ] | length==0' \
+            <<< "$current" >/dev/null
+
+          echo "GATE_OFF_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            >> "$GITHUB_ENV"
+
       - name: Summary
         if: always()
         shell: bash
         run: |
           {
-            echo '## Staging cutover execution'
+            echo "## Staging cutover execution"
             echo "- Job: ${{ job.status }}"
+            echo "- Preflight: ${{ needs.preflight.outputs.result }}"
+            echo "- Preflight completed: ${{ needs.preflight.outputs.completed_at }}"
             echo "- Gate ON: ${GATE_ON_AT:-not confirmed}"
             echo "- Gate OFF: ${GATE_OFF_AT:-not confirmed}"
-            echo '- If failed after Gate ON, inspect ALB gate, DMS, DB and target weights manually.'
-            echo '- Do not blindly rollback after V2 writes.'
+            echo "- If failed after Gate ON, inspect ALB gate, DMS, DB and target weights manually."
+            echo "- Do not blindly rollback after V2 writes."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Close Staging MySQL tunnel
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${MYSQL_TUNNEL_PID:-}" ]]; then
+            kill "$MYSQL_TUNNEL_PID" 2>/dev/null || true
+          fi
