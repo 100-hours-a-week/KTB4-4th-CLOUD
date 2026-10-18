@@ -48,11 +48,17 @@ postgres_engine_version = "18.6" # pgvector 0.8.2 지원 버전
 mysql_instance_class    = "db.t4g.medium"
 postgres_instance_class = "db.t4g.small"
 mysql_storage_gb        = 50
-postgres_storage_gb     = 20
-redis_node_type         = "cache.t4g.small"
-redis_num_nodes         = 1
-task_cpu                = { frontend = 512, backend = 1024, ai = 512 }
-task_memory             = { frontend = 1024, backend = 2048, ai = 1024 }
+mysql_parameter_group = {
+  name                      = "needu-prod-mysql84"
+  description               = "NeedU Prod MySQL 8.4 parameters"
+  net_read_timeout_seconds  = 300
+  net_write_timeout_seconds = 300
+}
+postgres_storage_gb = 20
+redis_node_type     = "cache.t4g.small"
+redis_num_nodes     = 1
+task_cpu            = { frontend = 512, backend = 1024, ai = 512 }
+task_memory         = { frontend = 1024, backend = 2048, ai = 1024 }
 # 최초 Apply에서는 RDS와 런타임 리소스만 생성한다.
 # Prod DB URL 등록과 통합 검증 후 2로 올려 ECS를 기동한다.
 task_desired_count       = 0
