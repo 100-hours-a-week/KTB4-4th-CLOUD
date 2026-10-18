@@ -47,6 +47,16 @@ variable "mysql_storage_gb" {
   type = number
 }
 
+variable "mysql_parameter_group" {
+  description = "Prod MySQL 전용 Parameter Group 설정"
+  type = object({
+    name                      = string
+    description               = string
+    net_read_timeout_seconds  = number
+    net_write_timeout_seconds = number
+  })
+}
+
 variable "postgres_storage_gb" {
   type = number
 }

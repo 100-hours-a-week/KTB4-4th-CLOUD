@@ -24,6 +24,7 @@ resource "aws_db_instance" "mysql" {
   final_snapshot_identifier   = var.deletion_protection ? "needu-${var.environment}-mysql-final" : null
   apply_immediately           = false
   auto_minor_version_upgrade  = false
+  parameter_group_name        = var.mysql_parameter_group == null ? null : aws_db_parameter_group.mysql[0].name
 
   tags = {
     Project     = "NeedU"
@@ -31,6 +32,33 @@ resource "aws_db_instance" "mysql" {
     ManagedBy   = "Terraform"
   }
 }
+
+resource "aws_db_parameter_group" "mysql" {
+  count = var.mysql_parameter_group == null ? 0 : 1
+
+  name        = var.mysql_parameter_group.name
+  family      = "mysql${join(".", slice(split(".", var.mysql_engine_version), 0, 2))}"
+  description = var.mysql_parameter_group.description
+
+  parameter {
+    name         = "net_read_timeout"
+    value        = tostring(var.mysql_parameter_group.net_read_timeout_seconds)
+    apply_method = "immediate"
+  }
+
+  parameter {
+    name         = "net_write_timeout"
+    value        = tostring(var.mysql_parameter_group.net_write_timeout_seconds)
+    apply_method = "immediate"
+  }
+
+  tags = {
+    Project     = "NeedU"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
 # AI 카탈로그 코드와 마이그레이션에서 사용하는 초기 데이터베이스를 생성
 resource "aws_db_instance" "postgres" {
   identifier                  = "needu-${var.environment}-postgres"
