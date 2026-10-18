@@ -1,0 +1,175 @@
+name: Prod Migration Preflight (read-only)
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      result:
+        description: "Preflight PASS or FAIL"
+        value: ${{ jobs.preflight.outputs.result }}
+      completed_at:
+        description: "Completion time (KST)"
+        value: ${{ jobs.preflight.outputs.completed_at }}
+      dms_task_arn:
+        description: "Validated Prod DMS task ARN"
+        value: ${{ jobs.preflight.outputs.dms_task_arn }}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prod-migration-control
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate Prod migration readiness (no mutations)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: prod-migration
+    outputs:
+      result: ${{ steps.finalize.outputs.result }}
+      completed_at: ${{ steps.finalize.outputs.completed_at }}
+      dms_task_arn: ${{ steps.finalize.outputs.dms_task_arn }}
+    env:
+      AWS_REGION: ap-northeast-2
+      EXPECTED_ACCOUNT_ID: "919551759796"
+      ALB_NAME: needu-prod-alb
+      FRONTEND_TARGET_GROUP: needu-prod-fe
+      BACKEND_TARGET_GROUP: needu-prod-be
+      ECS_CLUSTER: needu-prod-cluster
+      ECS_SERVICE_PREFIX: needu-prod
+      EXPECTED_TASK_COUNT: "2"
+      MYSQL_DB_IDENTIFIER: needu-prod-mysql
+      POSTGRES_DB_IDENTIFIER: needu-prod-postgres
+      HOSTED_ZONE_ID: Z10258582M6TRCEOCUBUW
+      PROD_HOST: prod.needu.gift
+      LIVE_HOST: needu.gift
+      V1_EIP: 13.124.155.10
+      V1_INSTANCE_ID: i-071de18816cfae436
+      DMS_TASK_ID: ${{ vars.MIGRATION_DMS_TASK_ID }}
+      # Do not set this to true without implementing actual MySQL/PG reconciliation.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare evidence directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PREFLIGHT_RESULT_DIR=$RUNNER_TEMP/prod-migration-preflight" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/prod-migration-preflight"
+
+      - name: Configure AWS read-only role
+        id: aws
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.MIGRATION_PREFLIGHT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-migration-preflight-${{ github.run_id }}
+
+      - name: Verify AWS account
+        id: account
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(aws sts get-caller-identity --query Account --output text)"
+          test "$actual" = "$EXPECTED_ACCOUNT_ID"
+          echo "Verified AWS account: $actual"
+
+      - name: Verify current DNS and target Alias
+        id: dns
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/migration/preflight/check-dns-prod.sh
+
+      - name: Verify Prod ALB routing and gate baseline
+        id: alb
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/migration/preflight/check-alb-prod.sh
+
+      - name: Verify ECS readiness and target health
+        id: ecs
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/migration/preflight/check-ecs-prod.sh
+
+      - name: Verify RDS metadata
+        id: rds
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/migration/preflight/check-rds-prod.sh
+
+      - name: Verify Prod DMS CDC and table statistics
+        id: dms
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/migration/preflight/check-dms-prod.sh
+
+      - name: Require MySQL and PostgreSQL reconciliation integration
+        id: data
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/migration/preflight/check-data-prod.sh
+
+      - name: Finalize checks and evidence
+        id: finalize
+        if: always()
+        shell: bash
+        env:
+          AWS_STEP: ${{ steps.aws.outcome }}
+          ACCOUNT_STEP: ${{ steps.account.outcome }}
+          DNS_STEP: ${{ steps.dns.outcome }}
+          ALB_STEP: ${{ steps.alb.outcome }}
+          ECS_STEP: ${{ steps.ecs.outcome }}
+          RDS_STEP: ${{ steps.rds.outcome }}
+          DMS_STEP: ${{ steps.dms.outcome }}
+          DATA_STEP: ${{ steps.data.outcome }}
+        run: |
+          set -euo pipefail
+          file="$PREFLIGHT_RESULT_DIR/checks.tsv"
+          touch "$file"
+          for item in "AWS:$AWS_STEP" "Account:$ACCOUNT_STEP" "DNS:$DNS_STEP" "ALB:$ALB_STEP" "ECS:$ECS_STEP" "RDS:$RDS_STEP" "DMS:$DMS_STEP" "Data reconciliation:$DATA_STEP"; do
+            name="${item%%:*}"
+            outcome="${item#*:}"
+            if [[ "$outcome" != success ]]; then
+              printf '%s\tFAIL\tworkflow outcome=%s\n' "$name" "$outcome" >> "$file"
+            fi
+          done
+          result=PASS
+          if grep -q $'\tFAIL\t' "$file" || [[ ! -s "$file" ]]; then result=FAIL; fi
+          # Mandatory checks are never waived; missing steps are FAIL.
+          for key in 'DNS' 'ALB' 'ECS' 'RDS' 'DMS' 'Data reconciliation'; do
+            if ! grep -q "^${key}\s" "$file"; then
+              printf '%s\tFAIL\tmissing check result\n' "$key" >> "$file"
+              result=FAIL
+            fi
+          done
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "completed_at=$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')" >> "$GITHUB_OUTPUT"
+          if [[ -f "$PREFLIGHT_RESULT_DIR/dms-task-arn.txt" ]]; then
+            echo "dms_task_arn=$(cat "$PREFLIGHT_RESULT_DIR/dms-task-arn.txt")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'dms_task_arn=' >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo '## Prod migration preflight (read-only)'
+            echo "Result: **$result**"
+            echo '```'
+            cat "$file"
+            echo '```'
+            echo 'This is not a Cutover approval; DB reconciliation must be implemented.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$result" = PASS
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-migration-preflight-${{ github.run_id }}
+          path: ${{ env.PREFLIGHT_RESULT_DIR }}
+          if-no-files-found: warn
+          retention-days: 14
