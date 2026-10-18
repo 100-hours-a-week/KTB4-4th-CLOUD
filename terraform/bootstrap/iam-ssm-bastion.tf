@@ -25,6 +25,32 @@ data "aws_iam_policy_document" "ssm_bastion_boundary" {
 
     resources = ["*"]
   }
+
+  statement {
+    sid    = "AllowProdPostgresParameterRead"
+    effect = "Allow"
+
+    actions = [
+      "ssm:GetParameter"
+    ]
+
+    resources = [
+      "arn:aws:ssm:ap-northeast-2:919551759796:parameter/needu/v2/prod/ai-catalog/CATALOG_DATABASE_URL"
+    ]
+  }
+
+  statement {
+    sid    = "AllowProdPostgresDumpDownload"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::needu-prod-catalog-aaec9d04f8c7a82e9a5db64395/migration/postgres/needu_vector_prod_preload.dump"
+    ]
+  }
 }
 
 resource "aws_iam_policy" "ssm_bastion_boundary" {
