@@ -32,7 +32,7 @@ resource "aws_iam_role" "prod_migration_cutover" {
 }
 
 resource "aws_iam_role_policy" "prod_migration_cutover" {
-  name = "ProdMigrationCutover"
+  name = "ProdMigrationCutoverReadOnly"
   role = aws_iam_role.prod_migration_cutover.id
 
   policy = jsonencode({
