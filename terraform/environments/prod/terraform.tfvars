@@ -30,18 +30,20 @@ image_tags = {
   ai       = "b60fb08c350c8076aa546f710566da5d631f89f5"
 }
 
-mysql_engine_version     = "8.4.11"
-postgres_engine_version  = "18.6" # pgvector 0.8.2 지원 버전
-mysql_instance_class     = "db.t4g.medium"
-postgres_instance_class  = "db.t4g.small"
-mysql_storage_gb         = 50
-postgres_storage_gb      = 20
-redis_node_type          = "cache.t4g.small"
-redis_num_nodes          = 1
-task_cpu                 = { frontend = 512, backend = 1024, ai = 512 }
-task_memory              = { frontend = 1024, backend = 2048, ai = 1024 }
-task_desired_count       = 2
-autoscaling_min          = 2
+mysql_engine_version    = "8.4.11"
+postgres_engine_version = "18.6" # pgvector 0.8.2 지원 버전
+mysql_instance_class    = "db.t4g.medium"
+postgres_instance_class = "db.t4g.small"
+mysql_storage_gb        = 50
+postgres_storage_gb     = 20
+redis_node_type         = "cache.t4g.small"
+redis_num_nodes         = 1
+task_cpu                = { frontend = 512, backend = 1024, ai = 512 }
+task_memory             = { frontend = 1024, backend = 2048, ai = 1024 }
+# 최초 Apply에서는 RDS와 런타임 리소스만 생성한다.
+# Prod DB URL 등록과 통합 검증 후 2로 올려 ECS를 기동한다.
+task_desired_count       = 0
+autoscaling_min          = 0
 autoscaling_max          = 4
 multi_az                 = false
 deletion_protection      = true
@@ -59,8 +61,34 @@ github_subject_prefixes = {
 # 실제 값은 AWS에 별도 등록하고 여기에는 Parameter 경로만 작성
 app_secret_parameters = {
   frontend = {}
-  backend  = {}
-  ai       = {}
+  backend = {
+    AI_SERVICE_TOKEN           = "/needu/v2/prod/backend/AI_SERVICE_TOKEN"
+    JWT_SECRET                 = "/needu/v2/prod/backend/JWT_SECRET"
+    KAKAO_ADMIN_KEY            = "/needu/v2/prod/backend/KAKAO_ADMIN_KEY"
+    KAKAO_CLIENT_SECRET        = "/needu/v2/prod/backend/KAKAO_CLIENT_SECRET"
+    KAKAO_FRIEND_REDIRECT_URI  = "/needu/v2/prod/backend/KAKAO_FRIEND_REDIRECT_URI"
+    KAKAO_REDIRECT_URI         = "/needu/v2/prod/backend/KAKAO_REDIRECT_URI"
+    KAKAO_REST_API_KEY         = "/needu/v2/prod/backend/KAKAO_REST_API_KEY"
+    KAKAO_TOKEN_ENCRYPTION_KEY = "/needu/v2/prod/backend/KAKAO_TOKEN_ENCRYPTION_KEY"
+    SENTRY_DSN                 = "/needu/v2/prod/backend/SENTRY_DSN"
+    VAPID_PRIVATE_KEY          = "/needu/v2/prod/backend/VAPID_PRIVATE_KEY"
+    VAPID_PUBLIC_KEY           = "/needu/v2/prod/backend/VAPID_PUBLIC_KEY"
+    VAPID_SUBJECT              = "/needu/v2/prod/backend/VAPID_SUBJECT"
+    WEB_PUSH_ENABLED           = "/needu/v2/prod/backend/WEB_PUSH_ENABLED"
+    WEB_PUSH_REQUEST_TIMEOUT   = "/needu/v2/prod/backend/WEB_PUSH_REQUEST_TIMEOUT"
+    WEB_PUSH_TTL               = "/needu/v2/prod/backend/WEB_PUSH_TTL"
+  }
+  ai = {
+    EXTRACTION_MODEL_BASE_URL = "/needu/v2/prod/ai/EXTRACTION_MODEL_BASE_URL"
+    EXTRACTION_MODEL_NAME     = "/needu/v2/prod/ai/EXTRACTION_MODEL_NAME"
+    JUDGMENT_MODEL_BASE_URL   = "/needu/v2/prod/ai/JUDGMENT_MODEL_BASE_URL"
+    JUDGMENT_MODEL_NAME       = "/needu/v2/prod/ai/JUDGMENT_MODEL_NAME"
+    OPENROUTER_API_KEY        = "/needu/v2/prod/ai/OPENROUTER_API_KEY"
+    RESPONSE_MODEL_BASE_URL   = "/needu/v2/prod/ai/RESPONSE_MODEL_BASE_URL"
+    RESPONSE_MODEL_NAME       = "/needu/v2/prod/ai/RESPONSE_MODEL_NAME"
+    SERVICE_TOKEN             = "/needu/v2/prod/ai/SERVICE_TOKEN"
+    UPSTAGE_API_KEY           = "/needu/v2/prod/ai/UPSTAGE_API_KEY"
+  }
 }
 
 # AI 팀 실행 명령 확정 전에는 빈 값으로 유지
