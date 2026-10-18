@@ -1,4 +1,13 @@
 environment = "prod"
+
+v1_prod_migration_network = {
+  peering_connection_id = "pcx-xxxxxxxxxxxxxxxxx"
+  vpc_cidr              = "10.0.0.0/16"
+  security_group_id     = "sg-xxxxxxxxxxxxxxxxx"
+  app_private_ip        = "10.0.0.10"
+}
+
+prod_cutover_initial_target = "v1"
 public_subnets = {
   a = { az = "ap-northeast-2a", cidr = "10.1.16.0/24" }
   c = { az = "ap-northeast-2c", cidr = "10.1.17.0/24" }
