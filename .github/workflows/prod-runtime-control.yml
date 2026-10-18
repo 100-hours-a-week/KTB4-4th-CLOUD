@@ -1,0 +1,158 @@
+name: Prod Runtime Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Prod ECS 실행 상태"
+        required: true
+        type: choice
+        options:
+          - status
+          - start-ecs
+          - stop-ecs
+      service:
+        description: "ECS 제어 및 조회 대상"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - frontend
+          - backend
+          - ai
+
+permissions:
+  contents: read
+  id-token: write
+
+# Terraform Prod Apply와 동시에 실행되지 않게 같은 잠금 이름을 사용한다.
+concurrency:
+  group: terraform-apply-prod
+  cancel-in-progress: false
+
+jobs:
+  control:
+    name: Prod ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: prod
+
+    env:
+      AWS_REGION: ap-northeast-2
+      CLUSTER_NAME: needu-prod-cluster
+      ECS_DESIRED_COUNT: "2"
+      AUTOSCALING_MIN: "2"
+      AUTOSCALING_MAX: "4"
+      CONTROL_ACTION: ${{ inputs.action }}
+      SELECTED_SERVICE: ${{ inputs.service }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919551759796:role/NeedU-V2-Prod-Control
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: prod-runtime-control-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Control Prod ECS services
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$SELECTED_SERVICE" in
+            all)
+              services=(frontend backend ai)
+              ;;
+            frontend|backend|ai)
+              services=("$SELECTED_SERVICE")
+              ;;
+            *)
+              echo "::error::지원하지 않는 ECS 서비스입니다: $SELECTED_SERVICE"
+              exit 1
+              ;;
+          esac
+
+          ecs_service_names=()
+
+          if [[ "$CONTROL_ACTION" == "start-ecs" || "$CONTROL_ACTION" == "stop-ecs" ]]; then
+            for service in "${services[@]}"; do
+              resource_id="service/${CLUSTER_NAME}/needu-prod-${service}"
+              ecs_service_name="needu-prod-${service}"
+              ecs_service_names+=("$ecs_service_name")
+
+              if [[ "$CONTROL_ACTION" == "start-ecs" ]]; then
+                min_capacity="$AUTOSCALING_MIN"
+                desired_count="$ECS_DESIRED_COUNT"
+              else
+                min_capacity="0"
+                desired_count="0"
+              fi
+
+              # Auto Scaling이 선택한 실행 수를 되돌리지 않도록 최소 용량을 먼저 변경한다.
+              aws application-autoscaling register-scalable-target \
+                --service-namespace ecs \
+                --resource-id "$resource_id" \
+                --scalable-dimension ecs:service:DesiredCount \
+                --min-capacity "$min_capacity" \
+                --max-capacity "$AUTOSCALING_MAX"
+
+              aws ecs update-service \
+                --cluster "$CLUSTER_NAME" \
+                --service "$ecs_service_name" \
+                --desired-count "$desired_count" \
+                --no-cli-pager >/dev/null
+            done
+
+            aws ecs wait services-stable \
+              --cluster "$CLUSTER_NAME" \
+              --services "${ecs_service_names[@]}"
+          fi
+
+          {
+            echo "## Prod Runtime Control 결과"
+            echo
+            echo "- 실행자: @${{ github.actor }}"
+            echo "- 실행 모드: \`$CONTROL_ACTION\`"
+            echo "- ECS 대상: \`$SELECTED_SERVICE\`"
+            echo
+            echo "| Service | Desired | Running | Min | Max |"
+            echo "| --- | ---: | ---: | ---: | ---: |"
+
+            for service in "${services[@]}"; do
+              resource_id="service/${CLUSTER_NAME}/needu-prod-${service}"
+              ecs_service_name="needu-prod-${service}"
+
+              service_state="$(aws ecs describe-services \
+                --cluster "$CLUSTER_NAME" \
+                --services "$ecs_service_name" \
+                --query 'services[0].[desiredCount,runningCount]' \
+                --output text)"
+              read -r desired running <<<"$service_state"
+
+              scaling_state="$(aws application-autoscaling describe-scalable-targets \
+                --service-namespace ecs \
+                --resource-ids "$resource_id" \
+                --scalable-dimension ecs:service:DesiredCount \
+                --query 'ScalableTargets[0].[MinCapacity,MaxCapacity]' \
+                --output text)"
+              read -r minimum maximum <<<"$scaling_state"
+
+              echo "| $service | $desired | $running | $minimum | $maximum |"
+
+              if [[ "$CONTROL_ACTION" == "start-ecs" ]]; then
+                [[ "$desired" == "$ECS_DESIRED_COUNT" && "$running" == "$ECS_DESIRED_COUNT" && "$minimum" == "$AUTOSCALING_MIN" ]] || {
+                  echo "::error::$service 시작 상태 검증에 실패했습니다."
+                  exit 1
+                }
+              elif [[ "$CONTROL_ACTION" == "stop-ecs" ]]; then
+                [[ "$desired" == "0" && "$running" == "0" && "$minimum" == "0" ]] || {
+                  echo "::error::$service 중지 상태 검증에 실패했습니다."
+                  exit 1
+                }
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

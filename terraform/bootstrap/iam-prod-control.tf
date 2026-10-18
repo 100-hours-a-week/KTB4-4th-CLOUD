@@ -41,6 +41,55 @@ resource "aws_iam_role" "prod_control" {
 
 data "aws_iam_policy_document" "prod_control" {
   statement {
+    sid    = "ManageProdECSServices"
+    effect = "Allow"
+
+    actions = [
+      "ecs:DescribeServices",
+      "ecs:UpdateService"
+    ]
+
+    resources = [
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-prod-cluster/needu-prod-frontend",
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-prod-cluster/needu-prod-backend",
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-prod-cluster/needu-prod-ai"
+    ]
+  }
+
+  statement {
+    sid    = "ManageProdECSScaling"
+    effect = "Allow"
+
+    actions   = ["application-autoscaling:RegisterScalableTarget"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "application-autoscaling:service-namespace"
+      values   = ["ecs"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "application-autoscaling:scalable-dimension"
+      values   = ["ecs:service:DesiredCount"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Environment"
+      values   = ["prod"]
+    }
+  }
+
+  statement {
+    sid       = "ReadProdECSScalingStatus"
+    effect    = "Allow"
+    actions   = ["application-autoscaling:DescribeScalableTargets"]
+    resources = ["*"]
+  }
+
+  statement {
     sid    = "ReadProdLoadBalancerStatus"
     effect = "Allow"
 
@@ -81,6 +130,6 @@ resource "aws_iam_role_policy" "prod_control" {
 }
 
 output "prod_control_role_arn" {
-  description = "Prod ALB Write Gate와 Cutover를 제어하는 GitHub Actions Role"
+  description = "Prod ECS Runtime, ALB Write Gate와 Cutover를 제어하는 GitHub Actions Role"
   value       = aws_iam_role.prod_control.arn
 }
