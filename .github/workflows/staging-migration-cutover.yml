@@ -44,6 +44,8 @@ jobs:
       POLICY_TEST_USER_MIN: '59'
       POLICY_TEST_USER_MAX: '78'
       CUTOVER_POLICY_APPROVED: 'YES'
+      GATE_CHANGE_STARTED: '0'
+      GATE_OFF_CONFIRMED: '0'
 
     steps:
       - name: Checkout
@@ -86,7 +88,7 @@ jobs:
             command -v "$cmd" >/dev/null
           done
 
-          for file in scripts/migration/cutover/{check-dms,check-transactions,stop-dms}.sh; do
+          for file in scripts/migration/cutover/{check-dms,check-transactions,stop-dms,verify-write-gate,rollback-staging}.sh; do
             test -f "$file"
             bash -n "$file"
           done
@@ -307,6 +309,10 @@ jobs:
           echo "GATE_ON_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             >> "$GITHUB_ENV"
 
+      - name: Verify Write Gate HTTP response
+        shell: bash
+        run: bash scripts/migration/cutover/verify-write-gate.sh
+
       - name: Verify zero open transactions twice
         shell: bash
         run: bash scripts/migration/cutover/check-transactions.sh
@@ -438,6 +444,22 @@ jobs:
 
           echo "GATE_OFF_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             >> "$GITHUB_ENV"
+          echo 'GATE_OFF_CONFIRMED=1' >> "$GITHUB_ENV"
+
+      - name: Recover V1 before write release
+        id: recovery
+        if: ${{ failure() && env.GATE_CHANGE_STARTED == '1' && env.GATE_OFF_CONFIRMED != '1' }}
+        shell: bash
+        env:
+          LISTENER: ${{ steps.resolve.outputs.listener }}
+          V1_TG: ${{ steps.resolve.outputs.v1 }}
+          FE_TG: ${{ steps.resolve.outputs.fe }}
+          BE_TG: ${{ steps.resolve.outputs.be }}
+        run: |
+          set -euo pipefail
+          bash scripts/migration/cutover/rollback-staging.sh
+          echo "RECOVERY_COMPLETED_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            >> "$GITHUB_ENV"
 
       - name: Summary
         if: always()
@@ -450,8 +472,10 @@ jobs:
             echo "- Preflight completed: ${{ needs.preflight.outputs.completed_at }}"
             echo "- Gate ON: ${GATE_ON_AT:-not confirmed}"
             echo "- Gate OFF: ${GATE_OFF_AT:-not confirmed}"
-            echo "- If failed after Gate ON, inspect ALB gate, DMS, DB and target weights manually."
-            echo "- Do not blindly rollback after V2 writes."
+            echo "- V1 recovery: ${RECOVERY_COMPLETED_AT:-not required or not completed}"
+            echo "- DMS automatic restart: disabled"
+            echo "- If recovery did not complete, run Staging ALB Cutover (v1), then Staging Write Gate (disable)."
+            echo "- Do not switch back to V1 automatically after the gate has been released and V2 writes may exist."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Close Staging MySQL tunnel
