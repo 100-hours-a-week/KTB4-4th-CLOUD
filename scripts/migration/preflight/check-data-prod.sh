@@ -31,12 +31,34 @@ require_equal "Prod MySQL table count" 22 \
 if [[ ! -s "$PREFLIGHT_RESULT_DIR/dms.json" ]]; then
   record_check "Prod MySQL DMS evidence" FAIL "dms.json is missing"
 else
-  while IFS=$'\t' read -r table expected; do
+  while IFS=$'\t' read -r table expected validation_state validation_failed validation_pending validation_suspended; do
     actual="$(mysql_value "SELECT COUNT(*) FROM \`${table}\`;" || true)"
-    require_equal "Prod MySQL $table rows" "$expected" "$actual"
+    if [[ ! "$actual" =~ ^[0-9]+$ ]]; then
+      record_check "Prod MySQL $table rows" FAIL "target row count is missing"
+    elif [[ "$actual" == "$expected" ]]; then
+      record_check "Prod MySQL $table rows" PASS "$actual"
+    elif [[ "$validation_state" == Validated \
+      && "$validation_failed" == 0 \
+      && "$validation_pending" == 0 \
+      && "$validation_suspended" == 0 ]]; then
+      # Applied CDC counters can restart from zero after a stopped task resumes.
+      # In that case, DMS row-level validation is the authoritative reconciliation result.
+      record_check "Prod MySQL $table rows" PASS \
+        "$actual (DMS Validated; non-cumulative statistics expected $expected)"
+    else
+      record_check "Prod MySQL $table rows" FAIL \
+        "expected=$expected, actual=$actual, validation=$validation_state"
+    fi
   done < <(jq -r '
     .TableStatistics[]
-    | [.TableName, ((.FullLoadRows // 0) + (.AppliedInserts // 0) - (.AppliedDeletes // 0))]
+    | [
+        .TableName,
+        ((.FullLoadRows // 0) + (.AppliedInserts // 0) - (.AppliedDeletes // 0)),
+        (.ValidationState // "Unknown"),
+        (.ValidationFailedRecords // 0),
+        (.ValidationPendingRecords // 0),
+        (.ValidationSuspendedRecords // 0)
+      ]
     | @tsv
   ' "$PREFLIGHT_RESULT_DIR/dms.json")
 fi
