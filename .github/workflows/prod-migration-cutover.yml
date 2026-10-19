@@ -144,7 +144,9 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "https://$LIVE_HOST/" >/dev/null
-          curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "https://$LIVE_HOST/api/v1/actuator/health" | jq -e '.status=="UP"' >/dev/null
+          curl --fail --silent --show-error --connect-timeout 3 --max-time 10 \
+            "https://$LIVE_HOST/api/v1/notifications/web-push/public-key" \
+            | jq -e '.data.publicKey | type == "string" and length > 0' >/dev/null
       - name: Disable Write Gate
         shell: bash
         run: |
