@@ -34,7 +34,7 @@ if [[ "$GATE_ACTION" == enable ]]; then
   action="$(jq -cn '[{Type:"fixed-response",FixedResponseConfig:{MessageBody:"{\"code\":\"MIGRATION_IN_PROGRESS\"}",StatusCode:"503",ContentType:"application/json"}}]')"
   if [[ -z "$method_rule" || "$method_rule" == None ]]; then
     conditions="$(jq -cn '[
-      {Field:"host-header",HostHeaderConfig:{Values:["needu.gift","prod.needu.gift"]}},
+      {Field:"host-header",HostHeaderConfig:{RegexValues:["^(prod\\.)?needu\\.gift$"]}},
       {Field:"http-request-method",HttpRequestMethodConfig:{Values:["POST","PUT","PATCH","DELETE"]}}
     ]')"
     aws elbv2 create-rule --listener-arn "$listener_arn" --priority 1 \
