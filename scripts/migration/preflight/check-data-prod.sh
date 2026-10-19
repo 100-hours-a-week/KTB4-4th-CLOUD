@@ -11,6 +11,8 @@ source "$(dirname "$0")/../common/common.sh"
 : "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
 : "${POSTGRES_LOCAL_PORT:?POSTGRES_LOCAL_PORT is required}"
 
+data_check_start_line="$(wc -l < "$CHECKS_TSV")"
+
 mysql_value() {
   MYSQL_PWD="$MYSQL_PASSWORD" mysql --protocol=tcp \
     -h 127.0.0.1 -P "$MYSQL_LOCAL_PORT" -u "$MYSQL_USERNAME" \
@@ -51,3 +53,9 @@ require_equal "Prod PostgreSQL embedding type" 'vector(1024)' \
   "$(postgres_value "SELECT format_type(a.atttypid,a.atttypmod) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid WHERE c.relname='catalog_product_documents' AND a.attname='embedding' AND NOT a.attisdropped;" || true)"
 require_equal "Prod PostgreSQL HNSW cosine index" 1 \
   "$(postgres_value "SELECT COUNT(*) FROM pg_indexes WHERE tablename='catalog_product_documents' AND indexdef ILIKE '%USING hnsw%' AND indexdef ILIKE '%vector_cosine_ops%';" || true)"
+
+if tail -n "+$((data_check_start_line + 1))" "$CHECKS_TSV" | grep -q $'\tFAIL\t'; then
+  record_check "Data reconciliation" FAIL "One or more target database checks failed"
+else
+  record_check "Data reconciliation" PASS "All target database checks passed"
+fi
