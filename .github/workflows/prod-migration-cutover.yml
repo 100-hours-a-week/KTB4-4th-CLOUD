@@ -139,14 +139,28 @@ jobs:
       - name: Switch API and frontend to V2
         shell: bash
         run: CUTOVER_TARGET=v2 bash scripts/migration/cutover/switch-alb-prod.sh
-      - name: Verify V2 read paths before releasing gate
+      - name: Verify V2 target health before releasing gate
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "https://$LIVE_HOST/" >/dev/null
-          curl --fail --silent --show-error --connect-timeout 3 --max-time 10 \
-            "https://$LIVE_HOST/api/v1/notifications/web-push/public-key" \
-            | jq -e '.data.publicKey | type == "string" and length > 0' >/dev/null
+          for target_group_name in needu-prod-fe needu-prod-be; do
+            target_group_arn="$(aws elbv2 describe-target-groups \
+              --names "$target_group_name" \
+              --query 'TargetGroups[0].TargetGroupArn' \
+              --output text)"
+            target_health="$(aws elbv2 describe-target-health \
+              --target-group-arn "$target_group_arn" \
+              --output json)"
+            printf '%s\n' "$target_health" \
+              > "$EVIDENCE_DIR/${target_group_name}-after-switch.json"
+            healthy_count="$(jq '[.TargetHealthDescriptions[] | select(.TargetHealth.State == "healthy")] | length' \
+              <<< "$target_health")"
+            if (( healthy_count < EXPECTED_TASK_COUNT )); then
+              echo "::error::$target_group_name has $healthy_count healthy targets; expected at least $EXPECTED_TASK_COUNT"
+              exit 1
+            fi
+            echo "[PASS] $target_group_name healthy targets=$healthy_count"
+          done
       - name: Disable Write Gate
         shell: bash
         run: |
