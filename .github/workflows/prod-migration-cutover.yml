@@ -191,8 +191,18 @@ jobs:
           GATE_ACTION=disable bash scripts/migration/cutover/manage-write-gate-prod.sh
           echo 'GATE_OFF_CONFIRMED=1' >> "$GITHUB_ENV"
           echo "GATE_OFF_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
-      - name: Recover V1 before Write Gate release
-        if: ${{ failure() && env.GATE_CHANGE_STARTED == '1' && env.GATE_OFF_CONFIRMED != '1' }}
+      - name: Recover V1 and release Write Gate
+        id: recover_v1
+        if: ${{ always() && env.GATE_CHANGE_STARTED == '1' && env.GATE_OFF_CONFIRMED != '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/migration/cutover/recover-prod-before-release.sh
+          echo 'GATE_OFF_CONFIRMED=1' >> "$GITHUB_ENV"
+          echo "GATE_OFF_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo 'RECOVERY_OUTCOME=success' >> "$GITHUB_ENV"
+      - name: Restore V2 onboarding flags after service recovery
+        if: ${{ always() && steps.recover_v1.outcome == 'success' && env.GATE_CHANGE_STARTED == '1' && env.GATE_OFF_CONFIRMED == '1' && (failure() || cancelled()) }}
         shell: bash
         env:
           EXPECTED_MYSQL_HOST: needu-prod-mysql.chmgo2a26a97.ap-northeast-2.rds.amazonaws.com
@@ -201,8 +211,9 @@ jobs:
           export ONBOARDING_ROLLBACK_FILE="$RUNNER_TEMP/prod-onboarding-rollback.json"
           if [[ -s "$ONBOARDING_ROLLBACK_FILE" ]]; then
             bash scripts/migration/cutover/restore-prod-onboarding.sh
+          else
+            echo 'No onboarding snapshot exists; V2 user state did not need restoration.'
           fi
-          bash scripts/migration/cutover/recover-prod-before-release.sh
       - name: Close database tunnels
         if: always()
         shell: bash
@@ -221,8 +232,13 @@ jobs:
             echo "- Gate OFF: ${GATE_OFF_AT:-not confirmed}"
             echo '- Non-test MySQL users are reset to ONBOARDING; test users (external_id < 0) keep their onboarding state.'
             echo '- V2 taste profiles, recommendation rows, and AI message contents are deleted; in-progress AI rooms are expired; product categories are normalized.'
-            echo '- A failure before Gate release restores saved user onboarding state and routes traffic back to V1. V2 cleanup is not restored; reload/reset V2 data before retry.'
-            echo '- Failure before Gate release automatically restores ALB V1 and removes the Gate.'
+            if [[ "${GATE_CHANGE_STARTED:-0}" == '1' ]]; then
+              echo "- V1 service recovery step: ${RECOVERY_OUTCOME:-not confirmed; inspect recovery step and evidence}"
+            else
+              echo '- V1 service recovery step: not needed (Write Gate was not started)'
+            fi
+            echo '- On failure/cancellation before Gate OFF is confirmed, route to V1, verify at least one healthy V1 target, then release the Gate and attempt to restore V2 user flags.'
+            echo '- V2 cleanup is not restored; reload/reset V2 data before retry. Runner loss or AWS control-plane failure still requires manual recovery.'
             echo '- DMS is never restarted automatically after it has been stopped.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload evidence
