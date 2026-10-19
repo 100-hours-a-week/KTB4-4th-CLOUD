@@ -20,10 +20,10 @@ done
 printf '%s\n' "$task" > "$EVIDENCE_DIR/dms-task.json"
 printf '%s\n' "$stats" > "$EVIDENCE_DIR/dms.json"
 # CloudWatch metrics must be recent; use GNU date on ubuntu runner.
+task_resource_id="${DMS_TASK_ARN##*:}"
 for metric in CDCLatencySource CDCLatencyTarget; do
  start=$(date -u -d '10 minutes ago' +'%Y-%m-%dT%H:%M:%SZ'); end=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
- task_id=$(jq -r '.ReplicationTasks[0].ReplicationTaskIdentifier' <<< "$task")
- points=$(aws cloudwatch get-metric-statistics --namespace AWS/DMS --metric-name "$metric" --dimensions "Name=ReplicationInstanceIdentifier,Value=$DMS_INSTANCE_ID" "Name=ReplicationTaskIdentifier,Value=$task_id" --start-time "$start" --end-time "$end" --period 60 --statistics Maximum --output json)
+ points=$(aws cloudwatch get-metric-statistics --namespace AWS/DMS --metric-name "$metric" --dimensions "Name=ReplicationInstanceIdentifier,Value=$DMS_INSTANCE_ID" "Name=ReplicationTaskIdentifier,Value=$task_resource_id" --start-time "$start" --end-time "$end" --period 60 --statistics Maximum --output json)
  point=$(jq -c '[.Datapoints[]|select(.Maximum!=null)]|sort_by(.Timestamp)|last//empty' <<< "$points")
  [[ -n "$point" ]] || die "No $metric datapoint"
  age=$(( $(date -u +%s) - $(date -u -d "$(jq -r '.Timestamp' <<< "$point")" +%s) ))
