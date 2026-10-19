@@ -7,6 +7,10 @@ on:
         description: "Type CUTOVER needu.gift TO V2"
         required: true
         type: string
+      onboarding_confirm:
+        description: "Type RESET PROD USERS AND V2 DATA (test accounts excluded from onboarding reset)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,7 +22,7 @@ concurrency:
 
 jobs:
   preflight:
-    if: ${{ inputs.confirm == 'CUTOVER needu.gift TO V2' }}
+    if: ${{ inputs.confirm == 'CUTOVER needu.gift TO V2' && inputs.onboarding_confirm == 'RESET PROD USERS AND V2 DATA' }}
     uses: ./.github/workflows/prod-migration-preflight.yml
     permissions:
       contents: read
@@ -26,7 +30,7 @@ jobs:
 
   cutover:
     needs: preflight
-    if: ${{ inputs.confirm == 'CUTOVER needu.gift TO V2' && needs.preflight.outputs.result == 'PASS' }}
+    if: ${{ inputs.confirm == 'CUTOVER needu.gift TO V2' && inputs.onboarding_confirm == 'RESET PROD USERS AND V2 DATA' && needs.preflight.outputs.result == 'PASS' }}
     runs-on: ubuntu-latest
     environment: prod-migration-cutover
     timeout-minutes: 30
@@ -48,6 +52,7 @@ jobs:
       DMS_INSTANCE_ID: ${{ vars.MIGRATION_PROD_DMS_INSTANCE_ID }}
       EXPECTED_DMS_TABLES: ${{ vars.MIGRATION_PROD_DMS_TABLES }}
       MYSQL_DB_IDENTIFIER: needu-prod-mysql
+      MYSQL_DATABASE: needu
       POSTGRES_DB_IDENTIFIER: needu-prod-postgres
       SSM_BASTION_INSTANCE_ID: i-0fc4a029b4d5b90ca
       MYSQL_LOCAL_PORT: "23306"
@@ -83,7 +88,10 @@ jobs:
           curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "$RUNNER_TEMP/session-manager-plugin.deb"
           sudo dpkg -i "$RUNNER_TEMP/session-manager-plugin.deb"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq default-mysql-client postgresql-client netcat-openbsd
+          sudo apt-get install -y -qq default-mysql-client postgresql-client netcat-openbsd python3-venv
+          python3 -m venv "$RUNNER_TEMP/prod-cutover-venv"
+          "$RUNNER_TEMP/prod-cutover-venv/bin/python" -m pip install 'PyMySQL==1.1.1'
+          echo "$RUNNER_TEMP/prod-cutover-venv/bin" >> "$GITHUB_PATH"
       - name: Resolve target database connection metadata
         shell: bash
         run: |
@@ -107,6 +115,12 @@ jobs:
       - name: Open target database tunnels
         shell: bash
         run: bash scripts/migration/preflight/start-db-tunnel.sh
+      - name: Verify production data transform prerequisites before Gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/migration/cutover/transform-prod-onboarding.sh
+          bash -n scripts/migration/cutover/restore-prod-onboarding.sh
       - name: Verify readiness before any mutation
         shell: bash
         run: bash scripts/migration/cutover/check-prod-readiness.sh
@@ -136,6 +150,16 @@ jobs:
         run: |
           bash scripts/migration/preflight/check-data-prod.sh
           ! grep -q $'\tFAIL\t' "$PREFLIGHT_RESULT_DIR/checks.tsv"
+      - name: Transform users and clean V2 migration data
+        shell: bash
+        env:
+          EXPECTED_MYSQL_HOST: needu-prod-mysql.chmgo2a26a97.ap-northeast-2.rds.amazonaws.com
+          PROD_ONBOARDING_TRANSFORM_APPROVED: ${{ inputs.onboarding_confirm == 'RESET PROD USERS AND V2 DATA' && 'YES' || 'NO' }}
+        run: |
+          set -euo pipefail
+          export ONBOARDING_ROLLBACK_FILE="$RUNNER_TEMP/prod-onboarding-rollback.json"
+          bash scripts/migration/cutover/transform-prod-onboarding.sh \
+            | tee "$EVIDENCE_DIR/prod-data-transform.txt"
       - name: Switch API and frontend to V2
         shell: bash
         run: CUTOVER_TARGET=v2 bash scripts/migration/cutover/switch-alb-prod.sh
@@ -170,7 +194,15 @@ jobs:
       - name: Recover V1 before Write Gate release
         if: ${{ failure() && env.GATE_CHANGE_STARTED == '1' && env.GATE_OFF_CONFIRMED != '1' }}
         shell: bash
-        run: bash scripts/migration/cutover/recover-prod-before-release.sh
+        env:
+          EXPECTED_MYSQL_HOST: needu-prod-mysql.chmgo2a26a97.ap-northeast-2.rds.amazonaws.com
+        run: |
+          set -euo pipefail
+          export ONBOARDING_ROLLBACK_FILE="$RUNNER_TEMP/prod-onboarding-rollback.json"
+          if [[ -s "$ONBOARDING_ROLLBACK_FILE" ]]; then
+            bash scripts/migration/cutover/restore-prod-onboarding.sh
+          fi
+          bash scripts/migration/cutover/recover-prod-before-release.sh
       - name: Close database tunnels
         if: always()
         shell: bash
@@ -187,6 +219,9 @@ jobs:
             echo "- Result: ${{ job.status }}"
             echo "- Gate ON: ${GATE_ON_AT:-not confirmed}"
             echo "- Gate OFF: ${GATE_OFF_AT:-not confirmed}"
+            echo '- Non-test MySQL users are reset to ONBOARDING; test users (external_id < 0) keep their onboarding state.'
+            echo '- V2 taste profiles, recommendation rows, and AI message contents are deleted; in-progress AI rooms are expired; product categories are normalized.'
+            echo '- A failure before Gate release restores saved user onboarding state and routes traffic back to V1. V2 cleanup is not restored; reload/reset V2 data before retry.'
             echo '- Failure before Gate release automatically restores ALB V1 and removes the Gate.'
             echo '- DMS is never restarted automatically after it has been stopped.'
           } >> "$GITHUB_STEP_SUMMARY"
