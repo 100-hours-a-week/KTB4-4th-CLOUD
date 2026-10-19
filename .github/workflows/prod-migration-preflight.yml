@@ -199,19 +199,34 @@ jobs:
               result=FAIL
             fi
           done
+          passed="$(awk -F '\t' '$2 == "PASS" { count++ } END { print count + 0 }' "$file")"
+          failed="$(awk -F '\t' '$2 == "FAIL" { count++ } END { print count + 0 }' "$file")"
+          completed_at="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')"
           echo "result=$result" >> "$GITHUB_OUTPUT"
-          echo "completed_at=$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')" >> "$GITHUB_OUTPUT"
+          echo "completed_at=$completed_at" >> "$GITHUB_OUTPUT"
           if [[ -f "$PREFLIGHT_RESULT_DIR/dms-task-arn.txt" ]]; then
             echo "dms_task_arn=$(cat "$PREFLIGHT_RESULT_DIR/dms-task-arn.txt")" >> "$GITHUB_OUTPUT"
           else
             echo 'dms_task_arn=' >> "$GITHUB_OUTPUT"
           fi
           {
-            echo '## Prod migration preflight (read-only)'
-            echo "Result: **$result**"
-            echo '```'
-            cat "$file"
-            echo '```'
+            echo '## Prod Migration Preflight 결과 (read-only)'
+            echo
+            echo "- 결과: **$result**"
+            echo "- 완료: \`$completed_at\`"
+            echo "- PASS: $passed / FAIL: $failed"
+            echo
+            echo '| 검증 | 결과 | 상세 |'
+            echo '|---|---:|---|'
+            awk -F '\t' '
+              {
+                gsub(/\\/, "\\\\", $1); gsub(/\|/, "\\|", $1)
+                gsub(/\\/, "\\\\", $2); gsub(/\|/, "\\|", $2)
+                gsub(/\\/, "\\\\", $3); gsub(/\|/, "\\|", $3)
+                printf "| %s | %s | %s |\n", $1, $2, $3
+              }
+            ' "$file"
+            echo
             echo 'This validates the target databases against DMS table statistics and the expected PostgreSQL catalog baseline.'
           } >> "$GITHUB_STEP_SUMMARY"
           test "$result" = PASS
