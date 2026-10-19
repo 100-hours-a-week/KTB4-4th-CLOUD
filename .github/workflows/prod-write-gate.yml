@@ -78,7 +78,7 @@ jobs:
 
             if [[ -z "$method_rule_arn" || "$method_rule_arn" == "None" ]]; then
               method_conditions="$(jq -cn '[
-                {Field:"host-header",HostHeaderConfig:{Values:["needu.gift","prod.needu.gift"]}},
+                {Field:"host-header",HostHeaderConfig:{RegexValues:["^(prod\\.)?needu\\.gift$"]}},
                 {Field:"http-request-method",HttpRequestMethodConfig:{Values:["POST","PUT","PATCH","DELETE"]}}
               ]')"
               method_rule_arn="$(aws elbv2 create-rule --listener-arn "$LISTENER_ARN" --priority "$METHOD_RULE_PRIORITY" --conditions "$method_conditions" --actions "$fixed_response_actions" --tags "Key=Purpose,Value=$GATE_TAG_VALUE" --query 'Rules[0].RuleArn' --output text)"

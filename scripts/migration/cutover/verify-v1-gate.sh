@@ -42,6 +42,12 @@ jq -e '
       | .[$config].Values[]
     ];
 
+  def regex_values($field; $config):
+    [.Conditions[]
+      | select(.Field == $field)
+      | (.[$config].RegexValues // [])[]
+    ];
+
   def is503:
     any(.Actions[];
       .Type == "fixed-response"
@@ -58,8 +64,8 @@ jq -e '
     $method[0]
     | is503
       and (
-        values("host-header"; "HostHeaderConfig") | sort
-      ) == (["needu.gift", "prod.needu.gift"] | sort)
+        regex_values("host-header"; "HostHeaderConfig")
+      ) == ["^(prod\\.)?needu\\.gift$"]
       and (
         values("http-request-method"; "HttpRequestMethodConfig") | sort
       ) == (["POST", "PUT", "PATCH", "DELETE"] | sort)
