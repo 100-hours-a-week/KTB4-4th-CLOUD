@@ -75,6 +75,7 @@ app_secret_parameters = {
   backend = {
     AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS = "/needu/v2/staging/backend/AI_CHAT_SHORT_COOLDOWN_EXTERNAL_IDS"
     AI_SERVICE_TOKEN                    = "/needu/v2/staging/backend/AI_SERVICE_TOKEN"
+    NEEDU_RATELIMIT_ENABLED             = "/needu/v2/staging/backend/NEEDU_RATELIMIT_ENABLED"
     JWT_SECRET                          = "/needu/v2/staging/backend/JWT_SECRET"
     KAKAO_ADMIN_KEY                     = "/needu/v2/staging/backend/KAKAO_ADMIN_KEY"
     KAKAO_CLIENT_SECRET                 = "/needu/v2/staging/backend/KAKAO_CLIENT_SECRET"
