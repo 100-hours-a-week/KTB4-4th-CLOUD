@@ -1,0 +1,474 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Staging Backend ECS 서비스의 평균 CPU 사용률",
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "ClusterName": ["needu-staging-cluster"], "ServiceName": ["needu-staging-backend"] },
+          "label": "backend CPU",
+          "matchExact": true,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/ECS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        }
+      ],
+      "title": "Backend ECS CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Staging Backend ECS 서비스의 평균 메모리 사용률",
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "ClusterName": ["needu-staging-cluster"], "ServiceName": ["needu-staging-backend"] },
+          "label": "backend memory",
+          "matchExact": true,
+          "metricName": "MemoryUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/ECS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        }
+      ],
+      "title": "Backend ECS Memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Container Insights 기준 Backend 실행·대기 Task 수",
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "ClusterName": ["needu-staging-cluster"], "ServiceName": ["needu-staging-backend"] },
+          "label": "running",
+          "matchExact": true,
+          "metricName": "RunningTaskCount",
+          "metricQueryType": 0,
+          "namespace": "ECS/ContainerInsights",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "ClusterName": ["needu-staging-cluster"], "ServiceName": ["needu-staging-backend"] },
+          "label": "pending",
+          "matchExact": true,
+          "metricName": "PendingTaskCount",
+          "metricQueryType": 0,
+          "namespace": "ECS/ContainerInsights",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        }
+      ],
+      "title": "Backend Task Count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Staging ALB가 받은 요청 수. 부하 테스트 전용 시간대에는 122 RPS 기준 분당 약 7,320건이 기준",
+      "fieldConfig": { "defaults": { "unit": "reqpm", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "LoadBalancer": ["app/needu-staging-alb/056f1191d3b56186"] },
+          "label": "ALB requests/min",
+          "matchExact": true,
+          "metricName": "RequestCount",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Sum"
+        }
+      ],
+      "title": "ALB Request Count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "ALB가 측정한 Backend Target 응답시간",
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "LoadBalancer": ["app/needu-staging-alb/056f1191d3b56186"], "TargetGroup": ["targetgroup/needu-staging-be/90343a1a7debc3ac"] },
+          "label": "average",
+          "matchExact": true,
+          "metricName": "TargetResponseTime",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "LoadBalancer": ["app/needu-staging-alb/056f1191d3b56186"], "TargetGroup": ["targetgroup/needu-staging-be/90343a1a7debc3ac"] },
+          "label": "p95",
+          "matchExact": true,
+          "metricName": "TargetResponseTime",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "p95"
+        }
+      ],
+      "title": "Backend Target Response Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Backend Target과 ALB에서 발생한 5xx 응답 수",
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "LoadBalancer": ["app/needu-staging-alb/056f1191d3b56186"], "TargetGroup": ["targetgroup/needu-staging-be/90343a1a7debc3ac"] },
+          "label": "target 5xx",
+          "matchExact": true,
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Sum"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "LoadBalancer": ["app/needu-staging-alb/056f1191d3b56186"] },
+          "label": "ALB 5xx",
+          "matchExact": true,
+          "metricName": "HTTPCode_ELB_5XX_Count",
+          "metricQueryType": 0,
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "Sum"
+        }
+      ],
+      "title": "ALB / Backend 5XX",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Backend HikariCP 사용 중·대기 연결 수. Staging Backend가 실행된 뒤 NeedU/Backend namespace에 생성",
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 7,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": {},
+          "label": "active",
+          "matchExact": false,
+          "metricName": "hikaricp.connections.active",
+          "metricQueryType": 0,
+          "namespace": "NeedU/Backend",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Maximum"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": {},
+          "label": "pending",
+          "matchExact": false,
+          "metricName": "hikaricp.connections.pending",
+          "metricQueryType": 0,
+          "namespace": "NeedU/Backend",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "Maximum"
+        }
+      ],
+      "title": "Backend Hikari Connections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Staging MySQL·PostgreSQL의 CPU와 연결 수",
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 8,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-mysql"] },
+          "label": "MySQL CPU",
+          "matchExact": true,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-mysql"] },
+          "label": "MySQL connections",
+          "matchExact": true,
+          "metricName": "DatabaseConnections",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-postgres"] },
+          "label": "PostgreSQL CPU",
+          "matchExact": true,
+          "metricName": "CPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "C",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-postgres"] },
+          "label": "PostgreSQL connections",
+          "matchExact": true,
+          "metricName": "DatabaseConnections",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "D",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        }
+      ],
+      "title": "RDS CPU / Connections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "MySQL·PostgreSQL의 초당 Read/Write I/O. SQL QPS와는 다른 저장장치 I/O 지표",
+      "fieldConfig": { "defaults": { "unit": "iops", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 9,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-mysql"] },
+          "label": "MySQL read",
+          "matchExact": true,
+          "metricName": "ReadIOPS",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-mysql"] },
+          "label": "MySQL write",
+          "matchExact": true,
+          "metricName": "WriteIOPS",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-postgres"] },
+          "label": "PostgreSQL read",
+          "matchExact": true,
+          "metricName": "ReadIOPS",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "C",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "DBInstanceIdentifier": ["needu-staging-postgres"] },
+          "label": "PostgreSQL write",
+          "matchExact": true,
+          "metricName": "WriteIOPS",
+          "metricQueryType": 0,
+          "namespace": "AWS/RDS",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "D",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        }
+      ],
+      "title": "RDS Read / Write IOPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+      "description": "Staging Redis의 Engine CPU, 연결 수, Eviction",
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 10,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "CacheClusterId": ["needu-staging-redis-001"], "CacheNodeId": ["0001"] },
+          "label": "engine CPU",
+          "matchExact": true,
+          "metricName": "EngineCPUUtilization",
+          "metricQueryType": 0,
+          "namespace": "AWS/ElastiCache",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "A",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "CacheClusterId": ["needu-staging-redis-001"], "CacheNodeId": ["0001"] },
+          "label": "connections",
+          "matchExact": true,
+          "metricName": "CurrConnections",
+          "metricQueryType": 0,
+          "namespace": "AWS/ElastiCache",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "B",
+          "region": "ap-northeast-2",
+          "statistic": "Average"
+        },
+        {
+          "datasource": { "type": "cloudwatch", "uid": "${DS_CLOUDWATCH}" },
+          "dimensions": { "CacheClusterId": ["needu-staging-redis-001"], "CacheNodeId": ["0001"] },
+          "label": "evictions",
+          "matchExact": true,
+          "metricName": "Evictions",
+          "metricQueryType": 0,
+          "namespace": "AWS/ElastiCache",
+          "period": "60",
+          "queryMode": "Metrics",
+          "refId": "C",
+          "region": "ap-northeast-2",
+          "statistic": "Sum"
+        }
+      ],
+      "title": "Redis Health",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["needu", "v2", "staging", "load-test"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "CloudWatch",
+        "multi": false,
+        "name": "DS_CLOUDWATCH",
+        "options": [],
+        "query": "cloudwatch",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "NeedU V2 - Staging Load Test",
+  "uid": "needu-v2-staging-load-test",
+  "version": 1,
+  "weekStart": ""
+}
