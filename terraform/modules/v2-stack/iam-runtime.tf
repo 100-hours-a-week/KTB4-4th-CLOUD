@@ -123,6 +123,31 @@ resource "aws_iam_role" "task" {
   permissions_boundary = var.iam_runtime_permissions_boundary_arn
 }
 
+data "aws_iam_policy_document" "backend_cloudwatch_metrics" {
+  count = var.enable_backend_cloudwatch_metrics ? 1 : 0
+
+  statement {
+    sid       = "PublishBackendMetrics"
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["NeedU/Backend"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "backend_cloudwatch_metrics" {
+  count = var.enable_backend_cloudwatch_metrics ? 1 : 0
+
+  name   = "publish-backend-cloudwatch-metrics"
+  role   = aws_iam_role.task["backend"].id
+  policy = data.aws_iam_policy_document.backend_cloudwatch_metrics[0].json
+}
+
 # --------------------------------------------------
 # Catalog Task Roles
 # --------------------------------------------------

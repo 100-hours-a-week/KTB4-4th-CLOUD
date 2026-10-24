@@ -467,7 +467,7 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
       variable = "iam:PermissionsBoundary"
 
       values = [
-        aws_iam_policy.runtime_boundary[each.key].arn
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/NeedU-V2-${each.key}-RuntimePermissionsBoundary"
       ]
     }
   }

@@ -180,6 +180,12 @@ variable "alarm_sns_topic_arn" {
   default = ""
 }
 
+variable "enable_backend_cloudwatch_metrics" {
+  description = "Backend HikariCP 지표를 CloudWatch에 전송할지 여부"
+  type        = bool
+  default     = false
+}
+
 variable "deployment_5xx_threshold" {
   type    = number
   default = 5
