@@ -256,38 +256,6 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     ]
   }
 
-  # Staging·Production ALB Access Log S3 Bucket 생성 및 설정
-  dynamic "statement" {
-    for_each = contains(["staging", "prod"], each.key) ? [1] : []
-
-    content {
-      sid    = "ManageEnvironmentALBAccessLogBucket"
-      effect = "Allow"
-
-      actions = [
-        "s3:CreateBucket",
-        "s3:DeleteBucket",
-        "s3:PutBucketPolicy",
-        "s3:DeleteBucketPolicy",
-        "s3:PutBucketOwnershipControls",
-        "s3:DeleteBucketOwnershipControls",
-        "s3:PutBucketPublicAccessBlock",
-        "s3:DeleteBucketPublicAccessBlock",
-        "s3:PutEncryptionConfiguration",
-        "s3:DeleteBucketEncryption",
-        "s3:PutLifecycleConfiguration",
-        "s3:PutBucketTagging",
-        "s3:DeleteBucketTagging"
-      ]
-
-      resources = [
-        each.key == "staging"
-        ? "arn:aws:s3:::needu-stg-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
-        : "arn:aws:s3:::needu-prod-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
-      ]
-    }
-  }
-
   # 환경별 Route 53 DNS 레코드 관리
   statement {
     sid    = "ManageEnvironmentDNSRecords"
@@ -341,6 +309,61 @@ resource "aws_iam_role_policy" "terraform_environment_apply" {
   name   = "TerraformEnvironmentApply"
   role   = aws_iam_role.terraform_github[each.key].id
   policy = data.aws_iam_policy_document.terraform_environment_apply[each.key].json
+}
+
+# ALB Access Log S3 권한은 Role의 Inline Policy 크기 제한을 피하기 위해
+# Staging·Production 전용 Customer Managed Policy로 분리합니다.
+data "aws_iam_policy_document" "terraform_alb_access_logs" {
+  for_each = toset(["staging", "prod"])
+
+  statement {
+    sid    = "ManageEnvironmentALBAccessLogBucket"
+    effect = "Allow"
+
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:PutBucketPolicy",
+      "s3:DeleteBucketPolicy",
+      "s3:PutBucketOwnershipControls",
+      "s3:DeleteBucketOwnershipControls",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:DeleteBucketPublicAccessBlock",
+      "s3:PutEncryptionConfiguration",
+      "s3:DeleteBucketEncryption",
+      "s3:PutLifecycleConfiguration",
+      "s3:PutBucketTagging",
+      "s3:DeleteBucketTagging"
+    ]
+
+    resources = [
+      each.key == "staging"
+      ? "arn:aws:s3:::needu-stg-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
+      : "arn:aws:s3:::needu-prod-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "terraform_alb_access_logs" {
+  for_each = data.aws_iam_policy_document.terraform_alb_access_logs
+
+  name        = "NeedU-V2-Terraform-${title(each.key)}-ALBAccessLogs"
+  description = "Allows Terraform ${each.key} apply to manage its ALB access log bucket"
+  policy      = each.value.json
+
+  tags = {
+    Environment = each.key
+    ManagedBy   = "Terraform"
+    Project     = "NeedU"
+    Purpose     = "TerraformALBAccessLogs"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_alb_access_logs" {
+  for_each = aws_iam_policy.terraform_alb_access_logs
+
+  role       = aws_iam_role.terraform_github[each.key].name
+  policy_arn = each.value.arn
 }
 
 # ==================================================
