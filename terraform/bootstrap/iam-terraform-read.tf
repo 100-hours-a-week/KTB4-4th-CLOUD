@@ -98,6 +98,26 @@ data "aws_iam_policy_document" "terraform_read" {
       "arn:aws:s3:::needu-prod-catalog-*"
     ]
   }
+
+  # ALB Access Log S3 Bucket 설정 조회
+  statement {
+    sid    = "ReadALBAccessLogBucketConfiguration"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetBucket*",
+      "s3:GetAccelerateConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
+      "s3:GetEncryptionConfiguration",
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      "arn:aws:s3:::needu-stg-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2",
+      "arn:aws:s3:::needu-prod-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
+    ]
+  }
 }
 
 # Plan / Shared / Dev / Staging / Prod Role에
