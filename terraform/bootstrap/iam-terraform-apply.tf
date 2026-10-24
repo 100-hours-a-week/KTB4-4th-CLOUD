@@ -256,6 +256,38 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     ]
   }
 
+  # Staging·Production ALB Access Log S3 Bucket 생성 및 설정
+  dynamic "statement" {
+    for_each = contains(["staging", "prod"], each.key) ? [1] : []
+
+    content {
+      sid    = "ManageEnvironmentALBAccessLogBucket"
+      effect = "Allow"
+
+      actions = [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketOwnershipControls",
+        "s3:DeleteBucketOwnershipControls",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:DeleteBucketPublicAccessBlock",
+        "s3:PutEncryptionConfiguration",
+        "s3:DeleteBucketEncryption",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketTagging",
+        "s3:DeleteBucketTagging"
+      ]
+
+      resources = [
+        each.key == "staging"
+        ? "arn:aws:s3:::needu-stg-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
+        : "arn:aws:s3:::needu-prod-alb-logs-${data.aws_caller_identity.current.account_id}-ap-northeast-2"
+      ]
+    }
+  }
+
   # 환경별 Route 53 DNS 레코드 관리
   statement {
     sid    = "ManageEnvironmentDNSRecords"
