@@ -52,6 +52,23 @@ data "aws_iam_policy_document" "runtime_boundary" {
     ]
   }
 
+  dynamic "statement" {
+    for_each = each.key == "staging" ? [1] : []
+
+    content {
+      sid       = "PublishBackendMetrics"
+      effect    = "Allow"
+      actions   = ["cloudwatch:PutMetricData"]
+      resources = ["*"]
+
+      condition {
+        test     = "StringEquals"
+        variable = "cloudwatch:namespace"
+        values   = ["NeedU/Backend"]
+      }
+    }
+  }
+
   statement {
     sid    = "ReadEnvironmentParameters"
     effect = "Allow"

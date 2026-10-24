@@ -32,41 +32,42 @@ data "aws_ssm_parameter" "certificate_arn" {
 module "v2" {
   source = "../../modules/v2-stack"
 
-  environment              = var.environment
-  public_subnets           = var.public_subnets
-  additional_public_routes = { (var.v1_staging_migration_network.vpc_cidr) = aws_vpc_peering_connection.v1_staging.id }
-  db_subnets               = var.db_subnets
-  certificate_arn          = data.aws_ssm_parameter.certificate_arn.value
-  hosted_zone_id           = var.hosted_zone_id
-  domain_name              = var.domain_name
-  ecr_repository_urls      = var.ecr_repository_urls
-  image_tags               = var.image_tags
-  mysql_engine_version     = var.mysql_engine_version
-  postgres_engine_version  = var.postgres_engine_version
-  mysql_instance_class     = var.mysql_instance_class
-  postgres_instance_class  = var.postgres_instance_class
-  mysql_storage_gb         = var.mysql_storage_gb
-  postgres_storage_gb      = var.postgres_storage_gb
-  redis_node_type          = var.redis_node_type
-  redis_num_nodes          = var.redis_num_nodes
-  task_cpu                 = var.task_cpu
-  task_memory              = var.task_memory
-  task_desired_count       = var.task_desired_count
-  autoscaling_min          = var.autoscaling_min
-  autoscaling_max          = var.autoscaling_max
-  multi_az                 = var.multi_az
-  deletion_protection      = var.deletion_protection
-  db_backup_retention_days = var.db_backup_retention_days
-  app_secret_parameters    = var.app_secret_parameters
-  github_subject_prefixes  = var.github_subject_prefixes
-  github_oidc_provider_arn = var.github_oidc_provider_arn
-  enable_redis_auth        = var.enable_redis_auth
-  redis_auth_token         = var.redis_auth_token
-  alarm_sns_topic_arn      = var.alarm_sns_topic_arn
-  deployment_5xx_threshold = var.deployment_5xx_threshold
-  catalog_commands         = var.catalog_commands
-  enable_alb_access_logs   = true
-  alb_logs_bucket          = aws_s3_bucket_policy.alb_access_logs.bucket
+  environment                       = var.environment
+  public_subnets                    = var.public_subnets
+  additional_public_routes          = { (var.v1_staging_migration_network.vpc_cidr) = aws_vpc_peering_connection.v1_staging.id }
+  db_subnets                        = var.db_subnets
+  certificate_arn                   = data.aws_ssm_parameter.certificate_arn.value
+  hosted_zone_id                    = var.hosted_zone_id
+  domain_name                       = var.domain_name
+  ecr_repository_urls               = var.ecr_repository_urls
+  image_tags                        = var.image_tags
+  mysql_engine_version              = var.mysql_engine_version
+  postgres_engine_version           = var.postgres_engine_version
+  mysql_instance_class              = var.mysql_instance_class
+  postgres_instance_class           = var.postgres_instance_class
+  mysql_storage_gb                  = var.mysql_storage_gb
+  postgres_storage_gb               = var.postgres_storage_gb
+  redis_node_type                   = var.redis_node_type
+  redis_num_nodes                   = var.redis_num_nodes
+  task_cpu                          = var.task_cpu
+  task_memory                       = var.task_memory
+  task_desired_count                = var.task_desired_count
+  enable_backend_cloudwatch_metrics = true
+  autoscaling_min                   = var.autoscaling_min
+  autoscaling_max                   = var.autoscaling_max
+  multi_az                          = var.multi_az
+  deletion_protection               = var.deletion_protection
+  db_backup_retention_days          = var.db_backup_retention_days
+  app_secret_parameters             = var.app_secret_parameters
+  github_subject_prefixes           = var.github_subject_prefixes
+  github_oidc_provider_arn          = var.github_oidc_provider_arn
+  enable_redis_auth                 = var.enable_redis_auth
+  redis_auth_token                  = var.redis_auth_token
+  alarm_sns_topic_arn               = var.alarm_sns_topic_arn
+  deployment_5xx_threshold          = var.deployment_5xx_threshold
+  catalog_commands                  = var.catalog_commands
+  enable_alb_access_logs            = true
+  alb_logs_bucket                   = aws_s3_bucket_policy.alb_access_logs.bucket
 
   # Staging - ECS Runtime Permissions Boundary
   iam_runtime_permissions_boundary_arn = "arn:aws:iam::919551759796:policy/NeedU-V2-staging-RuntimePermissionsBoundary"
