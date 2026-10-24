@@ -66,6 +66,8 @@ module "v2" {
   alarm_sns_topic_arn      = var.alarm_sns_topic_arn
   deployment_5xx_threshold = var.deployment_5xx_threshold
   catalog_commands         = var.catalog_commands
+  enable_alb_access_logs   = true
+  alb_logs_bucket          = aws_s3_bucket_policy.alb_access_logs.bucket
 
   # Prod - ECS Runtime Permissions Boundary
   iam_runtime_permissions_boundary_arn = "arn:aws:iam::919551759796:policy/NeedU-V2-prod-RuntimePermissionsBoundary"
