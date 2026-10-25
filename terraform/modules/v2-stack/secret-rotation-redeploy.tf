@@ -7,7 +7,7 @@ data "archive_file" "mysql_secret_rotation_redeploy" {
 
   type        = "zip"
   source_file = "${path.module}/lambda/ecs_secret_rotation_redeploy.py"
-  output_path = "${path.root}/.terraform/needu-${var.environment}-mysql-secret-rotation-redeploy.zip"
+  output_path = "${path.root}/needu-${var.environment}-mysql-secret-rotation-redeploy.zip"
 }
 
 data "aws_iam_policy_document" "secret_rotation_lambda_assume" {
