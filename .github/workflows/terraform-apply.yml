@@ -313,6 +313,13 @@ jobs:
           set -euo pipefail
 
           PLAN_SHA="$(sha256sum tfplan | awk '{print $1}')"
+          LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          LAMBDA_ZIP_SHA="none"
+
+          if [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
+            test -f "$LAMBDA_ZIP"
+            LAMBDA_ZIP_SHA="$(sha256sum "$LAMBDA_ZIP" | awk '{print $1}')"
+          fi
 
           {
             echo "environment=${TF_ENV}"
@@ -321,6 +328,7 @@ jobs:
             echo "run_attempt=${RUN_ATTEMPT}"
             echo "state_key=${TF_STATE_KEY}"
             echo "plan_sha256=${PLAN_SHA}"
+            echo "lambda_zip_sha256=${LAMBDA_ZIP_SHA}"
           } > plan-metadata.env
 
           {
@@ -329,6 +337,7 @@ jobs:
             echo "- Environment: ${TF_ENV}"
             echo "- Commit: ${COMMIT_SHA}"
             echo "- Plan SHA-256: ${PLAN_SHA}"
+            echo "- Lambda ZIP SHA-256: ${LAMBDA_ZIP_SHA}"
             echo ""
             echo "Review the uploaded Plan artifact before approving Apply."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -341,6 +350,7 @@ jobs:
             ${{ env.TF_DIR }}/tfplan
             ${{ env.TF_DIR }}/plan.txt
             ${{ env.TF_DIR }}/plan-metadata.env
+            ${{ env.TF_DIR }}/needu-*-mysql-secret-rotation-redeploy.zip
           if-no-files-found: error
           retention-days: 3
 
@@ -425,15 +435,24 @@ jobs:
           EXPECTED_ATTEMPT="$(grep '^run_attempt=' plan-metadata.env | cut -d= -f2-)"
           EXPECTED_STATE="$(grep '^state_key=' plan-metadata.env | cut -d= -f2-)"
           EXPECTED_HASH="$(grep '^plan_sha256=' plan-metadata.env | cut -d= -f2-)"
+          EXPECTED_LAMBDA_ZIP_HASH="$(grep '^lambda_zip_sha256=' plan-metadata.env | cut -d= -f2-)"
 
           ACTUAL_HASH="$(sha256sum tfplan | awk '{print $1}')"
+          LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          ACTUAL_LAMBDA_ZIP_HASH="none"
+
+          if [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
+            test -f "$LAMBDA_ZIP"
+            ACTUAL_LAMBDA_ZIP_HASH="$(sha256sum "$LAMBDA_ZIP" | awk '{print $1}')"
+          fi
 
           if [[ "$EXPECTED_ENV" != "$TF_ENV" ]] ||
              [[ "$EXPECTED_SHA" != "$COMMIT_SHA" ]] ||
              [[ "$EXPECTED_RUN" != "$RUN_ID" ]] ||
              [[ "$EXPECTED_ATTEMPT" != "$RUN_ATTEMPT" ]] ||
              [[ "$EXPECTED_STATE" != "$TF_STATE_KEY" ]] ||
-             [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
+             [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]] ||
+             [[ "$EXPECTED_LAMBDA_ZIP_HASH" != "$ACTUAL_LAMBDA_ZIP_HASH" ]]; then
             echo "::error::Terraform Plan verification failed."
             exit 1
           fi

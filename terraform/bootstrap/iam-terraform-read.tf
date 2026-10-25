@@ -129,3 +129,56 @@ resource "aws_iam_role_policy" "terraform_read" {
   role   = aws_iam_role.terraform_github[each.key].id
   policy = data.aws_iam_policy_document.terraform_read.json
 }
+
+# Secret rotation automation is created only in staging/prod. Keep these
+# additional reads in a dedicated managed policy so the shared inline read
+# policy does not approach the IAM aggregate inline-policy size limit.
+data "aws_iam_policy_document" "terraform_plan_secret_rotation_read" {
+  statement {
+    sid    = "ReadSecretRotationEventBridge"
+    effect = "Allow"
+
+    actions = [
+      "events:DescribeRule",
+      "events:ListTagsForResource",
+      "events:ListTargetsByRule"
+    ]
+
+    resources = [
+      for environment in local.terraform_secret_rotation_environments :
+      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${environment}-mysql-secret-rotation"
+    ]
+  }
+
+  statement {
+    sid    = "ReadSecretRotationLambda"
+    effect = "Allow"
+
+    actions = [
+      "lambda:GetFunction",
+      "lambda:GetFunctionCodeSigningConfig",
+      "lambda:GetFunctionConfiguration",
+      "lambda:GetFunctionConcurrency",
+      "lambda:GetPolicy",
+      "lambda:GetRuntimeManagementConfig",
+      "lambda:ListTags",
+      "lambda:ListVersionsByFunction"
+    ]
+
+    resources = [
+      for environment in local.terraform_secret_rotation_environments :
+      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${environment}-mysql-secret-rotation-redeploy"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "terraform_plan_secret_rotation_read" {
+  name        = "NeedU-V2-Terraform-Plan-SecretRotationRead"
+  description = "Read secret rotation automation resources during Terraform plan"
+  policy      = data.aws_iam_policy_document.terraform_plan_secret_rotation_read.json
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_plan_secret_rotation_read" {
+  role       = aws_iam_role.terraform_github["plan"].name
+  policy_arn = aws_iam_policy.terraform_plan_secret_rotation_read.arn
+}

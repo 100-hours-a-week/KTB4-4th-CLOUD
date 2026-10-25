@@ -9,6 +9,11 @@ locals {
     "prod"
   ])
 
+  terraform_secret_rotation_environments = toset([
+    "staging",
+    "prod"
+  ])
+
   terraform_shared_apply_actions = [
     "ec2:CreateVpc",
     "ec2:ModifyVpcAttribute",
@@ -442,6 +447,134 @@ resource "aws_iam_role_policy" "terraform_ecs_apply" {
 }
 
 # ==================================================
+# 3-1. RDS Secret Rotation -> Backend ECS Redeploy
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
+  for_each = local.terraform_secret_rotation_environments
+
+  statement {
+    sid    = "ManageSecretRotationRole"
+    effect = "Allow"
+
+    actions = [
+      "iam:UpdateAssumeRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
+    ]
+  }
+
+  statement {
+    sid     = "PassSecretRotationRoleToLambda"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["lambda.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid    = "ManageSecretRotationLambda"
+    effect = "Allow"
+
+    actions = [
+      "lambda:AddPermission",
+      "lambda:CreateFunction",
+      "lambda:DeleteFunction",
+      "lambda:GetFunction",
+      "lambda:GetFunctionCodeSigningConfig",
+      "lambda:GetFunctionConfiguration",
+      "lambda:GetFunctionConcurrency",
+      "lambda:GetPolicy",
+      "lambda:GetRuntimeManagementConfig",
+      "lambda:ListTags",
+      "lambda:ListVersionsByFunction",
+      "lambda:RemovePermission",
+      "lambda:TagResource",
+      "lambda:UntagResource",
+      "lambda:UpdateFunctionCode",
+      "lambda:UpdateFunctionConfiguration"
+    ]
+
+    resources = [
+      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${each.key}-mysql-secret-rotation-redeploy"
+    ]
+  }
+
+  statement {
+    sid    = "ManageSecretRotationEventRule"
+    effect = "Allow"
+
+    actions = [
+      "events:DeleteRule",
+      "events:DescribeRule",
+      "events:DisableRule",
+      "events:EnableRule",
+      "events:ListTagsForResource",
+      "events:ListTargetsByRule",
+      "events:PutRule",
+      "events:PutTargets",
+      "events:RemoveTargets",
+      "events:TagResource",
+      "events:UntagResource"
+    ]
+
+    resources = [
+      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${each.key}-mysql-secret-rotation"
+    ]
+  }
+
+  statement {
+    sid    = "ManageSecretRotationLogGroup"
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:ListTagsForResource",
+      "logs:PutRetentionPolicy",
+      "logs:TagResource",
+      "logs:UntagResource"
+    ]
+
+    resources = [
+      "arn:aws:logs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:log-group:/needu/${each.key}/*"
+    ]
+  }
+
+  statement {
+    sid       = "DescribeSecretRotationLogGroups"
+    effect    = "Allow"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "terraform_secret_rotation_redeploy" {
+  for_each = local.terraform_secret_rotation_environments
+
+  name        = "NeedU-V2-Terraform-${title(each.key)}-SecretRotationRedeploy"
+  description = "Terraform permissions for ${each.key} RDS secret rotation ECS redeploy automation"
+  policy      = data.aws_iam_policy_document.terraform_secret_rotation_redeploy[each.key].json
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_secret_rotation_redeploy" {
+  for_each = aws_iam_policy.terraform_secret_rotation_redeploy
+
+  role       = aws_iam_role.terraform_github[each.key].name
+  policy_arn = each.value.arn
+}
+
+# ==================================================
 # 4. Environment IAM
 # ==================================================
 
@@ -573,6 +706,7 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
       ]
     }
   }
+
 }
 
 resource "aws_iam_role_policy" "terraform_environment_iam" {
