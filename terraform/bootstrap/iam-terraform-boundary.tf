@@ -54,17 +54,32 @@ data "aws_iam_policy_document" "runtime_boundary" {
 
   # RDS 관리형 Secret 회전 후 Backend Lambda가 최신 Secret을 다시 주입한
   # ECS Task로 Rolling Deployment를 시작할 수 있도록 허용한다.
-  statement {
-    sid    = "RedeployBackendAfterSecretRotation"
-    effect = "Allow"
+  dynamic "statement" {
+    for_each = contains(local.terraform_secret_rotation_environments, each.key) ? [1] : []
 
-    actions = [
-      "ecs:UpdateService"
-    ]
+    content {
+      sid       = "RedeployBackendAfterSecretRotation"
+      effect    = "Allow"
+      actions   = ["ecs:UpdateService"]
+      resources = ["arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-backend"]
+    }
+  }
 
-    resources = [
-      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-backend"
-    ]
+  # Staging ECS Exec가 SSM Messages 채널을 열 수 있도록 기존 권한을 보존한다.
+  dynamic "statement" {
+    for_each = each.key == "staging" ? [1] : []
+
+    content {
+      sid    = "AllowECSExecSSMMessages"
+      effect = "Allow"
+      actions = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+      ]
+      resources = ["*"]
+    }
   }
 
   dynamic "statement" {

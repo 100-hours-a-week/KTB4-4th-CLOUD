@@ -9,6 +9,11 @@ locals {
     "prod"
   ])
 
+  terraform_secret_rotation_environments = toset([
+    "staging",
+    "prod"
+  ])
+
   terraform_shared_apply_actions = [
     "ec2:CreateVpc",
     "ec2:ModifyVpcAttribute",
@@ -446,7 +451,7 @@ resource "aws_iam_role_policy" "terraform_ecs_apply" {
 # ==================================================
 
 data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
-  for_each = local.terraform_environments
+  for_each = local.terraform_secret_rotation_environments
 
   statement {
     sid    = "ManageSecretRotationLambda"
@@ -522,7 +527,7 @@ data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
 }
 
 resource "aws_iam_role_policy" "terraform_secret_rotation_redeploy" {
-  for_each = local.terraform_environments
+  for_each = local.terraform_secret_rotation_environments
 
   name   = "TerraformSecretRotationRedeploy"
   role   = aws_iam_role.terraform_github[each.key].id
@@ -663,22 +668,23 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
     }
   }
 
-  statement {
-    sid    = "PassSecretRotationRoleToLambda"
-    effect = "Allow"
+  dynamic "statement" {
+    for_each = contains(local.terraform_secret_rotation_environments, each.key) ? [1] : []
 
-    actions = [
-      "iam:PassRole"
-    ]
+    content {
+      sid     = "PassSecretRotationRoleToLambda"
+      effect  = "Allow"
+      actions = ["iam:PassRole"]
 
-    resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
-    ]
+      resources = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
+      ]
 
-    condition {
-      test     = "StringEquals"
-      variable = "iam:PassedToService"
-      values   = ["lambda.amazonaws.com"]
+      condition {
+        test     = "StringEquals"
+        variable = "iam:PassedToService"
+        values   = ["lambda.amazonaws.com"]
+      }
     }
   }
 }
