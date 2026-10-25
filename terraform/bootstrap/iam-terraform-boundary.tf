@@ -52,6 +52,21 @@ data "aws_iam_policy_document" "runtime_boundary" {
     ]
   }
 
+  # RDS 관리형 Secret 회전 후 Backend Lambda가 최신 Secret을 다시 주입한
+  # ECS Task로 Rolling Deployment를 시작할 수 있도록 허용한다.
+  statement {
+    sid    = "RedeployBackendAfterSecretRotation"
+    effect = "Allow"
+
+    actions = [
+      "ecs:UpdateService"
+    ]
+
+    resources = [
+      "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-backend"
+    ]
+  }
+
   dynamic "statement" {
     for_each = each.key == "staging" ? [1] : []
 
