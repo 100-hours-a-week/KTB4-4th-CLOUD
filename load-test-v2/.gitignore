@@ -1,0 +1,4 @@
+config/tokens.json
+results/*
+!results/.gitkeep
+*.log

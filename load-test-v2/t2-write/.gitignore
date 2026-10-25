@@ -1,0 +1,4 @@
+config/users.json
+config/products.json
+results/*
+!results/.gitkeep
