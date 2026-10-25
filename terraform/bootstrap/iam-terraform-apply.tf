@@ -442,6 +442,107 @@ resource "aws_iam_role_policy" "terraform_ecs_apply" {
 }
 
 # ==================================================
+# 3-1. RDS Secret Rotation -> Backend ECS Redeploy
+# ==================================================
+
+data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
+  for_each = local.terraform_environments
+
+  statement {
+    sid    = "ManageSecretRotationLambda"
+    effect = "Allow"
+
+    actions = [
+      "lambda:AddPermission",
+      "lambda:CreateFunction",
+      "lambda:DeleteFunction",
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:GetPolicy",
+      "lambda:ListVersionsByFunction",
+      "lambda:RemovePermission",
+      "lambda:TagResource",
+      "lambda:UntagResource",
+      "lambda:UpdateFunctionCode",
+      "lambda:UpdateFunctionConfiguration"
+    ]
+
+    resources = [
+      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${each.key}-mysql-secret-rotation-redeploy"
+    ]
+  }
+
+  statement {
+    sid    = "ReadRDSManagedSecretMetadata"
+    effect = "Allow"
+
+    actions = [
+      "secretsmanager:DescribeSecret"
+    ]
+
+    resources = [
+      "arn:aws:secretsmanager:ap-northeast-2:${data.aws_caller_identity.current.account_id}:secret:rds!*"
+    ]
+  }
+
+  statement {
+    sid    = "ManageSecretRotationEventRule"
+    effect = "Allow"
+
+    actions = [
+      "events:DeleteRule",
+      "events:DescribeRule",
+      "events:DisableRule",
+      "events:EnableRule",
+      "events:ListTagsForResource",
+      "events:ListTargetsByRule",
+      "events:PutRule",
+      "events:PutTargets",
+      "events:RemoveTargets",
+      "events:TagResource",
+      "events:UntagResource"
+    ]
+
+    resources = [
+      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${each.key}-mysql-secret-rotation"
+    ]
+  }
+
+  statement {
+    sid    = "ManageSecretRotationLogGroup"
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:ListTagsForResource",
+      "logs:PutRetentionPolicy",
+      "logs:TagResource",
+      "logs:UntagResource"
+    ]
+
+    resources = [
+      "arn:aws:logs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:log-group:/needu/${each.key}/*"
+    ]
+  }
+
+  statement {
+    sid       = "DescribeSecretRotationLogGroups"
+    effect    = "Allow"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "terraform_secret_rotation_redeploy" {
+  for_each = local.terraform_environments
+
+  name   = "TerraformSecretRotationRedeploy"
+  role   = aws_iam_role.terraform_github[each.key].id
+  policy = data.aws_iam_policy_document.terraform_secret_rotation_redeploy[each.key].json
+}
+
+# ==================================================
 # 4. Environment IAM
 # ==================================================
 
@@ -505,7 +606,8 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
       "iam:UntagRole",
       "iam:PutRolePolicy",
       "iam:DeleteRolePolicy",
-      "iam:DetachRolePolicy"
+      "iam:DetachRolePolicy",
+      "iam:UpdateAssumeRolePolicy"
     ]
     resources = [
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution",
@@ -571,6 +673,25 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
       values = [
         "ecs-tasks.amazonaws.com"
       ]
+    }
+  }
+
+  statement {
+    sid    = "PassSecretRotationRoleToLambda"
+    effect = "Allow"
+
+    actions = [
+      "iam:PassRole"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["lambda.amazonaws.com"]
     }
   }
 }
