@@ -454,6 +454,35 @@ data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
   for_each = local.terraform_secret_rotation_environments
 
   statement {
+    sid    = "ManageSecretRotationRole"
+    effect = "Allow"
+
+    actions = [
+      "iam:UpdateAssumeRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
+    ]
+  }
+
+  statement {
+    sid     = "PassSecretRotationRoleToLambda"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["lambda.amazonaws.com"]
+    }
+  }
+
+  statement {
     sid    = "ManageSecretRotationLambda"
     effect = "Allow"
 
@@ -526,12 +555,19 @@ data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
   }
 }
 
-resource "aws_iam_role_policy" "terraform_secret_rotation_redeploy" {
+resource "aws_iam_policy" "terraform_secret_rotation_redeploy" {
   for_each = local.terraform_secret_rotation_environments
 
-  name   = "TerraformSecretRotationRedeploy"
-  role   = aws_iam_role.terraform_github[each.key].id
-  policy = data.aws_iam_policy_document.terraform_secret_rotation_redeploy[each.key].json
+  name        = "NeedU-V2-Terraform-${title(each.key)}-SecretRotationRedeploy"
+  description = "Terraform permissions for ${each.key} RDS secret rotation ECS redeploy automation"
+  policy      = data.aws_iam_policy_document.terraform_secret_rotation_redeploy[each.key].json
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_secret_rotation_redeploy" {
+  for_each = aws_iam_policy.terraform_secret_rotation_redeploy
+
+  role       = aws_iam_role.terraform_github[each.key].name
+  policy_arn = each.value.arn
 }
 
 # ==================================================
@@ -598,8 +634,7 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
       "iam:UntagRole",
       "iam:PutRolePolicy",
       "iam:DeleteRolePolicy",
-      "iam:DetachRolePolicy",
-      "iam:UpdateAssumeRolePolicy"
+      "iam:DetachRolePolicy"
     ]
     resources = [
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-*-execution",
@@ -668,25 +703,6 @@ data "aws_iam_policy_document" "terraform_environment_iam" {
     }
   }
 
-  dynamic "statement" {
-    for_each = contains(local.terraform_secret_rotation_environments, each.key) ? [1] : []
-
-    content {
-      sid     = "PassSecretRotationRoleToLambda"
-      effect  = "Allow"
-      actions = ["iam:PassRole"]
-
-      resources = [
-        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-${each.key}-secret-rotation-task"
-      ]
-
-      condition {
-        test     = "StringEquals"
-        variable = "iam:PassedToService"
-        values   = ["lambda.amazonaws.com"]
-      }
-    }
-  }
 }
 
 resource "aws_iam_role_policy" "terraform_environment_iam" {
