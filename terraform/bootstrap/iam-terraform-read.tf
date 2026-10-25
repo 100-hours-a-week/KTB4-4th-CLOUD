@@ -156,8 +156,11 @@ data "aws_iam_policy_document" "terraform_plan_secret_rotation_read" {
 
     actions = [
       "lambda:GetFunction",
+      "lambda:GetFunctionCodeSigningConfig",
       "lambda:GetFunctionConfiguration",
+      "lambda:GetFunctionConcurrency",
       "lambda:GetPolicy",
+      "lambda:GetRuntimeManagementConfig",
       "lambda:ListTags",
       "lambda:ListVersionsByFunction"
     ]
