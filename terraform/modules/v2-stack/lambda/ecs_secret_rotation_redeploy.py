@@ -10,18 +10,18 @@ LOGGER.setLevel(logging.INFO)
 ECS = boto3.client("ecs")
 CLUSTER_NAME = os.environ["CLUSTER_NAME"]
 SERVICE_NAME = os.environ["SERVICE_NAME"]
-EXPECTED_SECRET_NAME = os.environ["EXPECTED_SECRET_NAME"]
+EXPECTED_SECRET_ARN = os.environ["EXPECTED_SECRET_ARN"]
 
 
 def handler(event, _context):
     detail = event.get("detail", {})
-    secret_name = detail.get("name")
     label = detail.get("labelUpdated")
+    resources = event.get("resources", [])
 
-    if secret_name != EXPECTED_SECRET_NAME or label != "AWSCURRENT":
+    if EXPECTED_SECRET_ARN not in resources or label != "AWSCURRENT":
         LOGGER.warning(
-            "Ignoring unexpected Secrets Manager event: name=%s label=%s",
-            secret_name,
+            "Ignoring unexpected Secrets Manager event: resources=%s label=%s",
+            resources,
             label,
         )
         return {"redeployed": False, "reason": "unexpected event"}
