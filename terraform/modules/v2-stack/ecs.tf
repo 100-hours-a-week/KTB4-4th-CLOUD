@@ -13,7 +13,7 @@ locals {
       NODE_ENV = "production"
     }
 
-    backend = {
+    backend = merge({
       SPRING_PROFILES_ACTIVE        = var.environment
       SPRING_DATASOURCE_URL         = "jdbc:mysql://${aws_db_instance.mysql.address}:3306/needu"
       DB_USERNAME                   = "needu"
@@ -21,10 +21,11 @@ locals {
       SPRING_DATA_REDIS_PORT        = "6379"
       SPRING_DATA_REDIS_SSL_ENABLED = "true"
       AI_SERVER_BASE_URL            = "http://ai:8000"
-      CLOUDWATCH_METRICS_ENABLED    = tostring(var.enable_backend_cloudwatch_metrics)
-      CLOUDWATCH_METRICS_NAMESPACE  = "NeedU/Backend"
-      CLOUDWATCH_METRICS_STEP       = "1m"
-    }
+      }, var.enable_backend_cloudwatch_metrics ? {
+      CLOUDWATCH_METRICS_ENABLED   = tostring(var.enable_backend_cloudwatch_metrics)
+      CLOUDWATCH_METRICS_NAMESPACE = "NeedU/Backend"
+      CLOUDWATCH_METRICS_STEP      = "1m"
+    } : {})
 
     ai = {
       # AI 코드의 APP_ENV 허용값에 맞춰 Terraform 환경 이름을 변환
