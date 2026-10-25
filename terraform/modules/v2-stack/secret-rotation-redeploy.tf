@@ -2,12 +2,6 @@ locals {
   enable_mysql_secret_rotation_redeploy = contains(["staging", "prod"], var.environment)
 }
 
-data "aws_secretsmanager_secret" "mysql_master" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
-
-  arn = aws_db_instance.mysql.master_user_secret[0].secret_arn
-}
-
 data "archive_file" "mysql_secret_rotation_redeploy" {
   count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
 
@@ -85,9 +79,9 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
 
   environment {
     variables = {
-      CLUSTER_NAME         = aws_ecs_cluster.main.name
-      SERVICE_NAME         = aws_ecs_service.service["backend"].name
-      EXPECTED_SECRET_NAME = data.aws_secretsmanager_secret.mysql_master[0].name
+      CLUSTER_NAME        = aws_ecs_cluster.main.name
+      SERVICE_NAME        = aws_ecs_service.service["backend"].name
+      EXPECTED_SECRET_ARN = aws_db_instance.mysql.master_user_secret[0].secret_arn
     }
   }
 
@@ -106,8 +100,8 @@ resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
   event_pattern = jsonencode({
     source      = ["aws.secretsmanager"]
     detail-type = ["Secret Label Updated"]
+    resources   = [aws_db_instance.mysql.master_user_secret[0].secret_arn]
     detail = {
-      name         = [data.aws_secretsmanager_secret.mysql_master[0].name]
       labelUpdated = ["AWSCURRENT"]
     }
   })

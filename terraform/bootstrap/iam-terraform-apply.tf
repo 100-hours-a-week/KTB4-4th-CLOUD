@@ -473,19 +473,6 @@ data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
   }
 
   statement {
-    sid    = "ReadRDSManagedSecretMetadata"
-    effect = "Allow"
-
-    actions = [
-      "secretsmanager:DescribeSecret"
-    ]
-
-    resources = [
-      "arn:aws:secretsmanager:ap-northeast-2:${data.aws_caller_identity.current.account_id}:secret:rds!*"
-    ]
-  }
-
-  statement {
     sid    = "ManageSecretRotationEventRule"
     effect = "Allow"
 
