@@ -60,3 +60,29 @@ resource "aws_vpc_security_group_ingress_rule" "staging_postgres_from_ssm" {
 
   referenced_security_group_id = local.shared_ssm_bastion_sg_id
 }
+
+# Bastion -> Staging AI API (8000)
+resource "aws_vpc_security_group_egress_rule" "ssm_to_staging_ai" {
+  security_group_id = local.shared_ssm_bastion_sg_id
+
+  description = "Shared SSM Bastion to Staging AI API"
+
+  ip_protocol = "tcp"
+  from_port   = 8000
+  to_port     = 8000
+
+  referenced_security_group_id = module.v2.ecs_security_group_ids["ai"]
+}
+
+# Staging AI API <- Bastion (8000)
+resource "aws_vpc_security_group_ingress_rule" "staging_ai_from_ssm" {
+  security_group_id = module.v2.ecs_security_group_ids["ai"]
+
+  description = "Allow Shared SSM Bastion to Staging AI API"
+
+  ip_protocol = "tcp"
+  from_port   = 8000
+  to_port     = 8000
+
+  referenced_security_group_id = local.shared_ssm_bastion_sg_id
+}
