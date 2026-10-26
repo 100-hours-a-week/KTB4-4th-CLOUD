@@ -52,16 +52,33 @@ data "aws_iam_policy_document" "runtime_boundary" {
     ]
   }
 
-  # RDS 관리형 Secret 회전 후 Backend Lambda가 최신 Secret을 다시 주입한
-  # ECS Task로 Rolling Deployment를 시작할 수 있도록 허용한다.
+  # RDS 관리형 Secret 회전 후 Lambda가 최신 Secret을 다시 주입한
+  # Backend/AI ECS Task로 Rolling Deployment를 시작할 수 있도록 허용한다.
   dynamic "statement" {
     for_each = contains(local.terraform_secret_rotation_environments, each.key) ? [1] : []
 
     content {
-      sid       = "RedeployBackendAfterSecretRotation"
-      effect    = "Allow"
-      actions   = ["ecs:UpdateService"]
-      resources = ["arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-backend"]
+      sid     = "RedeployDatabaseConsumersAfterSecretRotation"
+      effect  = "Allow"
+      actions = ["ecs:UpdateService"]
+      resources = [
+        "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-backend",
+        "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-ai"
+      ]
+    }
+  }
+
+  # PostgreSQL Secret 회전 시 AI가 참조하는 접속 URL을 최신 비밀번호로 갱신한다.
+  dynamic "statement" {
+    for_each = contains(local.terraform_secret_rotation_environments, each.key) ? [1] : []
+
+    content {
+      sid     = "SyncAiDatabaseUrlAfterSecretRotation"
+      effect  = "Allow"
+      actions = ["ssm:PutParameter"]
+      resources = [
+        "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter/needu/v2/${each.key}/ai/CATALOG_DATABASE_URL_RO"
+      ]
     }
   }
 
