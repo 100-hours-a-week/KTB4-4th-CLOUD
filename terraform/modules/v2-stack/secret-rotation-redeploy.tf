@@ -35,9 +35,29 @@ data "aws_iam_policy_document" "secret_rotation_redeploy" {
   count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
 
   statement {
-    sid       = "RedeployBackendService"
-    actions   = ["ecs:UpdateService"]
-    resources = [aws_ecs_service.service["backend"].id]
+    sid     = "RedeployDatabaseConsumers"
+    actions = ["ecs:UpdateService"]
+    resources = [
+      aws_ecs_service.service["backend"].id,
+      aws_ecs_service.service["ai"].id
+    ]
+  }
+
+  statement {
+    sid       = "ReadPostgresManagedSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+  }
+
+  statement {
+    sid = "SyncAiDatabaseUrlParameter"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:PutParameter"
+    ]
+    resources = [
+      "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:parameter${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
+    ]
   }
 
   statement {
@@ -53,6 +73,7 @@ data "aws_iam_policy_document" "secret_rotation_redeploy" {
 resource "aws_iam_role_policy" "secret_rotation_redeploy" {
   count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
 
+  # 기존 Policy 이름을 유지해 Terraform Apply 시 불필요한 교체를 방지한다.
   name   = "redeploy-backend-after-secret-rotation"
   role   = aws_iam_role.secret_rotation_redeploy[0].id
   policy = data.aws_iam_policy_document.secret_rotation_redeploy[0].json
@@ -79,9 +100,14 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
 
   environment {
     variables = {
-      CLUSTER_NAME        = aws_ecs_cluster.main.name
-      SERVICE_NAME        = aws_ecs_service.service["backend"].name
-      EXPECTED_SECRET_ARN = aws_db_instance.mysql.master_user_secret[0].secret_arn
+      CLUSTER_NAME              = aws_ecs_cluster.main.name
+      BACKEND_SERVICE_NAME      = aws_ecs_service.service["backend"].name
+      AI_SERVICE_NAME           = aws_ecs_service.service["ai"].name
+      MYSQL_SECRET_ARN          = aws_db_instance.mysql.master_user_secret[0].secret_arn
+      POSTGRES_SECRET_ARN       = aws_db_instance.postgres.master_user_secret[0].secret_arn
+      POSTGRES_HOST             = aws_db_instance.postgres.address
+      POSTGRES_PORT             = tostring(aws_db_instance.postgres.port)
+      AI_DATABASE_URL_PARAMETER = "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
     }
   }
 
@@ -95,12 +121,15 @@ resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
   count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
 
   name        = "needu-${var.environment}-mysql-secret-rotation"
-  description = "Redeploy Backend ECS tasks when the RDS-managed MySQL secret changes"
+  description = "Refresh ECS database consumers when an RDS-managed database secret changes"
 
   event_pattern = jsonencode({
     source      = ["aws.secretsmanager"]
     detail-type = ["Secret Label Updated"]
-    resources   = [aws_db_instance.mysql.master_user_secret[0].secret_arn]
+    resources = [
+      aws_db_instance.mysql.master_user_secret[0].secret_arn,
+      aws_db_instance.postgres.master_user_secret[0].secret_arn
+    ]
     detail = {
       labelUpdated = ["AWSCURRENT"]
     }
