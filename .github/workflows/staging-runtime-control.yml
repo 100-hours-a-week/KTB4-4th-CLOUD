@@ -68,6 +68,39 @@ jobs:
           services=(frontend backend ai)
           databases=(needu-staging-mysql needu-staging-postgres)
 
+          wait_for_db_stopped() {
+            local database="$1"
+            local timeout_seconds=3600
+            local poll_interval_seconds=30
+            local started_at=$SECONDS
+
+            while true; do
+              status="$(aws rds describe-db-instances \
+                --db-instance-identifier "$database" \
+                --query 'DBInstances[0].DBInstanceStatus' \
+                --output text)"
+
+              if [[ "$status" == "stopped" ]]; then
+                echo "$database is stopped."
+                return 0
+              fi
+
+              if (( SECONDS - started_at >= timeout_seconds )); then
+                echo "::error::Timed out waiting for $database to stop. Current status: $status"
+                return 1
+              fi
+
+              # stop-db-instance 직후 상태 전파가 늦으면 잠시 available로 보일 수 있다.
+              if [[ "$status" != "available" && "$status" != "stopping" ]]; then
+                echo "::error::$database entered unexpected status while stopping: $status"
+                return 1
+              fi
+
+              echo "Waiting for $database to stop. Current status: $status"
+              sleep "$poll_interval_seconds"
+            done
+          }
+
           # Auto Scaling이 서비스를 다시 실행하지 않도록 최소 용량을 먼저 0으로 내린다.
           for service in "${services[@]}"; do
             resource_id="service/${CLUSTER_NAME}/needu-staging-${service}"
@@ -110,7 +143,7 @@ jobs:
           done
 
           for database in "${databases[@]}"; do
-            aws rds wait db-instance-stopped --db-instance-identifier "$database"
+            wait_for_db_stopped "$database"
           done
 
       - name: Control selected ECS services
@@ -175,6 +208,39 @@ jobs:
           services=(frontend backend ai)
           databases=(needu-staging-mysql needu-staging-postgres)
 
+          wait_for_db_stopped() {
+            local database="$1"
+            local timeout_seconds=3600
+            local poll_interval_seconds=30
+            local started_at=$SECONDS
+
+            while true; do
+              status="$(aws rds describe-db-instances \
+                --db-instance-identifier "$database" \
+                --query 'DBInstances[0].DBInstanceStatus' \
+                --output text)"
+
+              if [[ "$status" == "stopped" ]]; then
+                echo "$database is stopped."
+                return 0
+              fi
+
+              if (( SECONDS - started_at >= timeout_seconds )); then
+                echo "::error::Timed out waiting for $database to stop. Current status: $status"
+                return 1
+              fi
+
+              # stop-db-instance 직후 상태 전파가 늦으면 잠시 available로 보일 수 있다.
+              if [[ "$status" != "available" && "$status" != "stopping" ]]; then
+                echo "::error::$database entered unexpected status while stopping: $status"
+                return 1
+              fi
+
+              echo "Waiting for $database to stop. Current status: $status"
+              sleep "$poll_interval_seconds"
+            done
+          }
+
           # DB가 준비된 후 애플리케이션을 실행해 시작 중 연결 실패를 방지한다.
           for database in "${databases[@]}"; do
             status="$(aws rds describe-db-instances \
@@ -189,7 +255,7 @@ jobs:
             elif [[ "$status" == "available" || "$status" == "starting" ]]; then
               echo "$database is already $status."
             elif [[ "$status" == "stopping" ]]; then
-              aws rds wait db-instance-stopped --db-instance-identifier "$database"
+              wait_for_db_stopped "$database"
               aws rds start-db-instance \
                 --db-instance-identifier "$database" \
                 --no-cli-pager >/dev/null
