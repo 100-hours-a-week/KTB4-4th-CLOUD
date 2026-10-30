@@ -1,4 +1,3 @@
-
 # ==================================================
 # NeedU V2 - ECS Runtime IAM
 # ==================================================
@@ -123,6 +122,10 @@ resource "aws_iam_role" "task" {
   permissions_boundary = var.iam_runtime_permissions_boundary_arn
 }
 
+# --------------------------------------------------
+# Backend CloudWatch Custom Metrics
+# --------------------------------------------------
+
 data "aws_iam_policy_document" "backend_cloudwatch_metrics" {
   count = var.enable_backend_cloudwatch_metrics ? 1 : 0
 
@@ -148,29 +151,34 @@ resource "aws_iam_role_policy" "backend_cloudwatch_metrics" {
   policy = data.aws_iam_policy_document.backend_cloudwatch_metrics[0].json
 }
 
-# Staging에서 활성화한 ECS Exec가 SSM Messages 채널을 사용할 수 있도록 한다.
+# --------------------------------------------------
+# ECS Exec - Staging Backend Only
+# --------------------------------------------------
+
+data "aws_iam_policy_document" "backend_ecs_exec" {
+  count = var.environment == "staging" ? 1 : 0
+
+  statement {
+    sid    = "AllowECSExec"
+    effect = "Allow"
+
+    actions = [
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel"
+    ]
+
+    resources = ["*"]
+  }
+}
+
 resource "aws_iam_role_policy" "backend_ecs_exec" {
   count = var.environment == "staging" ? 1 : 0
 
-  name = "backend-ecs-exec"
-  role = aws_iam_role.task["backend"].id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowECSExec"
-        Effect = "Allow"
-        Action = [
-          "ssmmessages:CreateControlChannel",
-          "ssmmessages:CreateDataChannel",
-          "ssmmessages:OpenControlChannel",
-          "ssmmessages:OpenDataChannel"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
+  name   = "backend-ecs-exec"
+  role   = aws_iam_role.task["backend"].id
+  policy = data.aws_iam_policy_document.backend_ecs_exec[0].json
 }
 
 # --------------------------------------------------

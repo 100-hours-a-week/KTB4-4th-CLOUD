@@ -1,3 +1,4 @@
+
 # ==================================================
 # NeedU V2 - Environment Permissions Boundaries
 # ==================================================
@@ -113,6 +114,28 @@ data "aws_iam_policy_document" "runtime_boundary" {
         variable = "cloudwatch:namespace"
         values   = ["NeedU/Backend"]
       }
+    }
+  }
+
+  # --------------------------------------------------
+  # ECS Exec - Staging Only
+  # --------------------------------------------------
+
+  dynamic "statement" {
+    for_each = each.key == "staging" ? [1] : []
+
+    content {
+      sid    = "AllowECSExecSSMMessages"
+      effect = "Allow"
+
+      actions = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+      ]
+
+      resources = ["*"]
     }
   }
 
