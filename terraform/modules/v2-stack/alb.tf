@@ -88,6 +88,34 @@ resource "aws_lb_listener_rule" "api" {
     }
   }
 }
+
+# WebSocket requests -> Backend
+resource "aws_lb_listener_rule" "websocket" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 15
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.be.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/ws/*"]
+    }
+  }
+
+  condition {
+    host_header {
+      values = var.environment == "prod" ? [
+        "prod.needu.gift",
+        "needu.gift"
+      ] : [var.domain_name]
+    }
+  }
+}
+
+
 resource "aws_route53_record" "app" {
   count   = var.create_dns_record ? 1 : 0
   zone_id = var.hosted_zone_id
