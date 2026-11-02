@@ -1,0 +1,12 @@
+# 예시 CIDR: 기존 V2·온프레미스·GCP 주소와 충돌하는지 반드시 확인
+aws_region           = "ap-northeast-2"
+name                 = "needu-v3-dev"
+vpc_cidr             = "10.30.0.0/16"
+availability_zones   = ["ap-northeast-2a", "ap-northeast-2c"]
+public_subnet_cidrs  = ["10.30.0.0/24", "10.30.1.0/24"]
+private_subnet_cidrs = ["10.30.10.0/24", "10.30.11.0/24"]
+# 실제 지원되는 EKS 버전으로 변경
+cluster_version      = "1.33"
+node_instance_types  = ["t3.large"]
+system_desired       = 2
+app_desired          = 2
