@@ -1,11 +1,10 @@
-# S3 bucket과 key는 기존 V2 State와 반드시 분리하세요.
-# 검증된 버킷/락 구성에 맞춰 실제 backend.tf로 복사하고 값을 채웁니다.
+# Configure remote state before apply. Use a separate V3 key.
 # terraform {
 #   backend "s3" {
-#     bucket  = "REPLACE_WITH_STATE_BUCKET"
-#     key     = "needu/v3/dev/terraform.tfstate"
-#     region  = "ap-northeast-2"
+#     bucket = "YOUR_EXISTING_STATE_BUCKET"
+#     key = "needu/v3/dev/terraform.tfstate"
+#     region = "ap-northeast-2"
 #     encrypt = true
-#     # lock 설정은 현재 팀의 Terraform 버전/백엔드 방식에 맞게 지정
+#     # Set locking compatible with your Terraform version.
 #   }
 # }
