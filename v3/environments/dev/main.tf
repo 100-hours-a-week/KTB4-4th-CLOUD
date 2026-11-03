@@ -1,9 +1,9 @@
 module "network" {
   source               = "../../modules/network"
   name                 = var.name
-  vpc_cidr             = var.vpc_cidr
+  vpc_id               = var.vpc_id
   availability_zones   = var.availability_zones
-  public_subnet_cidrs  = var.public_subnet_cidrs
+  public_subnet_ids    = var.public_subnet_ids
   private_subnet_cidrs = var.private_subnet_cidrs
 }
 module "eks" {
