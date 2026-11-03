@@ -13,9 +13,26 @@ variable "private_subnet_ids" {
 variable "node_instance_types" {
   type = list(string)
 }
-variable "system_desired" {
-  type = number
+variable "availability_zones" {
+  type = list(string)
+  validation {
+    condition     = length(var.availability_zones) == 2 && length(distinct(var.availability_zones)) == 2
+    error_message = "Exactly two distinct AZs are required."
+  }
 }
-variable "app_desired" {
-  type = number
+variable "system_max_per_az" {
+  type    = number
+  default = 2
+}
+variable "app_max_per_az" {
+  type    = number
+  default = 2
+}
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access the EKS public API endpoint"
+  type        = list(string)
+}
+variable "cluster_admin_role_arn" {
+  description = "IAM role ARN authorized to administer the EKS cluster"
+  type        = string
 }

@@ -1,10 +1,10 @@
-# Configure remote state before apply. Use a separate V3 key.
-# terraform {
-#   backend "s3" {
-#     bucket = "YOUR_EXISTING_STATE_BUCKET"
-#     key = "needu/v3/dev/terraform.tfstate"
-#     region = "ap-northeast-2"
-#     encrypt = true
-#     # Set locking compatible with your Terraform version.
-#   }
-# }
+# Copy only if you do not already have a local backend.tf.
+terraform {
+  backend "s3" {
+    bucket       = "needu-terraform-state-919551759796"
+    key          = "v3/dev/terraform.tfstate"
+    region       = "ap-northeast-2"
+    encrypt      = true
+    use_lockfile = true
+  }
+}

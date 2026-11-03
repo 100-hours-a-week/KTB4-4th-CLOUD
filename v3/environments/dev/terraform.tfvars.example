@@ -6,5 +6,10 @@ public_subnet_ids = ["subnet-0d83afd6ba8e27647", "subnet-0028c486a1b1f8077"]
 private_subnet_cidrs = ["10.1.64.0/24", "10.1.65.0/24"]
 cluster_version = "1.33"
 node_instance_types = ["t3.large"]
-system_desired = 2
-app_desired = 2
+# Each AZ starts with one System and one Application node (4 total).
+# Maximum 2 per group per AZ; adjust after capacity testing.
+system_max_per_az = 2
+app_max_per_az = 2
+
+# Replace with your trusted public egress IP /32 (example is non-routable).
+eks_public_access_cidrs = ["203.0.113.10/32"]

@@ -15,11 +15,19 @@ variable "node_instance_types" {
   type    = list(string)
   default = ["t3.large"]
 }
-variable "system_desired" {
+variable "system_max_per_az" {
   type    = number
   default = 2
 }
-variable "app_desired" {
+variable "app_max_per_az" {
   type    = number
   default = 2
+}
+variable "eks_public_access_cidrs" {
+  description = "Allowed CIDRs for the EKS public API endpoint"
+  type        = list(string)
+}
+variable "eks_cluster_admin_role_arn" {
+  description = "IAM Role ARN for Dev EKS cluster administration"
+  type        = string
 }
