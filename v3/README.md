@@ -1,27 +1,41 @@
-# NeedU V3 Dev (existing V2 VPC)
+# NeedU V3 Dev EKS — existing V2 VPC
 
-Modified from `needu-v3-mond-1102-fixed(1).zip`.
-Reuses V2 VPC `vpc-0f2478c01e376b1b6` and Dev public subnets.
-Creates 2 V3 private subnets, 1 NAT Gateway + EIP, a private route table,
-EKS cluster and System/Application Managed Node Groups.
+This module reuses V2 VPC `vpc-0f2478c01e376b1b6` and existing Dev public subnets.
+It creates V3 private subnets (`10.1.64.0/24`, `10.1.65.0/24`), one NAT Gateway,
+one private route table, an EKS cluster, VPC CNI managed add-on, and **four** AZ-specific
+Managed Node Groups: one System and one Application group per AZ.
 
-## Before applying
-- Confirm `10.1.64.0/24` and `10.1.65.0/24` are available and approved.
-- Configure `environments/dev/backend.tf` from the example using the real S3 bucket and separate state key. Do not apply using unintended local state.
-- This does not guarantee one System + one Application node per AZ: each MNG spans both AZs.
-- VPC CNI IAM permissions exist in the EKS module; managed Add-on setup and health verification are follow-up tasks.
-- Existing Dev RDS SG requires V3 access rules. No VPC peering is needed.
-- NAT, EKS, nodes and EIP can incur AWS charges.
-- Review existing local or remote Terraform state before overwriting files or applying.
+## Node layout
 
-## Commands
+- AZ 2a: System 1 (min 1, max 2), Application 1 (min 1, max 2)
+- AZ 2c: System 1 (min 1, max 2), Application 1 (min 1, max 2)
+- Initial total: 4 EC2 nodes; maximum: 8 EC2 nodes. These are initial limits,
+  **not** load-tested capacity targets. Cluster Autoscaler must be installed separately.
+- System nodes are tainted `dedicated=system:NoSchedule`; workloads require tolerations.
+
+## Safety and limitations
+
+- `terraform.tfvars` and `backend.tf` are deliberately **not included** in the ZIP.
+  Keep your existing local files. Add `eks_public_access_cidrs` and replace the old
+  `system_desired` / `app_desired` variables with the new per-AZ max variables.
+- Public EKS API CIDRs must be trusted egress IPs; IP changes may block kubectl access.
+- VPC CNI add-on is managed, but CNI IAM policy is **temporarily attached to the node role**.
+  Dedicated Pod Identity/IRSA is a follow-up hardening task.
+- EKS 1.33 and add-on compatibility, regional quotas, existing public subnet route,
+  RDS/ElastiCache security groups, and public subnet ALB discovery tags need verification.
+- NAT Gateway is in one AZ; this creates a cross-AZ dependency and charges.
+- Terraform only defines infrastructure; no AWS resources have been created by this ZIP.
+- AWS managed add-ons `coredns` and `kube-proxy` are not explicitly managed here.
+  Check/install them as part of EKS bootstrap before workload deployment.
+
+## Commands (from v3/environments/dev)
+
 ```bash
-cp v3/environments/dev/terraform.tfvars.example v3/environments/dev/terraform.tfvars
-cd v3/environments/dev
 terraform fmt -recursive ../../
-terraform init -backend=false  # syntax checks only, not apply
+terraform init -reconfigure
 terraform validate
-AWS_PROFILE=needu-v2 terraform plan
+AWS_PROFILE=needu-v2 terraform plan -out=v3-dev.tfplan
+terraform show v3-dev.tfplan
 ```
-Before apply, configure S3 backend and initialize properly; inspect plan carefully.
-No new VPC or public subnet should appear in the plan.
+
+Review the plan and confirm no V2 resources are changed or destroyed before apply.
