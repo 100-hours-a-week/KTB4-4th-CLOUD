@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Verify main branch
         run: |
+          set -euo pipefail
+
           [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
             echo "::error::Apply must run from main"
             exit 1
@@ -49,8 +51,12 @@ jobs:
 
       - name: Check formatting and lock file
         run: |
+          set -euo pipefail
+
           terraform fmt -check -recursive v3/
           test -f "$TF_DIR/.terraform.lock.hcl"
+          test -f "$TF_DIR/backend.tf"
+          test -f "$TF_DIR/dev.auto.tfvars"
 
       - name: Configure Plan credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -60,16 +66,68 @@ jobs:
           role-session-name: v3-plan-${{ github.run_id }}
 
       - name: Verify AWS identity
-        run: aws sts get-caller-identity
+        run: |
+          set -euo pipefail
+
+          account=$(aws sts get-caller-identity \
+            --query Account --output text)
+
+          [[ "$account" == "919551759796" ]] || {
+            echo "::error::Unexpected AWS account: $account"
+            exit 1
+          }
 
       - name: Initialize remote backend
         working-directory: ${{ env.TF_DIR }}
         run: |
-          terraform init -input=false -lockfile=readonly \
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=v3/${TF_ENV}/terraform.tfstate" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="use_lockfile=true"
+
+      - name: Verify Terraform State
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Workspace ==="
+          workspace=$(terraform workspace show)
+
+          [[ "$workspace" == "default" ]] || {
+            echo "::error::Unexpected Terraform workspace"
+            exit 1
+          }
+
+          echo "=== Backend ==="
+          jq -e \
+            --arg bucket "$TF_STATE_BUCKET" \
+            --arg key "v3/${TF_ENV}/terraform.tfstate" \
+            --arg region "$AWS_REGION" \
+            '.backend.type == "s3" and
+             .backend.config.bucket == $bucket and
+             .backend.config.key == $key and
+             .backend.config.region == $region' \
+            .terraform/terraform.tfstate
+
+          echo "=== Remote State Object ==="
+          aws s3api head-object \
+            --bucket "$TF_STATE_BUCKET" \
+            --key "v3/${TF_ENV}/terraform.tfstate" \
+            --region "$AWS_REGION" \
+            --query '{LastModified:LastModified,Size:ContentLength,VersionId:VersionId}' \
+            --output json
+
+          echo "=== Existing EKS State ==="
+          terraform state list | grep -Fx \
+            'module.eks.aws_eks_cluster.this'
+
+          echo "Terraform State verification passed."
 
       - name: Validate
         working-directory: ${{ env.TF_DIR }}
@@ -224,16 +282,68 @@ jobs:
           role-session-name: v3-apply-${{ github.run_id }}
 
       - name: Verify AWS identity
-        run: aws sts get-caller-identity
+        run: |
+          set -euo pipefail
+
+          account=$(aws sts get-caller-identity \
+            --query Account --output text)
+
+          [[ "$account" == "919551759796" ]] || {
+            echo "::error::Unexpected AWS account: $account"
+            exit 1
+          }
 
       - name: Initialize remote backend
         working-directory: ${{ env.TF_DIR }}
         run: |
-          terraform init -input=false -lockfile=readonly \
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=v3/${TF_ENV}/terraform.tfstate" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="use_lockfile=true"
+
+      - name: Verify Terraform State
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Workspace ==="
+          workspace=$(terraform workspace show)
+
+          [[ "$workspace" == "default" ]] || {
+            echo "::error::Unexpected Terraform workspace"
+            exit 1
+          }
+
+          echo "=== Backend ==="
+          jq -e \
+            --arg bucket "$TF_STATE_BUCKET" \
+            --arg key "v3/${TF_ENV}/terraform.tfstate" \
+            --arg region "$AWS_REGION" \
+            '.backend.type == "s3" and
+             .backend.config.bucket == $bucket and
+             .backend.config.key == $key and
+             .backend.config.region == $region' \
+            .terraform/terraform.tfstate
+
+          echo "=== Remote State Object ==="
+          aws s3api head-object \
+            --bucket "$TF_STATE_BUCKET" \
+            --key "v3/${TF_ENV}/terraform.tfstate" \
+            --region "$AWS_REGION" \
+            --query '{LastModified:LastModified,Size:ContentLength,VersionId:VersionId}' \
+            --output json
+
+          echo "=== Existing EKS State ==="
+          terraform state list | grep -Fx \
+            'module.eks.aws_eks_cluster.this'
+
+          echo "Terraform State verification passed."
 
       - name: Apply exact reviewed Plan
         working-directory: ${{ env.TF_DIR }}
