@@ -219,6 +219,17 @@
       "Effect": "Allow",
       "Action": "ec2:AuthorizeSecurityGroupIngress",
       "Resource": "arn:aws:ec2:ap-northeast-2:919551759796:security-group-rule/*"
+    },
+    {
+      "Sid": "TagV3EKSSecurityGroupRuleOnCreation",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:ap-northeast-2:919551759796:security-group-rule/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": "AuthorizeSecurityGroupIngress"
+        }
+      }
     }
   ]
 }
