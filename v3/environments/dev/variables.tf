@@ -37,3 +37,11 @@ variable "eso_secret_kms_key_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "valkey_subnet_ids" {
+  type = list(string)
+}
+
+variable "eks_node_security_group_id" {
+  type = string
+}
