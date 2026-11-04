@@ -4,9 +4,7 @@
     {
       "Sid": "EC2Read",
       "Effect": "Allow",
-      "Action": [
-        "ec2:Describe*"
-      ],
+      "Action": ["ec2:Describe*"],
       "Resource": "*"
     },
     {
@@ -44,6 +42,18 @@
         "iam:GetPolicyVersion",
         "iam:ListInstanceProfilesForRole",
         "iam:ListRoleTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ElastiCacheRead",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:DescribeCacheSubnetGroups",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeCacheParameterGroups",
+        "elasticache:ListTagsForResource"
       ],
       "Resource": "*"
     }
