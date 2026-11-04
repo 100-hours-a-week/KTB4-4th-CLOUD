@@ -126,11 +126,24 @@ jobs:
       - name: Initialize remote backend
         working-directory: ${{ env.TF_DIR }}
         run: |
-          terraform init -input=false -lockfile=readonly \
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=v3/${TF_ENV}/terraform.tfstate" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="use_lockfile=true"
+
+          echo "=== Active Backend ==="
+          jq '{
+            type: .backend.type,
+            bucket: .backend.config.bucket,
+            key: .backend.config.key,
+            region: .backend.config.region
+          }' .terraform/terraform.tfstate
 
       - name: Verify Terraform State
         working-directory: ${{ env.TF_DIR }}
@@ -165,7 +178,6 @@ jobs:
           }'
 
           echo "=== Verify Existing EKS Cluster in State ==="
-
           if ! terraform state list | grep -Fxq \
             'module.eks.aws_eks_cluster.this'; then
             echo "::error::Existing EKS cluster is missing from Terraform State"
