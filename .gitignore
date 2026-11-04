@@ -16,3 +16,4 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 **/tfplan
+!v3/environments/dev/dev.auto.tfvars

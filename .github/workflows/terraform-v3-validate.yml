@@ -1,0 +1,49 @@
+name: Terraform V3 Validate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "v3/**"
+      - ".github/workflows/terraform-v3-*.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate - Dev
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive v3/
+
+      - name: Verify environment and lock file
+        run: |
+          set -euo pipefail
+          test -d v3/environments/dev
+          test -f v3/environments/dev/.terraform.lock.hcl
+
+      - name: Initialize without backend
+        working-directory: v3/environments/dev
+        run: terraform init -backend=false -lockfile=readonly -input=false -no-color
+
+      - name: Validate
+        working-directory: v3/environments/dev
+        run: terraform validate -no-color
+
+      - name: Verify lock file unchanged
+        run: git diff --exit-code -- v3/environments/dev/.terraform.lock.hcl

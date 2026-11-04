@@ -1,0 +1,387 @@
+name: Terraform V3 Apply
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-v3-apply-global
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan - Dev
+    runs-on: ubuntu-latest
+    environment: terraform-v3-plan
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ap-northeast-2
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_ENV: dev
+      TF_DIR: v3/environments/dev
+      TF_STATE_BUCKET: needu-terraform-state-919551759796
+
+    steps:
+      - name: Verify main branch
+        run: |
+          set -euo pipefail
+
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "::error::Apply must run from main"
+            exit 1
+          }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check formatting and lock file
+        run: |
+          set -euo pipefail
+
+          terraform fmt -check -recursive v3/
+          test -f "$TF_DIR/.terraform.lock.hcl"
+          test -f "$TF_DIR/backend.tf"
+          test -f "$TF_DIR/dev.auto.tfvars"
+
+      - name: Configure Plan credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.V3_TERRAFORM_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: v3-plan-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: |
+          set -euo pipefail
+
+          account=$(aws sts get-caller-identity \
+            --query Account --output text)
+
+          [[ "$account" == "919551759796" ]] || {
+            echo "::error::Unexpected AWS account: $account"
+            exit 1
+          }
+
+      - name: Initialize remote backend
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=v3/${TF_ENV}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Verify Terraform State
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Workspace ==="
+          workspace=$(terraform workspace show)
+
+          [[ "$workspace" == "default" ]] || {
+            echo "::error::Unexpected Terraform workspace"
+            exit 1
+          }
+
+          echo "=== Backend ==="
+          jq -e \
+            --arg bucket "$TF_STATE_BUCKET" \
+            --arg key "v3/${TF_ENV}/terraform.tfstate" \
+            --arg region "$AWS_REGION" \
+            '.backend.type == "s3" and
+             .backend.config.bucket == $bucket and
+             .backend.config.key == $key and
+             .backend.config.region == $region' \
+            .terraform/terraform.tfstate
+
+          echo "=== Remote State Object ==="
+          aws s3api head-object \
+            --bucket "$TF_STATE_BUCKET" \
+            --key "v3/${TF_ENV}/terraform.tfstate" \
+            --region "$AWS_REGION" \
+            --query '{LastModified:LastModified,Size:ContentLength,VersionId:VersionId}' \
+            --output json
+
+          echo "=== Existing EKS State ==="
+          terraform state list | grep -Fx \
+            'module.eks.aws_eks_cluster.this'
+
+          echo "Terraform State verification passed."
+
+      - name: Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate -no-color
+
+      - name: Create exact Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -out=tfplan \
+            -no-color
+
+          terraform show -json tfplan > plan.json
+
+      - name: Block destructive changes
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+
+          with open("plan.json", encoding="utf-8") as f:
+              plan = json.load(f)
+
+          blocked = [
+              (r["address"], r["change"]["actions"])
+              for r in plan.get("resource_changes", [])
+              if "delete" in r.get("change", {}).get("actions", [])
+          ]
+
+          for address, actions in blocked:
+              print(
+                  f"::error::Destructive change blocked: "
+                  f"{address} {actions}"
+              )
+
+          if blocked:
+              sys.exit(1)
+
+          print("No destructive changes detected.")
+          PY
+
+      - name: Create Plan metadata
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          PLAN_SHA="$(sha256sum tfplan | awk '{print $1}')"
+
+          {
+            echo "environment=$TF_ENV"
+            echo "commit_sha=$COMMIT_SHA"
+            echo "run_id=$RUN_ID"
+            echo "run_attempt=$RUN_ATTEMPT"
+            echo "state_key=v3/$TF_ENV/terraform.tfstate"
+            echo "plan_sha256=$PLAN_SHA"
+          } > plan-metadata.env
+
+          {
+            echo "## Terraform V3 Dev Plan"
+            echo "- Environment: $TF_ENV"
+            echo "- Commit: $COMMIT_SHA"
+            echo "- Plan SHA-256: $PLAN_SHA"
+            echo "- Destructive changes: blocked"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-v3-plan-dev-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            ${{ env.TF_DIR }}/plan-metadata.env
+          if-no-files-found: error
+          retention-days: 3
+
+  apply:
+    name: Apply - Dev
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: v3-dev
+
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+
+    env:
+      AWS_REGION: ap-northeast-2
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_ENV: dev
+      TF_DIR: v3/environments/dev
+      TF_STATE_BUCKET: needu-terraform-state-919551759796
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Download exact Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-v3-plan-dev-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.TF_DIR }}
+
+      - name: Verify Plan metadata and checksum
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          test -f tfplan
+          test -f plan-metadata.env
+
+          get_meta() {
+            grep -m1 "^$1=" plan-metadata.env | cut -d= -f2-
+          }
+
+          [[ "$(get_meta environment)" == "$TF_ENV" ]]
+          [[ "$(get_meta commit_sha)" == "$COMMIT_SHA" ]]
+          [[ "$(get_meta run_id)" == "$RUN_ID" ]]
+          [[ "$(get_meta run_attempt)" == "$RUN_ATTEMPT" ]]
+          [[ "$(get_meta state_key)" == "v3/$TF_ENV/terraform.tfstate" ]]
+          [[ "$(get_meta plan_sha256)" == "$(sha256sum tfplan | awk '{print $1}')" ]]
+
+          echo "Plan metadata and checksum verified."
+
+      - name: Configure Apply credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.V3_TERRAFORM_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: v3-apply-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: |
+          set -euo pipefail
+
+          account=$(aws sts get-caller-identity \
+            --query Account --output text)
+
+          [[ "$account" == "919551759796" ]] || {
+            echo "::error::Unexpected AWS account: $account"
+            exit 1
+          }
+
+      - name: Initialize remote backend
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=v3/${TF_ENV}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Verify Terraform State
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Workspace ==="
+          workspace=$(terraform workspace show)
+
+          [[ "$workspace" == "default" ]] || {
+            echo "::error::Unexpected Terraform workspace"
+            exit 1
+          }
+
+          echo "=== Backend ==="
+          jq -e \
+            --arg bucket "$TF_STATE_BUCKET" \
+            --arg key "v3/${TF_ENV}/terraform.tfstate" \
+            --arg region "$AWS_REGION" \
+            '.backend.type == "s3" and
+             .backend.config.bucket == $bucket and
+             .backend.config.key == $key and
+             .backend.config.region == $region' \
+            .terraform/terraform.tfstate
+
+          echo "=== Remote State Object ==="
+          aws s3api head-object \
+            --bucket "$TF_STATE_BUCKET" \
+            --key "v3/${TF_ENV}/terraform.tfstate" \
+            --region "$AWS_REGION" \
+            --query '{LastModified:LastModified,Size:ContentLength,VersionId:VersionId}' \
+            --output json
+
+          echo "=== Existing EKS State ==="
+          terraform state list | grep -Fx \
+            'module.eks.aws_eks_cluster.this'
+
+          echo "Terraform State verification passed."
+
+      - name: Apply exact reviewed Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply \
+            -input=false \
+            -lock-timeout=5m \
+            -no-color \
+            tfplan
+
+      - name: Post-Apply Drift Check
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set +e
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -detailed-exitcode \
+            -no-color > post-apply-plan.txt 2>&1
+
+          code=$?
+          cat post-apply-plan.txt
+
+          if [[ "$code" -eq 0 ]]; then
+            echo "No remaining changes." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$code" -eq 2 ]]; then
+            echo "::warning::Post-apply plan found remaining changes."
+            echo "Remaining changes detected." >> "$GITHUB_STEP_SUMMARY"
+          else
+            exit 1
+          fi
+
+      - name: Upload execution logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-v3-apply-logs-dev-${{ github.run_id }}
+          path: ${{ env.TF_DIR }}/post-apply-plan.txt
+          if-no-files-found: ignore
+          retention-days: 7
