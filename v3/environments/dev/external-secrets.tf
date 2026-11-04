@@ -21,6 +21,7 @@ locals {
   ])
 
   eso_v2_ai_parameters = toset([
+    "CATALOG_DATABASE_URL_RO",
     "EXTRACTION_MODEL_BASE_URL",
     "EXTRACTION_MODEL_NAME",
     "JUDGMENT_MODEL_BASE_URL",
