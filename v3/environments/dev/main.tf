@@ -1,4 +1,3 @@
-
 module "network" {
   source               = "../../modules/network"
   name                 = var.name
@@ -41,8 +40,15 @@ module "valkey" {
 module "valkey_cache" {
   source = "../../modules/valkey"
 
-  name                       = "${var.name}-valkey-cache"
+  # 기존 AWS 리소스 유지
+  name                       = "${var.name}-valkey-a"
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = var.valkey_subnet_ids
   eks_node_security_group_id = data.aws_eks_cluster.valkey.vpc_config[0].cluster_security_group_id
+}
+
+# 기존 Valkey A의 Terraform State 주소를 Cache 모듈로 이전
+moved {
+  from = module.valkey_a
+  to   = module.valkey_cache
 }
