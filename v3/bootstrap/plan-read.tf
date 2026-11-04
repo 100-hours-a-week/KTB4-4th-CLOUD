@@ -17,6 +17,12 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
   }
 
   statement {
+    sid       = "DescribeDevValkeyReplicationGroup"
+    actions   = ["elasticache:DescribeReplicationGroups"]
+    resources = ["arn:aws:elasticache:ap-northeast-2:919551759796:replicationgroup:needu-v3-dev-valkey"]
+  }
+
+  statement {
     sid       = "ReadExternalSecretsRolePolicy"
     actions   = ["iam:GetRolePolicy", "iam:ListRolePolicies"]
     resources = ["arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets"]
