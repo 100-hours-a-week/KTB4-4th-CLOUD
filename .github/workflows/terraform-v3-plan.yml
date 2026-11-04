@@ -1,0 +1,210 @@
+name: Terraform V3 Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "v3/**"
+      - ".github/workflows/terraform-v3-*.yml"
+    types: [opened, synchronize, reopened]
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve Plan target
+    runs-on: ubuntu-latest
+    outputs:
+      should_plan: ${{ steps.target.outputs.should_plan }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Resolve Dev target
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+              echo "::error::Manual Plan must run from main"
+              exit 1
+            }
+            echo "should_plan=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+            echo "Fork PR: AWS Plan skipped"
+            echo "should_plan=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
+
+          if grep -Eq '^(v3/|\.github/workflows/terraform-v3-)' changed-files.txt; then
+            echo "should_plan=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_plan=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  plan:
+    name: Plan - Dev
+    needs: resolve
+    if: needs.resolve.outputs.should_plan == 'true'
+    runs-on: ubuntu-latest
+    environment: terraform-v3-plan
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ap-northeast-2
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_ENV: dev
+      TF_DIR: v3/environments/dev
+      TF_STATE_BUCKET: needu-terraform-state-919551759796
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive v3/
+
+      - name: Verify lock file
+        run: test -f "$TF_DIR/.terraform.lock.hcl"
+
+      - name: Configure AWS Plan credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.V3_TERRAFORM_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: v3-plan-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Initialize remote backend
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=v3/${TF_ENV}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set +e
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -detailed-exitcode \
+            -out=tfplan \
+            -no-color > plan.txt 2>&1
+
+          code=$?
+          cat plan.txt
+
+          if [[ "$code" -eq 1 ]]; then
+            exit 1
+          fi
+
+          if [[ "$code" -ne 0 && "$code" -ne 2 ]]; then
+            exit "$code"
+          fi
+
+      - name: Summarize changes
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform show -json tfplan > plan.json
+
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          with open("plan.json", encoding="utf-8") as f:
+              plan = json.load(f)
+
+          counts = {
+              "create": 0,
+              "update": 0,
+              "delete": 0,
+              "replace": 0,
+          }
+
+          destructive = []
+
+          for resource in plan.get("resource_changes", []):
+              actions = resource.get("change", {}).get("actions", [])
+
+              if "delete" in actions:
+                  destructive.append(resource["address"])
+
+              if "create" in actions and "delete" in actions:
+                  counts["replace"] += 1
+              elif "delete" in actions:
+                  counts["delete"] += 1
+              elif "create" in actions:
+                  counts["create"] += 1
+              elif "update" in actions:
+                  counts["update"] += 1
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("## Terraform V3 Dev Plan\n\n")
+              f.write("| Action | Count |\n")
+              f.write("|---|---:|\n")
+
+              for action, count in counts.items():
+                  f.write(f"| {action} | {count} |\n")
+
+              f.write("\n### Destructive changes\n")
+
+              if destructive:
+                  for address in destructive:
+                      f.write(f"- `{address}`\n")
+              else:
+                  f.write("None\n")
+
+          if destructive:
+              print("::error::Destructive changes detected")
+              sys.exit(1)
+          PY
+
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-v3-plan-review-dev-${{ github.run_id }}
+          path: ${{ env.TF_DIR }}/plan.txt
+          if-no-files-found: error
+          retention-days: 7
