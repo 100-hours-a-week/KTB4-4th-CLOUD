@@ -13,3 +13,6 @@ app_max_per_az = 2
 
 # Replace with your trusted public egress IP /32 (example is non-routable).
 eks_public_access_cidrs = ["203.0.113.10/32"]
+
+# Existing Dev SSM bastion security group.
+ssm_admin_security_group_id = "sg-034208f09ce526099"
