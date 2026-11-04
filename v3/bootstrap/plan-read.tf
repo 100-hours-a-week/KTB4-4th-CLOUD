@@ -1,5 +1,6 @@
-# V3 Plan Role은 Apply Role과 별도로 생성되어 있다. 기존 Role에
-# Terraform refresh와 ESO용 RDS Secret ARN 조회에 필요한 읽기 권한만 부여한다.
+
+# V3 Plan Role은 Apply Role과 별도로 생성되어 있다.
+# Terraform refresh에 필요한 리소스 조회 권한을 부여한다.
 data "aws_iam_policy_document" "v3_plan_eso_read" {
   statement {
     sid       = "DescribeDevPodIdentityAssociations"
@@ -20,6 +21,21 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
     sid       = "ReadExternalSecretsRolePolicy"
     actions   = ["iam:GetRolePolicy", "iam:ListRolePolicies"]
     resources = ["arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets"]
+  }
+
+  # Valkey Streams / Cache Terraform State Refresh
+  statement {
+    sid = "DescribeDevValkey"
+
+    actions = [
+      "elasticache:DescribeReplicationGroups",
+      "elasticache:DescribeCacheSubnetGroups",
+      "elasticache:DescribeCacheClusters",
+      "elasticache:DescribeCacheParameterGroups",
+      "elasticache:ListTagsForResource",
+    ]
+
+    resources = ["*"]
   }
 }
 

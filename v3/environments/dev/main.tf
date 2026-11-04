@@ -20,3 +20,35 @@ module "eks" {
   public_access_cidrs    = var.eks_public_access_cidrs
   cluster_admin_role_arn = var.eks_cluster_admin_role_arn
 }
+
+# EKS Cluster Security Group 조회
+data "aws_eks_cluster" "valkey" {
+  name = module.eks.cluster_name
+}
+
+# Valkey Streams - AI 작업 큐 / Consumer Group / AI Lock
+module "valkey" {
+  source = "../../modules/valkey"
+
+  name                       = "${var.name}-valkey"
+  vpc_id                     = module.network.vpc_id
+  subnet_ids                 = var.valkey_subnet_ids
+  eks_node_security_group_id = data.aws_eks_cluster.valkey.vpc_config[0].cluster_security_group_id
+}
+
+# Valkey Cache - OAuth / Rate Limit / Cooldown / Pub/Sub
+module "valkey_cache" {
+  source = "../../modules/valkey"
+
+  # 기존 AWS 리소스 유지
+  name                       = "${var.name}-valkey-a"
+  vpc_id                     = module.network.vpc_id
+  subnet_ids                 = var.valkey_subnet_ids
+  eks_node_security_group_id = data.aws_eks_cluster.valkey.vpc_config[0].cluster_security_group_id
+}
+
+# 기존 Valkey A의 Terraform State 주소를 Cache 모듈로 이전
+moved {
+  from = module.valkey_a
+  to   = module.valkey_cache
+}
