@@ -27,6 +27,12 @@
       "Resource": "*"
     },
     {
+      "Sid": "RDSInstanceRead",
+      "Effect": "Allow",
+      "Action": ["rds:DescribeDBInstances"],
+      "Resource": "*"
+    },
+    {
       "Sid": "IAMRead",
       "Effect": "Allow",
       "Action": [
