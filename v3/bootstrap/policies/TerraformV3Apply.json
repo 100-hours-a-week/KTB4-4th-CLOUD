@@ -21,6 +21,11 @@
         "eks:DeleteAccessEntry",
         "eks:AssociateAccessPolicy",
         "eks:DisassociateAccessPolicy",
+        "eks:CreatePodIdentityAssociation",
+        "eks:UpdatePodIdentityAssociation",
+        "eks:DeletePodIdentityAssociation",
+        "eks:DescribePodIdentityAssociation",
+        "eks:ListPodIdentityAssociations",
         "eks:TagResource",
         "eks:UntagResource",
         "eks:DescribeUpdate",
@@ -30,7 +35,8 @@
         "arn:aws:eks:ap-northeast-2:919551759796:cluster/needu-v3-dev",
         "arn:aws:eks:ap-northeast-2:919551759796:nodegroup/needu-v3-dev/*",
         "arn:aws:eks:ap-northeast-2:919551759796:addon/needu-v3-dev/*",
-        "arn:aws:eks:ap-northeast-2:919551759796:access-entry/needu-v3-dev/*"
+        "arn:aws:eks:ap-northeast-2:919551759796:access-entry/needu-v3-dev/*",
+        "arn:aws:eks:ap-northeast-2:919551759796:podidentityassociation/needu-v3-dev/*"
       ]
     },
     {
@@ -47,8 +53,25 @@
       ],
       "Resource": [
         "arn:aws:iam::919551759796:role/needu-v3-dev-cluster-role",
-        "arn:aws:iam::919551759796:role/needu-v3-dev-node-role"
+        "arn:aws:iam::919551759796:role/needu-v3-dev-node-role",
+        "arn:aws:iam::919551759796:role/needu-v3-dev-alb-controller"
       ]
+    },
+    {
+      "Sid": "ManageV3ALBControllerPolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": "arn:aws:iam::919551759796:policy/needu-v3-dev-alb-controller"
     },
     {
       "Sid": "PassV3ClusterRole",
@@ -73,12 +96,20 @@
       }
     },
     {
+      "Sid": "PassV3ALBControllerRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::919551759796:role/needu-v3-dev-alb-controller",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "pods.eks.amazonaws.com"
+        }
+      }
+    },
+    {
       "Sid": "CreateV3SubnetAndRouteTable",
       "Effect": "Allow",
-      "Action": [
-        "ec2:CreateSubnet",
-        "ec2:CreateRouteTable"
-      ],
+      "Action": ["ec2:CreateSubnet", "ec2:CreateRouteTable"],
       "Resource": [
         "arn:aws:ec2:ap-northeast-2:919551759796:subnet/*",
         "arn:aws:ec2:ap-northeast-2:919551759796:route-table/*"
@@ -94,10 +125,7 @@
     {
       "Sid": "UseExistingVPCForCreation",
       "Effect": "Allow",
-      "Action": [
-        "ec2:CreateSubnet",
-        "ec2:CreateRouteTable"
-      ],
+      "Action": ["ec2:CreateSubnet", "ec2:CreateRouteTable"],
       "Resource": "arn:aws:ec2:ap-northeast-2:919551759796:vpc/vpc-0f2478c01e376b1b6"
     },
     {
@@ -187,10 +215,7 @@
     {
       "Sid": "ManageV3NetworkTags",
       "Effect": "Allow",
-      "Action": [
-        "ec2:CreateTags",
-        "ec2:DeleteTags"
-      ],
+      "Action": ["ec2:CreateTags", "ec2:DeleteTags"],
       "Resource": [
         "arn:aws:ec2:ap-northeast-2:919551759796:subnet/*",
         "arn:aws:ec2:ap-northeast-2:919551759796:route-table/*",
