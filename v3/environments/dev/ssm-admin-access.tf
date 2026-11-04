@@ -15,3 +15,19 @@ resource "aws_vpc_security_group_ingress_rule" "eks_api_from_ssm_admin" {
   from_port                    = 443
   to_port                      = 443
 }
+
+resource "aws_eks_access_entry" "ssm_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = "arn:aws:iam::919551759796:role/needu-dev-ssm-bastion"
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "ssm_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_eks_access_entry.ssm_admin.principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+}
