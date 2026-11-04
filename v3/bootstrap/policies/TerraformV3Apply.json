@@ -213,6 +213,12 @@
         "ec2:RevokeSecurityGroupIngress"
       ],
       "Resource": "arn:aws:ec2:ap-northeast-2:919551759796:security-group/sg-01bfc1ffedbc000f3"
+    },
+    {
+      "Sid": "CreateV3EKSSecurityGroupRule",
+      "Effect": "Allow",
+      "Action": "ec2:AuthorizeSecurityGroupIngress",
+      "Resource": "arn:aws:ec2:ap-northeast-2:919551759796:security-group-rule/*"
     }
   ]
 }
