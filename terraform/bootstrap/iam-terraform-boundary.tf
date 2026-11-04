@@ -83,23 +83,6 @@ data "aws_iam_policy_document" "runtime_boundary" {
     }
   }
 
-  # Staging ECS Exec가 SSM Messages 채널을 열 수 있도록 기존 권한을 보존한다.
-  dynamic "statement" {
-    for_each = each.key == "staging" ? [1] : []
-
-    content {
-      sid    = "AllowECSExecSSMMessages"
-      effect = "Allow"
-      actions = [
-        "ssmmessages:CreateControlChannel",
-        "ssmmessages:CreateDataChannel",
-        "ssmmessages:OpenControlChannel",
-        "ssmmessages:OpenDataChannel"
-      ]
-      resources = ["*"]
-    }
-  }
-
   dynamic "statement" {
     for_each = each.key == "staging" ? [1] : []
 
