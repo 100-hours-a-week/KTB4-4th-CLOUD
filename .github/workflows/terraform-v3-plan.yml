@@ -98,6 +98,9 @@ jobs:
       - name: Verify lock file
         run: test -f "$TF_DIR/.terraform.lock.hcl"
 
+      - name: Verify Dev variables
+        run: test -f "$TF_DIR/dev.auto.tfvars"
+
       - name: Configure AWS Plan credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -106,7 +109,19 @@ jobs:
           role-session-name: v3-plan-${{ github.run_id }}
 
       - name: Verify AWS identity
-        run: aws sts get-caller-identity
+        run: |
+          set -euo pipefail
+
+          aws sts get-caller-identity \
+            --query '{Account:Account,Arn:Arn}' \
+            --output json
+
+          account=$(aws sts get-caller-identity --query Account --output text)
+
+          if [[ "$account" != "919551759796" ]]; then
+            echo "::error::Unexpected AWS account: $account"
+            exit 1
+          fi
 
       - name: Initialize remote backend
         working-directory: ${{ env.TF_DIR }}
@@ -117,6 +132,49 @@ jobs:
             -backend-config="region=${AWS_REGION}" \
             -backend-config="use_lockfile=true"
 
+      - name: Verify Terraform State
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Terraform Workspace ==="
+          workspace=$(terraform workspace show)
+          echo "$workspace"
+
+          if [[ "$workspace" != "default" ]]; then
+            echo "::error::Unexpected workspace: $workspace"
+            exit 1
+          fi
+
+          echo "=== Remote State Object ==="
+          aws s3api head-object \
+            --bucket "$TF_STATE_BUCKET" \
+            --key "v3/${TF_ENV}/terraform.tfstate" \
+            --region "$AWS_REGION" \
+            --query '{LastModified:LastModified,Size:ContentLength,VersionId:VersionId}' \
+            --output json
+
+          echo "=== Terraform State Resources ==="
+          terraform state list
+
+          echo "=== Terraform State Metadata ==="
+          terraform state pull | jq '{
+            lineage,
+            serial,
+            resource_count: (.resources | length)
+          }'
+
+          echo "=== Verify Existing EKS Cluster in State ==="
+
+          if ! terraform state list | grep -Fxq \
+            'module.eks.aws_eks_cluster.this'; then
+            echo "::error::Existing EKS cluster is missing from Terraform State"
+            echo "::error::Stopping Plan to prevent duplicate resource creation"
+            exit 1
+          fi
+
+          echo "Existing EKS cluster found in Terraform State"
+
       - name: Validate
         working-directory: ${{ env.TF_DIR }}
         run: terraform validate -no-color
@@ -125,6 +183,7 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           set +e
+
           terraform plan \
             -input=false \
             -lock-timeout=5m \
