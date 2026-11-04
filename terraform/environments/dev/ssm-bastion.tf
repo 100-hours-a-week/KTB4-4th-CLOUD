@@ -108,6 +108,22 @@ resource "aws_iam_role_policy_attachment" "ssm_bastion" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+data "aws_iam_policy_document" "ssm_bastion_dev_eks" {
+  statement {
+    sid       = "DescribeDevEksCluster"
+    actions   = ["eks:DescribeCluster"]
+    resources = ["arn:aws:eks:ap-northeast-2:${data.aws_caller_identity.ssm_bastion.account_id}:cluster/needu-v3-dev"]
+  }
+}
+
+data "aws_caller_identity" "ssm_bastion" {}
+
+resource "aws_iam_role_policy" "ssm_bastion_dev_eks" {
+  name   = "NeedUDevEksClusterDiscovery"
+  role   = aws_iam_role.ssm_bastion.id
+  policy = data.aws_iam_policy_document.ssm_bastion_dev_eks.json
+}
+
 
 # ------------------------------------------------------------
 # 6. IAM Instance Profile
@@ -311,4 +327,9 @@ output "ssm_bastion_instance_id" {
 output "ssm_bastion_security_group_id" {
   description = "SSM Bastion Security Group ID"
   value       = aws_security_group.ssm_bastion.id
+}
+
+output "ssm_bastion_role_arn" {
+  description = "IAM Role ARN for the Dev EKS Access Entry"
+  value       = aws_iam_role.ssm_bastion.arn
 }
