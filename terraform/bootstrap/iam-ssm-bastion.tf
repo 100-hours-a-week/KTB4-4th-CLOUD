@@ -40,6 +40,16 @@ data "aws_iam_policy_document" "ssm_bastion_boundary" {
   }
 
   statement {
+    sid     = "AllowDevEksClusterDiscovery"
+    effect  = "Allow"
+    actions = ["eks:DescribeCluster"]
+
+    resources = [
+      "arn:aws:eks:ap-northeast-2:${data.aws_caller_identity.current.account_id}:cluster/needu-v3-dev"
+    ]
+  }
+
+  statement {
     sid    = "AllowProdPostgresDumpDownload"
     effect = "Allow"
 

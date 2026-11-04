@@ -9,6 +9,7 @@ node_instance_types  = ["t3.large"]
 system_max_per_az    = 2
 app_max_per_az       = 2
 
-eks_public_access_cidrs = ["211.244.225.224/32"]
+eks_public_access_cidrs     = ["211.244.225.224/32"]
+ssm_admin_security_group_id = "sg-034208f09ce526099"
 
 eks_cluster_admin_role_arn = "arn:aws:iam::919551759796:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_NeedU-Terraform-Bootstrap-Admin_39de7a047c7b6ba8"
