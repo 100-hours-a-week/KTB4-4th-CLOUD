@@ -31,3 +31,9 @@ variable "eks_cluster_admin_role_arn" {
   description = "IAM Role ARN for Dev EKS cluster administration"
   type        = string
 }
+
+variable "eso_secret_kms_key_arns" {
+  description = "Customer-managed KMS key ARNs used by ESO-readable SSM parameters or RDS secrets; leave empty for AWS-managed keys"
+  type        = list(string)
+  default     = []
+}

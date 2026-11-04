@@ -49,12 +49,15 @@
         "iam:AttachRolePolicy",
         "iam:DetachRolePolicy",
         "iam:TagRole",
-        "iam:UntagRole"
+        "iam:UntagRole",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy"
       ],
       "Resource": [
         "arn:aws:iam::919551759796:role/needu-v3-dev-cluster-role",
         "arn:aws:iam::919551759796:role/needu-v3-dev-node-role",
-        "arn:aws:iam::919551759796:role/needu-v3-dev-alb-controller"
+        "arn:aws:iam::919551759796:role/needu-v3-dev-alb-controller",
+        "arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets"
       ]
     },
     {
@@ -100,6 +103,17 @@
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": "arn:aws:iam::919551759796:role/needu-v3-dev-alb-controller",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "pods.eks.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "PassV3ExternalSecretsRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets",
       "Condition": {
         "StringEquals": {
           "iam:PassedToService": "pods.eks.amazonaws.com"
