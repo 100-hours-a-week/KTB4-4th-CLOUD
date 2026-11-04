@@ -924,6 +924,22 @@ data "aws_iam_policy_document" "terraform_dev_ssm_bastion_iam" {
     ]
   }
 
+  # Terraform manages the Dev EKS discovery policy as an inline role policy.
+  statement {
+    sid    = "ManageBastionDevEksInlinePolicy"
+    effect = "Allow"
+
+    actions = [
+      "iam:GetRolePolicy",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/needu-dev-ssm-bastion"
+    ]
+  }
+
   # --------------------------------------------------
   # Attach approved SSM managed policy
   # --------------------------------------------------
