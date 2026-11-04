@@ -137,3 +137,11 @@ resource "aws_eks_node_group" "application" {
   }
   depends_on = [aws_iam_role_policy_attachment.worker, aws_iam_role_policy_attachment.ecr, aws_iam_role_policy_attachment.cni, aws_eks_addon.vpc_cni]
 }
+
+resource "aws_eks_addon" "core" {
+  for_each     = toset(["coredns", "kube-proxy"])
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = each.key
+
+  depends_on = [aws_eks_node_group.system, aws_eks_node_group.application]
+}
