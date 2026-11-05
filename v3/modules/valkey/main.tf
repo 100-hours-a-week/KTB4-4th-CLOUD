@@ -3,7 +3,7 @@ resource "aws_security_group" "this" {
   description = "Allow NeedU V3 EKS nodes to connect to Valkey"
   vpc_id      = var.vpc_id
 
-  tags = { Name = "${var.name}-sg" }
+  tags = { Name = "${var.display_name}-sg" }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "eks" {
@@ -42,5 +42,5 @@ resource "aws_elasticache_replication_group" "this" {
   snapshot_retention_limit = 0
   apply_immediately        = false
 
-  tags = { Name = var.name }
+  tags = { Name = var.display_name }
 }

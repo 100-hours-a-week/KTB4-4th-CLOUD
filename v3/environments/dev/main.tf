@@ -30,7 +30,10 @@ data "aws_eks_cluster" "valkey" {
 module "valkey" {
   source = "../../modules/valkey"
 
-  name                       = "${var.name}-valkey"
+  # 기존 AWS 리소스 ID 유지
+  name         = "${var.name}-valkey"
+  display_name = "${var.name}-valkey-streams"
+
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = var.valkey_subnet_ids
   eks_node_security_group_id = data.aws_eks_cluster.valkey.vpc_config[0].cluster_security_group_id
@@ -40,8 +43,10 @@ module "valkey" {
 module "valkey_cache" {
   source = "../../modules/valkey"
 
-  # 기존 AWS 리소스 유지
-  name                       = "${var.name}-valkey-a"
+  # 기존 AWS 리소스 ID 유지
+  name         = "${var.name}-valkey-a"
+  display_name = "${var.name}-valkey-cache"
+
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = var.valkey_subnet_ids
   eks_node_security_group_id = data.aws_eks_cluster.valkey.vpc_config[0].cluster_security_group_id
