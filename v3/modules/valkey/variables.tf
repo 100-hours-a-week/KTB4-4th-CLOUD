@@ -10,3 +10,7 @@ variable "node_type" {
   type    = string
   default = "cache.t4g.small"
 }
+variable "display_name" {
+  description = "Display name for Valkey resources"
+  type        = string
+}
