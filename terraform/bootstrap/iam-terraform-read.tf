@@ -130,7 +130,7 @@ resource "aws_iam_role_policy" "terraform_read" {
   policy = data.aws_iam_policy_document.terraform_read.json
 }
 
-# Secret rotation automation is created only in staging/prod. Keep these
+# Secret rotation automation is created in dev (PostgreSQL only) and staging/prod. Keep these
 # additional reads in a dedicated managed policy so the shared inline read
 # policy does not approach the IAM aggregate inline-policy size limit.
 data "aws_iam_policy_document" "terraform_plan_secret_rotation_read" {
@@ -146,7 +146,7 @@ data "aws_iam_policy_document" "terraform_plan_secret_rotation_read" {
 
     resources = [
       for environment in local.terraform_secret_rotation_environments :
-      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${environment}-mysql-secret-rotation"
+      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${environment}-${local.terraform_secret_rotation_resource_names[environment]}"
     ]
   }
 
@@ -167,7 +167,7 @@ data "aws_iam_policy_document" "terraform_plan_secret_rotation_read" {
 
     resources = [
       for environment in local.terraform_secret_rotation_environments :
-      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${environment}-mysql-secret-rotation-redeploy"
+      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${environment}-${local.terraform_secret_rotation_resource_names[environment]}-redeploy"
     ]
   }
 }
