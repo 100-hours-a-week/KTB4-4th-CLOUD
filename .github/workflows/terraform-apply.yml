@@ -313,10 +313,16 @@ jobs:
           set -euo pipefail
 
           PLAN_SHA="$(sha256sum tfplan | awk '{print $1}')"
-          LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          LAMBDA_ZIP=""
           LAMBDA_ZIP_SHA="none"
 
-          if [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
+          if [[ "$TF_ENV" == "dev" ]]; then
+            LAMBDA_ZIP="needu-dev-postgres-secret-rotation-redeploy.zip"
+          elif [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
+            LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          fi
+
+          if [[ -n "$LAMBDA_ZIP" ]]; then
             test -f "$LAMBDA_ZIP"
             LAMBDA_ZIP_SHA="$(sha256sum "$LAMBDA_ZIP" | awk '{print $1}')"
           fi
@@ -351,6 +357,7 @@ jobs:
             ${{ env.TF_DIR }}/plan.txt
             ${{ env.TF_DIR }}/plan-metadata.env
             ${{ env.TF_DIR }}/needu-*-mysql-secret-rotation-redeploy.zip
+            ${{ env.TF_DIR }}/needu-*-postgres-secret-rotation-redeploy.zip
           if-no-files-found: error
           retention-days: 3
 
@@ -438,10 +445,16 @@ jobs:
           EXPECTED_LAMBDA_ZIP_HASH="$(grep '^lambda_zip_sha256=' plan-metadata.env | cut -d= -f2-)"
 
           ACTUAL_HASH="$(sha256sum tfplan | awk '{print $1}')"
-          LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          LAMBDA_ZIP=""
           ACTUAL_LAMBDA_ZIP_HASH="none"
 
-          if [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
+          if [[ "$TF_ENV" == "dev" ]]; then
+            LAMBDA_ZIP="needu-dev-postgres-secret-rotation-redeploy.zip"
+          elif [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
+            LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          fi
+
+          if [[ -n "$LAMBDA_ZIP" ]]; then
             test -f "$LAMBDA_ZIP"
             ACTUAL_LAMBDA_ZIP_HASH="$(sha256sum "$LAMBDA_ZIP" | awk '{print $1}')"
           fi
