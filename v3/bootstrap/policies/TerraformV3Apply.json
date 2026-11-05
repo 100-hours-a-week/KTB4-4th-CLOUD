@@ -287,6 +287,18 @@
         "arn:aws:ec2:ap-northeast-2:919551759796:security-group/sg-0a3916fa05605bb6f",
         "arn:aws:ec2:ap-northeast-2:919551759796:security-group/sg-03ccb51a12b64221b"
       ]
+    },
+    {
+      "Sid": "ManageV3ValkeyReplicationGroupTags",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:AddTagsToResource",
+        "elasticache:RemoveTagsFromResource"
+      ],
+      "Resource": [
+        "arn:aws:elasticache:ap-northeast-2:919551759796:replicationgroup:needu-v3-dev-valkey",
+        "arn:aws:elasticache:ap-northeast-2:919551759796:replicationgroup:needu-v3-dev-valkey-a"
+      ]
     }
   ]
 }
