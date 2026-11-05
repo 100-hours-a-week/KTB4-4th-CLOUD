@@ -269,6 +269,24 @@
           "ec2:CreateAction": "AuthorizeSecurityGroupIngress"
         }
       }
+    },
+    {
+      "Sid": "ManageV2DevRedisIngressFromV3EKS",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupIngress"
+      ],
+      "Resource": "arn:aws:ec2:ap-northeast-2:919551759796:security-group/sg-067a45fde040402bb"
+    },
+    {
+      "Sid": "ManageV3ValkeySecurityGroupTags",
+      "Effect": "Allow",
+      "Action": ["ec2:CreateTags", "ec2:DeleteTags"],
+      "Resource": [
+        "arn:aws:ec2:ap-northeast-2:919551759796:security-group/sg-0a3916fa05605bb6f",
+        "arn:aws:ec2:ap-northeast-2:919551759796:security-group/sg-03ccb51a12b64221b"
+      ]
     }
   ]
 }
