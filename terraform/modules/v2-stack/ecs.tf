@@ -15,7 +15,7 @@ locals {
 
     backend = merge({
       SPRING_PROFILES_ACTIVE        = var.environment
-      SPRING_DATASOURCE_URL         = "jdbc:mysql://${aws_db_instance.mysql.address}:3306/needu"
+      SPRING_DATASOURCE_URL         = var.enable_databases ? "jdbc:mysql://${aws_db_instance.mysql[0].address}:3306/needu" : "jdbc:mysql://disabled.invalid:3306/needu"
       DB_USERNAME                   = "needu"
       SPRING_DATA_REDIS_HOST        = aws_elasticache_replication_group.redis.primary_endpoint_address
       SPRING_DATA_REDIS_PORT        = "6379"
@@ -55,7 +55,7 @@ locals {
     catalog-sync = {
       environment = {
         CATALOG_BUCKET        = aws_s3_bucket.catalog.bucket
-        SOURCE_MYSQL_HOST     = aws_db_instance.mysql.address
+        SOURCE_MYSQL_HOST     = var.enable_databases ? aws_db_instance.mysql[0].address : "disabled.invalid"
         SOURCE_MYSQL_PORT     = "3306"
         SOURCE_MYSQL_USER     = "needu"
         SOURCE_MYSQL_DATABASE = "needu"
@@ -63,7 +63,7 @@ locals {
 
       secrets = {
         CATALOG_DATABASE_URL  = "${local.parameter_base_path}/ai-catalog/CATALOG_DATABASE_URL"
-        SOURCE_MYSQL_PASSWORD = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::"
+        SOURCE_MYSQL_PASSWORD = var.enable_databases ? "${aws_db_instance.mysql[0].master_user_secret[0].secret_arn}:password::" : "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
       }
     }
 
@@ -163,7 +163,7 @@ resource "aws_ecs_task_definition" "service" {
         each.key == "backend" ? [
           {
             name      = "DB_PASSWORD"
-            valueFrom = "${aws_db_instance.mysql.master_user_secret[0].secret_arn}:password::"
+            valueFrom = var.enable_databases ? "${aws_db_instance.mysql[0].master_user_secret[0].secret_arn}:password::" : "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
           }
         ] : []
       )
@@ -370,6 +370,40 @@ resource "aws_appautoscaling_policy" "cpu" {
 
     scale_in_cooldown  = 180
     scale_out_cooldown = 60
+  }
+}
+
+# Dev 비용 절감을 위해 매일 22:00~09:00(Asia/Seoul)에 ECS 태스크를 중지한다.
+# 운영 환경에는 생성되지 않는다.
+resource "aws_appautoscaling_scheduled_action" "dev_night_stop" {
+  for_each = var.environment == "dev" ? local.services : {}
+
+  name               = "needu-dev-${each.key}-night-stop"
+  service_namespace  = aws_appautoscaling_target.ecs[each.key].service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[each.key].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[each.key].scalable_dimension
+  schedule           = "cron(0 22 * * ? *)"
+  timezone           = "Asia/Seoul"
+
+  scalable_target_action {
+    min_capacity = 0
+    max_capacity = 0
+  }
+}
+
+resource "aws_appautoscaling_scheduled_action" "dev_morning_start" {
+  for_each = var.environment == "dev" ? local.services : {}
+
+  name               = "needu-dev-${each.key}-morning-start"
+  service_namespace  = aws_appautoscaling_target.ecs[each.key].service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[each.key].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[each.key].scalable_dimension
+  schedule           = "cron(0 9 * * ? *)"
+  timezone           = "Asia/Seoul"
+
+  scalable_target_action {
+    min_capacity = var.autoscaling_min
+    max_capacity = var.autoscaling_max
   }
 }
 

@@ -24,9 +24,7 @@ locals {
 
     backend = {
       parameter_path = "${local.parameter_base_path}/backend/*"
-      secret_arns = [
-        aws_db_instance.mysql.master_user_secret[0].secret_arn
-      ]
+      secret_arns    = var.enable_databases ? [aws_db_instance.mysql[0].master_user_secret[0].secret_arn] : []
     }
 
     ai = {
@@ -36,9 +34,7 @@ locals {
 
     catalog-sync = {
       parameter_path = "${local.parameter_base_path}/ai-catalog/*"
-      secret_arns = [
-        aws_db_instance.mysql.master_user_secret[0].secret_arn
-      ]
+      secret_arns    = var.enable_databases ? [aws_db_instance.mysql[0].master_user_secret[0].secret_arn] : []
     }
 
     catalog-import = {

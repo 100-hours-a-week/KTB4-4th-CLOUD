@@ -122,6 +122,12 @@ variable "db_backup_retention_days" {
   type = number
 }
 
+variable "enable_databases" {
+  description = "MySQL과 PostgreSQL RDS 인스턴스 생성 여부. false는 DB를 사용하지 않는 환경에만 사용합니다."
+  type        = bool
+  default     = true
+}
+
 variable "ecs_assign_public_ip" {
   type    = bool
   default = true
