@@ -1,7 +1,7 @@
 locals {
   # Dev에서는 PostgreSQL URL 갱신과 AI ECS 재배포만 수행한다.
-  enable_secret_rotation_redeploy       = contains(["dev", "staging", "prod"], var.environment)
-  enable_mysql_secret_rotation_redeploy = contains(["staging", "prod"], var.environment)
+  enable_secret_rotation_redeploy       = var.enable_databases && contains(["dev", "staging", "prod"], var.environment)
+  enable_mysql_secret_rotation_redeploy = var.enable_databases && contains(["staging", "prod"], var.environment)
   secret_rotation_name                  = var.environment == "dev" ? "postgres-secret-rotation" : "mysql-secret-rotation"
 }
 
@@ -49,7 +49,7 @@ data "aws_iam_policy_document" "secret_rotation_redeploy" {
   statement {
     sid       = "ReadPostgresManagedSecret"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+    resources = [aws_db_instance.postgres[0].master_user_secret[0].secret_arn]
   }
 
   statement {
@@ -106,10 +106,10 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
       CLUSTER_NAME              = aws_ecs_cluster.main.name
       BACKEND_SERVICE_NAME      = aws_ecs_service.service["backend"].name
       AI_SERVICE_NAME           = aws_ecs_service.service["ai"].name
-      MYSQL_SECRET_ARN          = aws_db_instance.mysql.master_user_secret[0].secret_arn
-      POSTGRES_SECRET_ARN       = aws_db_instance.postgres.master_user_secret[0].secret_arn
-      POSTGRES_HOST             = aws_db_instance.postgres.address
-      POSTGRES_PORT             = tostring(aws_db_instance.postgres.port)
+      MYSQL_SECRET_ARN          = aws_db_instance.mysql[0].master_user_secret[0].secret_arn
+      POSTGRES_SECRET_ARN       = aws_db_instance.postgres[0].master_user_secret[0].secret_arn
+      POSTGRES_HOST             = aws_db_instance.postgres[0].address
+      POSTGRES_PORT             = tostring(aws_db_instance.postgres[0].port)
       AI_DATABASE_URL_PARAMETER = "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
     }
   }
@@ -130,9 +130,9 @@ resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
     source      = ["aws.secretsmanager"]
     detail-type = ["Secret Label Updated"]
     resources = local.enable_mysql_secret_rotation_redeploy ? [
-      aws_db_instance.mysql.master_user_secret[0].secret_arn,
-      aws_db_instance.postgres.master_user_secret[0].secret_arn
-    ] : [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+      aws_db_instance.mysql[0].master_user_secret[0].secret_arn,
+      aws_db_instance.postgres[0].master_user_secret[0].secret_arn
+    ] : [aws_db_instance.postgres[0].master_user_secret[0].secret_arn]
     detail = {
       labelUpdated = ["AWSCURRENT"]
     }

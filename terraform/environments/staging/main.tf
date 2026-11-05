@@ -58,6 +58,7 @@ module "v2" {
   multi_az                          = var.multi_az
   deletion_protection               = var.deletion_protection
   db_backup_retention_days          = var.db_backup_retention_days
+  enable_databases                  = false
   app_secret_parameters             = var.app_secret_parameters
   github_subject_prefixes           = var.github_subject_prefixes
   github_oidc_provider_arn          = var.github_oidc_provider_arn

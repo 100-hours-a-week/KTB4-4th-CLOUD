@@ -65,19 +65,19 @@ output "ecs_security_group_ids" {
 }
 
 output "mysql_address" {
-  value = aws_db_instance.mysql.address
+  value = var.enable_databases ? aws_db_instance.mysql[0].address : null
 }
 
 output "postgres_address" {
-  value = aws_db_instance.postgres.address
+  value = var.enable_databases ? aws_db_instance.postgres[0].address : null
 }
 
 output "mysql_secret_arn" {
-  value = aws_db_instance.mysql.master_user_secret[0].secret_arn
+  value = var.enable_databases ? aws_db_instance.mysql[0].master_user_secret[0].secret_arn : null
 }
 
 output "postgres_secret_arn" {
-  value = aws_db_instance.postgres.master_user_secret[0].secret_arn
+  value = var.enable_databases ? aws_db_instance.postgres[0].master_user_secret[0].secret_arn : null
 }
 
 output "redis_endpoint" {
