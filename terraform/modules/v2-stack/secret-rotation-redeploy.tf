@@ -1,17 +1,20 @@
 locals {
+  # Dev에서는 PostgreSQL URL 갱신과 AI ECS 재배포만 수행한다.
+  enable_secret_rotation_redeploy       = contains(["dev", "staging", "prod"], var.environment)
   enable_mysql_secret_rotation_redeploy = contains(["staging", "prod"], var.environment)
+  secret_rotation_name                  = var.environment == "dev" ? "postgres-secret-rotation" : "mysql-secret-rotation"
 }
 
 data "archive_file" "mysql_secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   type        = "zip"
   source_file = "${path.module}/lambda/ecs_secret_rotation_redeploy.py"
-  output_path = "${path.root}/needu-${var.environment}-mysql-secret-rotation-redeploy.zip"
+  output_path = "${path.root}/needu-${var.environment}-${local.secret_rotation_name}-redeploy.zip"
 }
 
 data "aws_iam_policy_document" "secret_rotation_lambda_assume" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   statement {
     actions = ["sts:AssumeRole"]
@@ -24,7 +27,7 @@ data "aws_iam_policy_document" "secret_rotation_lambda_assume" {
 }
 
 resource "aws_iam_role" "secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   name                 = "needu-${var.environment}-secret-rotation-task"
   assume_role_policy   = data.aws_iam_policy_document.secret_rotation_lambda_assume[0].json
@@ -32,15 +35,15 @@ resource "aws_iam_role" "secret_rotation_redeploy" {
 }
 
 data "aws_iam_policy_document" "secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   statement {
     sid     = "RedeployDatabaseConsumers"
     actions = ["ecs:UpdateService"]
-    resources = [
+    resources = local.enable_mysql_secret_rotation_redeploy ? [
       aws_ecs_service.service["backend"].id,
       aws_ecs_service.service["ai"].id
-    ]
+    ] : [aws_ecs_service.service["ai"].id]
   }
 
   statement {
@@ -71,25 +74,25 @@ data "aws_iam_policy_document" "secret_rotation_redeploy" {
 }
 
 resource "aws_iam_role_policy" "secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   # 기존 Policy 이름을 유지해 Terraform Apply 시 불필요한 교체를 방지한다.
-  name   = "redeploy-backend-after-secret-rotation"
+  name   = var.environment == "dev" ? "sync-ai-url-after-postgres-rotation" : "redeploy-backend-after-secret-rotation"
   role   = aws_iam_role.secret_rotation_redeploy[0].id
   policy = data.aws_iam_policy_document.secret_rotation_redeploy[0].json
 }
 
 resource "aws_cloudwatch_log_group" "secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
-  name              = "/needu/${var.environment}/automation/mysql-secret-rotation-redeploy"
+  name              = "/needu/${var.environment}/automation/${local.secret_rotation_name}-redeploy"
   retention_in_days = 30
 }
 
 resource "aws_lambda_function" "secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
-  function_name = "needu-${var.environment}-mysql-secret-rotation-redeploy"
+  function_name = "needu-${var.environment}-${local.secret_rotation_name}-redeploy"
   role          = aws_iam_role.secret_rotation_redeploy[0].arn
   handler       = "ecs_secret_rotation_redeploy.handler"
   runtime       = "python3.13"
@@ -118,18 +121,18 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
 }
 
 resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
-  name        = "needu-${var.environment}-mysql-secret-rotation"
+  name        = "needu-${var.environment}-${local.secret_rotation_name}"
   description = "Refresh ECS database consumers when an RDS-managed database secret changes"
 
   event_pattern = jsonencode({
     source      = ["aws.secretsmanager"]
     detail-type = ["Secret Label Updated"]
-    resources = [
+    resources = local.enable_mysql_secret_rotation_redeploy ? [
       aws_db_instance.mysql.master_user_secret[0].secret_arn,
       aws_db_instance.postgres.master_user_secret[0].secret_arn
-    ]
+    ] : [aws_db_instance.postgres.master_user_secret[0].secret_arn]
     detail = {
       labelUpdated = ["AWSCURRENT"]
     }
@@ -137,7 +140,7 @@ resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
 }
 
 resource "aws_cloudwatch_event_target" "mysql_secret_rotation_redeploy" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   rule      = aws_cloudwatch_event_rule.mysql_secret_rotation[0].name
   target_id = "RedeployBackendECS"
@@ -150,7 +153,7 @@ resource "aws_cloudwatch_event_target" "mysql_secret_rotation_redeploy" {
 }
 
 resource "aws_lambda_permission" "allow_secret_rotation_event" {
-  count = local.enable_mysql_secret_rotation_redeploy ? 1 : 0
+  count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"

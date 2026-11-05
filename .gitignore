@@ -17,3 +17,8 @@ override.tf.json
 *_override.tf.json
 **/tfplan
 !v3/environments/dev/dev.auto.tfvars
+
+# Generated Lambda and Python test artifacts
+**/__pycache__/
+*.pyc
+terraform/environments/*/needu-*-secret-rotation-redeploy.zip

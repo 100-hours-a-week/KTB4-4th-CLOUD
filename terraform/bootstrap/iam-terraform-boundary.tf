@@ -53,8 +53,7 @@ data "aws_iam_policy_document" "runtime_boundary" {
     ]
   }
 
-  # RDS 관리형 Secret 회전 후 Lambda가 최신 Secret을 다시 주입한
-  # Backend/AI ECS Task로 Rolling Deployment를 시작할 수 있도록 허용한다.
+  # Dev는 AI ECS만, Staging/Prod는 Backend·AI ECS의 재배포를 허용한다.
   dynamic "statement" {
     for_each = contains(local.terraform_secret_rotation_environments, each.key) ? [1] : []
 
@@ -62,7 +61,9 @@ data "aws_iam_policy_document" "runtime_boundary" {
       sid     = "RedeployDatabaseConsumersAfterSecretRotation"
       effect  = "Allow"
       actions = ["ecs:UpdateService"]
-      resources = [
+      resources = each.key == "dev" ? [
+        "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-dev-cluster/needu-dev-ai"
+        ] : [
         "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-backend",
         "arn:aws:ecs:ap-northeast-2:${data.aws_caller_identity.current.account_id}:service/needu-${each.key}-cluster/needu-${each.key}-ai"
       ]

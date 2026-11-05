@@ -10,9 +10,16 @@ locals {
   ])
 
   terraform_secret_rotation_environments = toset([
+    "dev",
     "staging",
     "prod"
   ])
+
+  terraform_secret_rotation_resource_names = {
+    dev     = "postgres-secret-rotation"
+    staging = "mysql-secret-rotation"
+    prod    = "mysql-secret-rotation"
+  }
 
   terraform_shared_apply_actions = [
     "ec2:CreateVpc",
@@ -447,7 +454,7 @@ resource "aws_iam_role_policy" "terraform_ecs_apply" {
 }
 
 # ==================================================
-# 3-1. RDS Secret Rotation -> Backend ECS Redeploy
+# 3-1. RDS Secret Rotation -> AI URL Sync / ECS Redeploy
 # ==================================================
 
 data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
@@ -506,7 +513,7 @@ data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
     ]
 
     resources = [
-      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${each.key}-mysql-secret-rotation-redeploy"
+      "arn:aws:lambda:ap-northeast-2:${data.aws_caller_identity.current.account_id}:function:needu-${each.key}-${local.terraform_secret_rotation_resource_names[each.key]}-redeploy"
     ]
   }
 
@@ -529,7 +536,7 @@ data "aws_iam_policy_document" "terraform_secret_rotation_redeploy" {
     ]
 
     resources = [
-      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${each.key}-mysql-secret-rotation"
+      "arn:aws:events:ap-northeast-2:${data.aws_caller_identity.current.account_id}:rule/needu-${each.key}-${local.terraform_secret_rotation_resource_names[each.key]}"
     ]
   }
 
