@@ -128,7 +128,6 @@
         "scheduler:CreateSchedule",
         "scheduler:DeleteSchedule",
         "scheduler:GetSchedule",
-        "scheduler:ListTagsForResource",
         "scheduler:TagResource",
         "scheduler:UntagResource",
         "scheduler:UpdateSchedule"
@@ -137,6 +136,12 @@
         "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-night-stop",
         "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-morning-start"
       ]
+    },
+    {
+      "Sid": "ReadV3NodeScheduleTags",
+      "Effect": "Allow",
+      "Action": "scheduler:ListTagsForResource",
+      "Resource": "*"
     },
     {
       "Sid": "PassV3NodeSchedulerRole",

@@ -24,15 +24,18 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
   }
 
   statement {
-    sid = "ReadDevNodeSchedules"
-    actions = [
-      "scheduler:GetSchedule",
-      "scheduler:ListTagsForResource",
-    ]
+    sid     = "ReadDevNodeSchedules"
+    actions = ["scheduler:GetSchedule"]
     resources = [
       "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-night-stop",
       "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-morning-start",
     ]
+  }
+
+  statement {
+    sid       = "ListDevNodeScheduleTags"
+    actions   = ["scheduler:ListTagsForResource"]
+    resources = ["*"]
   }
 
   # Valkey Streams / Cache Terraform State Refresh
