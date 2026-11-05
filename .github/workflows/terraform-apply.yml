@@ -318,8 +318,11 @@ jobs:
 
           if [[ "$TF_ENV" == "dev" ]]; then
             LAMBDA_ZIP="needu-dev-postgres-secret-rotation-redeploy.zip"
-          elif [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
-            LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          elif [[ "$TF_ENV" == "prod" ]]; then
+            LAMBDA_ZIP="needu-prod-mysql-secret-rotation-redeploy.zip"
+          elif [[ "$TF_ENV" == "staging" ]] && \
+               [[ -f "needu-staging-mysql-secret-rotation-redeploy.zip" ]]; then
+            LAMBDA_ZIP="needu-staging-mysql-secret-rotation-redeploy.zip"
           fi
 
           if [[ -n "$LAMBDA_ZIP" ]]; then
@@ -450,8 +453,11 @@ jobs:
 
           if [[ "$TF_ENV" == "dev" ]]; then
             LAMBDA_ZIP="needu-dev-postgres-secret-rotation-redeploy.zip"
-          elif [[ "$TF_ENV" == "staging" || "$TF_ENV" == "prod" ]]; then
-            LAMBDA_ZIP="needu-${TF_ENV}-mysql-secret-rotation-redeploy.zip"
+          elif [[ "$TF_ENV" == "prod" ]]; then
+            LAMBDA_ZIP="needu-prod-mysql-secret-rotation-redeploy.zip"
+          elif [[ "$TF_ENV" == "staging" ]] && \
+               [[ -f "needu-staging-mysql-secret-rotation-redeploy.zip" ]]; then
+            LAMBDA_ZIP="needu-staging-mysql-secret-rotation-redeploy.zip"
           fi
 
           if [[ -n "$LAMBDA_ZIP" ]]; then
