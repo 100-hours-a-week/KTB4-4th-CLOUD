@@ -23,6 +23,18 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
     resources = ["arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets"]
   }
 
+  statement {
+    sid = "ReadDevNodeSchedules"
+    actions = [
+      "scheduler:GetSchedule",
+      "scheduler:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-night-stop",
+      "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-morning-start",
+    ]
+  }
+
   # Valkey Streams / Cache Terraform State Refresh
   statement {
     sid = "DescribeDevValkey"

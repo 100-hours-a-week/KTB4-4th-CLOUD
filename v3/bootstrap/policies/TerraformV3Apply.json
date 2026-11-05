@@ -57,7 +57,8 @@
         "arn:aws:iam::919551759796:role/needu-v3-dev-cluster-role",
         "arn:aws:iam::919551759796:role/needu-v3-dev-node-role",
         "arn:aws:iam::919551759796:role/needu-v3-dev-alb-controller",
-        "arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets"
+        "arn:aws:iam::919551759796:role/needu-v3-dev-external-secrets",
+        "arn:aws:iam::919551759796:role/needu-v3-dev-node-scheduler-role"
       ]
     },
     {
@@ -117,6 +118,34 @@
       "Condition": {
         "StringEquals": {
           "iam:PassedToService": "pods.eks.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "ManageV3NodeSchedules",
+      "Effect": "Allow",
+      "Action": [
+        "scheduler:CreateSchedule",
+        "scheduler:DeleteSchedule",
+        "scheduler:GetSchedule",
+        "scheduler:ListTagsForResource",
+        "scheduler:TagResource",
+        "scheduler:UntagResource",
+        "scheduler:UpdateSchedule"
+      ],
+      "Resource": [
+        "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-night-stop",
+        "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-morning-start"
+      ]
+    },
+    {
+      "Sid": "PassV3NodeSchedulerRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::919551759796:role/needu-v3-dev-node-scheduler-role",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "scheduler.amazonaws.com"
         }
       }
     },

@@ -56,6 +56,18 @@
         "elasticache:ListTagsForResource"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "SchedulerRead",
+      "Effect": "Allow",
+      "Action": [
+        "scheduler:GetSchedule",
+        "scheduler:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-night-stop",
+        "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-morning-start"
+      ]
     }
   ]
 }
