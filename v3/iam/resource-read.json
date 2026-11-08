@@ -91,10 +91,15 @@
       "Action": [
         "sns:GetTopicAttributes",
         "sns:ListTagsForResource",
-        "sns:ListSubscriptionsByTopic",
-        "sns:GetSubscriptionAttributes"
+        "sns:ListSubscriptionsByTopic"
       ],
       "Resource": "arn:aws:sns:ap-northeast-2:919551759796:needu-v3-dev-alerts"
+    },
+    {
+      "Sid": "SNSSubscriptionRead",
+      "Effect": "Allow",
+      "Action": ["sns:GetSubscriptionAttributes"],
+      "Resource": "arn:aws:sns:ap-northeast-2:919551759796:needu-v3-dev-alerts:*"
     },
     {
       "Sid": "SecretsManagerRead",
@@ -113,7 +118,8 @@
         "lambda:GetFunctionConfiguration",
         "lambda:GetPolicy",
         "lambda:ListTags",
-        "lambda:ListVersionsByFunction"
+        "lambda:ListVersionsByFunction",
+        "lambda:GetFunctionCodeSigningConfig"
       ],
       "Resource": "arn:aws:lambda:ap-northeast-2:919551759796:function:needu-v3-dev-discord-notifier"
     }
