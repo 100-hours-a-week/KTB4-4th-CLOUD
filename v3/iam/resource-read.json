@@ -99,7 +99,10 @@
     {
       "Sid": "SecretsManagerRead",
       "Effect": "Allow",
-      "Action": ["secretsmanager:DescribeSecret"],
+      "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetResourcePolicy"
+      ],
       "Resource": "arn:aws:secretsmanager:ap-northeast-2:919551759796:secret:needu/v3/dev/discord-webhook-*"
     },
     {
