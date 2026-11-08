@@ -54,7 +54,11 @@
     {
       "Sid": "AMPRead",
       "Effect": "Allow",
-      "Action": ["aps:DescribeWorkspace", "aps:DescribeLoggingConfiguration"],
+      "Action": [
+        "aps:DescribeWorkspace",
+        "aps:DescribeLoggingConfiguration",
+        "aps:ListTagsForResource"
+      ],
       "Resource": "arn:aws:aps:ap-northeast-2:919551759796:workspace/ws-636ab549-0b3f-4b0b-8de8-6352bec14f11"
     }
   ]
