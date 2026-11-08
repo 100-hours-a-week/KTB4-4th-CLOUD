@@ -112,7 +112,8 @@
         "lambda:GetFunction",
         "lambda:GetFunctionConfiguration",
         "lambda:GetPolicy",
-        "lambda:ListTags"
+        "lambda:ListTags",
+        "lambda:ListVersionsByFunction"
       ],
       "Resource": "arn:aws:lambda:ap-northeast-2:919551759796:function:needu-v3-dev-discord-notifier"
     }
