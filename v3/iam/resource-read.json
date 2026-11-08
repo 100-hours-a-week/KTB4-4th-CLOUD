@@ -91,15 +91,10 @@
       "Action": [
         "sns:GetTopicAttributes",
         "sns:ListTagsForResource",
-        "sns:ListSubscriptionsByTopic"
+        "sns:ListSubscriptionsByTopic",
+        "sns:GetSubscriptionAttributes"
       ],
       "Resource": "arn:aws:sns:ap-northeast-2:919551759796:needu-v3-dev-alerts"
-    },
-    {
-      "Sid": "SNSSubscriptionRead",
-      "Effect": "Allow",
-      "Action": ["sns:GetSubscriptionAttributes"],
-      "Resource": "arn:aws:sns:ap-northeast-2:919551759796:needu-v3-dev-alerts:*"
     },
     {
       "Sid": "SecretsManagerRead",
