@@ -20,6 +20,11 @@ output "external_secrets_role_arn" {
   value       = aws_iam_role.eso.arn
 }
 
+output "cluster_autoscaler_role_arn" {
+  description = "IAM role associated with the kube-system/cluster-autoscaler ServiceAccount"
+  value       = aws_iam_role.cluster_autoscaler.arn
+}
+
 # Valkey Streams - 기존 리소스
 output "valkey_stream_primary_endpoint" {
   description = "Valkey Streams primary endpoint"
