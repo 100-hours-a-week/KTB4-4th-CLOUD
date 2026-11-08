@@ -64,7 +64,10 @@
     {
       "Sid": "GrafanaRead",
       "Effect": "Allow",
-      "Action": ["grafana:DescribeWorkspace"],
+      "Action": [
+        "grafana:DescribeWorkspace",
+        "grafana:DescribeWorkspaceConfiguration"
+      ],
       "Resource": "arn:aws:grafana:ap-northeast-2:919551759796:/workspaces/g-f6bfc4e594"
     },
     {
@@ -72,6 +75,12 @@
       "Effect": "Allow",
       "Action": ["logs:DescribeLogGroups"],
       "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchLogsTagRead",
+      "Effect": "Allow",
+      "Action": ["logs:ListTagsForResource"],
+      "Resource": "arn:aws:logs:ap-northeast-2:919551759796:log-group:/needu/v3/dev/eks/application"
     }
   ]
 }
