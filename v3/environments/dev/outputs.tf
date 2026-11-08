@@ -57,3 +57,40 @@ output "valkey_security_group_id" {
   description = "Legacy output for Valkey Streams security group ID"
   value       = module.valkey.security_group_id
 }
+
+# AMP Workspace - V3 Dev 모니터링
+output "amp_workspace_id" {
+  description = "NeedU V3 Dev AMP Workspace ID"
+  value       = aws_prometheus_workspace.dev.id
+}
+
+output "amp_workspace_arn" {
+  description = "NeedU V3 Dev AMP Workspace ARN"
+  value       = aws_prometheus_workspace.dev.arn
+}
+
+output "amp_remote_write_endpoint" {
+  description = "AMP Remote Write endpoint for ADOT Collector"
+  value       = "${trimsuffix(aws_prometheus_workspace.dev.prometheus_endpoint, "/")}/api/v1/remote_write"
+}
+
+# ADOT Collector - EKS Pod Identity
+output "adot_role_arn" {
+  description = "IAM Role ARN for ADOT Collector Pod Identity"
+  value       = aws_iam_role.adot.arn
+}
+
+output "grafana_workspace_id" {
+  description = "V3 Dev Grafana Workspace ID"
+  value       = aws_grafana_workspace.dev.id
+}
+
+output "grafana_workspace_endpoint" {
+  description = "V3 Dev Grafana Workspace URL"
+  value       = aws_grafana_workspace.dev.endpoint
+}
+
+output "grafana_workspace_role_arn" {
+  description = "V3 Dev Grafana IAM Role ARN"
+  value       = aws_iam_role.grafana.arn
+}
