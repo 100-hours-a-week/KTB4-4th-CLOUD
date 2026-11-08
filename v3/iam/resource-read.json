@@ -60,6 +60,18 @@
         "aps:ListTagsForResource"
       ],
       "Resource": "arn:aws:aps:ap-northeast-2:919551759796:workspace/ws-636ab549-0b3f-4b0b-8de8-6352bec14f11"
+    },
+    {
+      "Sid": "GrafanaRead",
+      "Effect": "Allow",
+      "Action": ["grafana:DescribeWorkspace"],
+      "Resource": "arn:aws:grafana:ap-northeast-2:919551759796:/workspaces/g-f6bfc4e594"
+    },
+    {
+      "Sid": "CloudWatchLogsRead",
+      "Effect": "Allow",
+      "Action": ["logs:DescribeLogGroups"],
+      "Resource": "*"
     }
   ]
 }

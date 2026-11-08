@@ -74,3 +74,18 @@ output "adot_role_arn" {
   description = "IAM Role ARN for ADOT Collector Pod Identity"
   value       = aws_iam_role.adot.arn
 }
+
+output "grafana_workspace_id" {
+  description = "V3 Dev Grafana Workspace ID"
+  value       = aws_grafana_workspace.dev.id
+}
+
+output "grafana_workspace_endpoint" {
+  description = "V3 Dev Grafana Workspace URL"
+  value       = aws_grafana_workspace.dev.endpoint
+}
+
+output "grafana_workspace_role_arn" {
+  description = "V3 Dev Grafana IAM Role ARN"
+  value       = aws_iam_role.grafana.arn
+}
