@@ -68,7 +68,7 @@
         "grafana:DescribeWorkspace",
         "grafana:DescribeWorkspaceConfiguration"
       ],
-      "Resource": "arn:aws:grafana:ap-northeast-2:919551759796:/workspaces/g-f6bfc4e594"
+      "Resource": "*"
     },
     {
       "Sid": "CloudWatchLogsRead",
@@ -80,7 +80,43 @@
       "Sid": "CloudWatchLogsTagRead",
       "Effect": "Allow",
       "Action": ["logs:ListTagsForResource"],
-      "Resource": "arn:aws:logs:ap-northeast-2:919551759796:log-group:/needu/v3/dev/eks/application"
+      "Resource": [
+        "arn:aws:logs:ap-northeast-2:919551759796:log-group:/needu/v3/dev/eks/application",
+        "arn:aws:logs:ap-northeast-2:919551759796:log-group:/aws/lambda/needu-v3-dev-discord-notifier"
+      ]
+    },
+    {
+      "Sid": "SNSRead",
+      "Effect": "Allow",
+      "Action": [
+        "sns:GetTopicAttributes",
+        "sns:ListTagsForResource",
+        "sns:ListSubscriptionsByTopic",
+        "sns:GetSubscriptionAttributes"
+      ],
+      "Resource": "arn:aws:sns:ap-northeast-2:919551759796:needu-v3-dev-alerts"
+    },
+    {
+      "Sid": "SecretsManagerRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetResourcePolicy"
+      ],
+      "Resource": "arn:aws:secretsmanager:ap-northeast-2:919551759796:secret:needu/v3/dev/discord-webhook-*"
+    },
+    {
+      "Sid": "LambdaRead",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetPolicy",
+        "lambda:ListTags",
+        "lambda:ListVersionsByFunction",
+        "lambda:GetFunctionCodeSigningConfig"
+      ],
+      "Resource": "arn:aws:lambda:ap-northeast-2:919551759796:function:needu-v3-dev-discord-notifier"
     }
   ]
 }
