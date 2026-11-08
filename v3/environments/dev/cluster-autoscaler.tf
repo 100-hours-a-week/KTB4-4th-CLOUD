@@ -15,8 +15,6 @@ data "aws_iam_policy_document" "cluster_autoscaler_assume" {
 resource "aws_iam_role" "cluster_autoscaler" {
   name               = "${module.eks.cluster_name}-cluster-autoscaler"
   assume_role_policy = data.aws_iam_policy_document.cluster_autoscaler_assume.json
-
-  tags = local.common_tags
 }
 
 data "aws_iam_policy_document" "cluster_autoscaler" {
