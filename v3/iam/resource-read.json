@@ -1,0 +1,61 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EC2Read",
+      "Effect": "Allow",
+      "Action": ["ec2:Describe*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EKSRead",
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks:ListClusters",
+        "eks:DescribeNodegroup",
+        "eks:ListNodegroups",
+        "eks:DescribeAddon",
+        "eks:ListAddons",
+        "eks:DescribeAccessEntry",
+        "eks:ListAccessEntries",
+        "eks:ListAssociatedAccessPolicies",
+        "eks:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMRead",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:GetRolePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListInstanceProfilesForRole",
+        "iam:ListRoleTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ElastiCacheRead",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:DescribeCacheSubnetGroups",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeCacheParameterGroups",
+        "elasticache:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AMPRead",
+      "Effect": "Allow",
+      "Action": ["aps:DescribeWorkspace"],
+      "Resource": "arn:aws:aps:ap-northeast-2:919551759796:workspace/ws-636ab549-0b3f-4b0b-8de8-6352bec14f11"
+    }
+  ]
+}
