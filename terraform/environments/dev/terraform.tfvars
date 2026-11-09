@@ -38,6 +38,7 @@ db_subnets = {
 
 hosted_zone_id = "Z10258582M6TRCEOCUBUW"
 domain_name    = "dev.needu.gift"
+route53_target = "v3-eks"
 
 # ==================================================
 # ECR Repositories
