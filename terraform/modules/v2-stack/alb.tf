@@ -1,8 +1,10 @@
 resource "aws_lb" "main" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   name                       = "needu-${var.environment}-alb"
   internal                   = false
   load_balancer_type         = "application"
-  security_groups            = [aws_security_group.alb.id]
+  security_groups            = [aws_security_group.alb[0].id]
   subnets                    = local.public_subnet_ids
   enable_deletion_protection = var.deletion_protection
   dynamic "access_logs" {
@@ -16,6 +18,8 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "fe" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   name                 = "needu-${var.environment}-fe"
   port                 = 3000
   protocol             = "HTTP"
@@ -31,6 +35,8 @@ resource "aws_lb_target_group" "fe" {
   }
 }
 resource "aws_lb_target_group" "be" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   name                 = "needu-${var.environment}-be"
   port                 = 8080
   protocol             = "HTTP"
@@ -46,7 +52,9 @@ resource "aws_lb_target_group" "be" {
   }
 }
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.main.arn
+  count = var.enable_ecs_applications ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[0].arn
   port              = 80
   protocol          = "HTTP"
   default_action {
@@ -59,22 +67,26 @@ resource "aws_lb_listener" "http" {
   }
 }
 resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.main.arn
+  count = var.enable_ecs_applications ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[0].arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = var.certificate_arn
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.fe.arn
+    target_group_arn = aws_lb_target_group.fe[0].arn
   }
 }
 resource "aws_lb_listener_rule" "api" {
-  listener_arn = aws_lb_listener.https.arn
+  count = var.enable_ecs_applications ? 1 : 0
+
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 10
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.be.arn
+    target_group_arn = aws_lb_target_group.be[0].arn
   }
   condition {
     path_pattern {
@@ -91,12 +103,14 @@ resource "aws_lb_listener_rule" "api" {
 
 # WebSocket requests -> Backend
 resource "aws_lb_listener_rule" "websocket" {
-  listener_arn = aws_lb_listener.https.arn
+  count = var.enable_ecs_applications ? 1 : 0
+
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 15
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.be.arn
+    target_group_arn = aws_lb_target_group.be[0].arn
   }
 
   condition {
@@ -122,8 +136,15 @@ resource "aws_route53_record" "app" {
   name    = var.domain_name
   type    = "A"
   alias {
-    name                   = var.route53_alias_target == null ? aws_lb.main.dns_name : var.route53_alias_target.dns_name
-    zone_id                = var.route53_alias_target == null ? aws_lb.main.zone_id : var.route53_alias_target.zone_id
+    name                   = var.route53_alias_target == null ? aws_lb.main[0].dns_name : var.route53_alias_target.dns_name
+    zone_id                = var.route53_alias_target == null ? aws_lb.main[0].zone_id : var.route53_alias_target.zone_id
     evaluate_target_health = true
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_ecs_applications || var.route53_alias_target != null
+      error_message = "ECS 애플리케이션 ALB를 비활성화할 때는 Route 53이 사용할 외부 ALB 대상을 지정해야 합니다."
+    }
   }
 }

@@ -1,5 +1,5 @@
 output "alb_dns_name" {
-  value = aws_lb.main.dns_name
+  value = var.enable_ecs_applications ? aws_lb.main[0].dns_name : var.route53_alias_target.dns_name
 }
 
 output "app_url" {
@@ -38,30 +38,30 @@ output "db_route_table_id" {
 
 output "alb_security_group_id" {
   description = "Application Load Balancer security group ID"
-  value       = aws_security_group.alb.id
+  value       = var.enable_ecs_applications ? aws_security_group.alb[0].id : null
 }
 
 output "https_listener_arn" {
   description = "HTTPS listener ARN"
-  value       = aws_lb_listener.https.arn
+  value       = var.enable_ecs_applications ? aws_lb_listener.https[0].arn : null
 }
 
 output "frontend_target_group_arn" {
   description = "Frontend target group ARN"
-  value       = aws_lb_target_group.fe.arn
+  value       = var.enable_ecs_applications ? aws_lb_target_group.fe[0].arn : null
 }
 
 output "backend_target_group_arn" {
   description = "Backend target group ARN"
-  value       = aws_lb_target_group.be.arn
+  value       = var.enable_ecs_applications ? aws_lb_target_group.be[0].arn : null
 }
 
 output "ecs_security_group_ids" {
-  value = {
-    fe = aws_security_group.fe.id
-    be = aws_security_group.be.id
-    ai = aws_security_group.ai.id
-  }
+  value = var.enable_ecs_applications ? {
+    fe = aws_security_group.fe[0].id
+    be = aws_security_group.be[0].id
+    ai = aws_security_group.ai[0].id
+  } : {}
 }
 
 output "mysql_address" {

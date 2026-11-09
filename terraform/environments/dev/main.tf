@@ -62,6 +62,7 @@ module "v2" {
   task_cpu                 = var.task_cpu
   task_memory              = var.task_memory
   task_desired_count       = var.task_desired_count
+  enable_ecs_applications  = false
   autoscaling_min          = var.autoscaling_min
   autoscaling_max          = var.autoscaling_max
   multi_az                 = var.multi_az

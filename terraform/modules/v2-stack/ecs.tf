@@ -2,11 +2,11 @@ locals {
   # V1 운영 로그 그룹과 이름이 겹치지 않도록 Prod V2 로그를 별도 경로에 저장한다.
   service_log_group_prefix = var.environment == "prod" ? "/needu/prod/v2" : "/needu/${var.environment}"
 
-  services = {
-    frontend = { port = 3000, sg = aws_security_group.fe.id }
-    backend  = { port = 8080, sg = aws_security_group.be.id }
-    ai       = { port = 8000, sg = aws_security_group.ai.id }
-  }
+  services = var.enable_ecs_applications ? {
+    frontend = { port = 3000, sg = aws_security_group.fe[0].id }
+    backend  = { port = 8080, sg = aws_security_group.be[0].id }
+    ai       = { port = 8000, sg = aws_security_group.ai[0].id }
+  } : {}
 
   service_env = {
     frontend = {
@@ -97,6 +97,8 @@ resource "aws_ecs_cluster" "main" {
 # ==================================================
 
 resource "aws_service_discovery_http_namespace" "connect" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   name = "needu-${var.environment}"
 }
 
@@ -105,7 +107,8 @@ resource "aws_service_discovery_http_namespace" "connect" {
 # ==================================================
 
 resource "aws_cloudwatch_log_group" "service" {
-  for_each = local.services
+  # ECS 애플리케이션 제거 후에도 기존 Dev 로그를 보존해 전환 문제를 추적할 수 있게 한다.
+  for_each = toset(["frontend", "backend", "ai"])
 
   name              = "${local.service_log_group_prefix}/${each.key}"
   retention_in_days = var.environment == "dev" ? 7 : 30
@@ -246,8 +249,8 @@ resource "aws_ecs_service" "service" {
     content {
       alarm_names = [
         alarms.value == "backend"
-        ? aws_cloudwatch_metric_alarm.backend_target_5xx.alarm_name
-        : aws_cloudwatch_metric_alarm.ai_service_connect_5xx.alarm_name
+        ? aws_cloudwatch_metric_alarm.backend_target_5xx[0].alarm_name
+        : aws_cloudwatch_metric_alarm.ai_service_connect_5xx[0].alarm_name
       ]
 
       enable   = true
@@ -263,8 +266,8 @@ resource "aws_ecs_service" "service" {
 
   dynamic "load_balancer" {
     for_each = (
-      each.key == "frontend" ? [aws_lb_target_group.fe.arn] :
-      each.key == "backend" ? [aws_lb_target_group.be.arn] :
+      each.key == "frontend" ? [aws_lb_target_group.fe[0].arn] :
+      each.key == "backend" ? [aws_lb_target_group.be[0].arn] :
       []
     )
 
@@ -277,7 +280,7 @@ resource "aws_ecs_service" "service" {
 
   service_connect_configuration {
     enabled   = true
-    namespace = aws_service_discovery_http_namespace.connect.arn
+    namespace = aws_service_discovery_http_namespace.connect[0].arn
 
     dynamic "service" {
       for_each = each.key == "ai" ? [1] : []
@@ -412,6 +415,8 @@ resource "aws_appautoscaling_scheduled_action" "dev_morning_start" {
 # ==================================================
 
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   alarm_name = "needu-${var.environment}-alb-5xx"
 
   comparison_operator = "GreaterThanThreshold"
@@ -427,7 +432,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   treat_missing_data = "notBreaching"
 
   dimensions = {
-    LoadBalancer = aws_lb.main.arn_suffix
+    LoadBalancer = aws_lb.main[0].arn_suffix
   }
 
   alarm_actions = (
@@ -442,6 +447,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 # ==================================================
 
 resource "aws_cloudwatch_metric_alarm" "backend_target_5xx" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   alarm_name = "needu-${var.environment}-backend-deployment-5xx"
 
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -460,8 +467,8 @@ resource "aws_cloudwatch_metric_alarm" "backend_target_5xx" {
   treat_missing_data = "notBreaching"
 
   dimensions = {
-    LoadBalancer = aws_lb.main.arn_suffix
-    TargetGroup  = aws_lb_target_group.be.arn_suffix
+    LoadBalancer = aws_lb.main[0].arn_suffix
+    TargetGroup  = aws_lb_target_group.be[0].arn_suffix
   }
 
   alarm_actions = (
@@ -476,6 +483,8 @@ resource "aws_cloudwatch_metric_alarm" "backend_target_5xx" {
 # ==================================================
 
 resource "aws_cloudwatch_metric_alarm" "ai_service_connect_5xx" {
+  count = var.enable_ecs_applications ? 1 : 0
+
   alarm_name = "needu-${var.environment}-ai-deployment-5xx"
 
   comparison_operator = "GreaterThanOrEqualToThreshold"

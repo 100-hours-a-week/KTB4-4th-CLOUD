@@ -133,6 +133,12 @@ variable "ecs_assign_public_ip" {
   default = true
 }
 
+variable "enable_ecs_applications" {
+  description = "Frontend, Backend, AI ECS 애플리케이션과 전용 ALB·Auto Scaling·배포 IAM 생성 여부"
+  type        = bool
+  default     = true
+}
+
 variable "github_subject_prefixes" {
   description = "서비스별 GitHub Actions CD 저장소의 Immutable OIDC Subject Prefix"
   type        = map(string)
