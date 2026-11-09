@@ -23,6 +23,11 @@ on:
         required: true
         default: false
         type: boolean
+      allow_dev_ecs_retirement:
+        description: "V3 전환 후 Dev ECS 애플리케이션 리소스 삭제 허용"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -213,6 +218,7 @@ jobs:
         shell: bash
         env:
           ALLOW_SHARED_ACM_REPLACEMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'shared' && inputs.allow_shared_acm_replacement }}
+          ALLOW_DEV_ECS_RETIREMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.allow_dev_ecs_retirement }}
         run: |
           python3 - <<'PY'
           import json
@@ -225,8 +231,13 @@ jobs:
 
           blocked = []
           allowed_replacements = []
+          allowed_deletions = []
           allow_shared_acm_replacement = (
               os.environ.get("ALLOW_SHARED_ACM_REPLACEMENT", "false").lower()
+              == "true"
+          )
+          allow_dev_ecs_retirement = (
+              os.environ.get("ALLOW_DEV_ECS_RETIREMENT", "false").lower()
               == "true"
           )
 
@@ -244,6 +255,30 @@ jobs:
               'aws_acm_certificate_validation.environment["staging"]',
               'aws_route53_record.acm_validation["staging"]',
           }
+
+          # V3 EKS 전환 후 폐기하는 Dev ECS 애플리케이션 리소스만 허용한다.
+          # 정확히 일치하는 순수 삭제만 허용하며 DB·Cache·Network·EKS는 포함하지 않는다.
+          dev_ecs_retirement_patterns = [
+              re.compile(r'^module\.v2\.aws_appautoscaling_policy\.cpu\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_appautoscaling_scheduled_action\.dev_(?:morning_start|night_stop)\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_appautoscaling_target\.ecs\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_cloudwatch_metric_alarm\.(?:ai_service_connect_5xx|alb_5xx|backend_target_5xx)\[0\]$'),
+              re.compile(r'^module\.v2\.aws_ecs_service\.service\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_ecs_task_definition\.service\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_iam_role\.(?:github_cd|service_execution|task)\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_iam_role_policy\.(?:github_cd|service_execution_parameters)\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_iam_role_policy_attachment\.service_execution\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_lb\.main\[0\]$'),
+              re.compile(r'^module\.v2\.aws_lb_listener\.(?:http|https)\[0\]$'),
+              re.compile(r'^module\.v2\.aws_lb_listener_rule\.(?:api|websocket)\[0\]$'),
+              re.compile(r'^module\.v2\.aws_lb_target_group\.(?:be|fe)\[0\]$'),
+              re.compile(r'^module\.v2\.aws_security_group\.(?:ai|alb|be|fe)\[0\]$'),
+              re.compile(r'^module\.v2\.aws_service_discovery_http_namespace\.connect\[0\]$'),
+              re.compile(r'^module\.v2\.aws_ssm_parameter\.task_definition_base_arn\["(?:ai|backend|frontend)"\]$'),
+              re.compile(r'^module\.v2\.aws_vpc_security_group_egress_rule\.(?:alb_to_be|alb_to_fe)\[0\]$'),
+              re.compile(r'^module\.v2\.aws_vpc_security_group_egress_rule\.app_outbound\["(?:ai|be|fe)"\]$'),
+              re.compile(r'^module\.v2\.aws_vpc_security_group_ingress_rule\.(?:ai_from_be|alb_http|alb_https|be_from_alb|fe_from_alb|mysql_from_be|postgres_from_ai|redis_from_ai|redis_from_be)\[0\]$'),
+          ]
 
           for resource in plan.get("resource_changes", []):
               address = resource["address"]
@@ -274,6 +309,15 @@ jobs:
                   and address in shared_acm_replacements
               ):
                   allowed_replacements.append(address)
+              elif (
+                  actions == ["delete"]
+                  and allow_dev_ecs_retirement
+                  and any(
+                      pattern.fullmatch(address)
+                      for pattern in dev_ecs_retirement_patterns
+                  )
+              ):
+                  allowed_deletions.append(address)
               else:
                   blocked.append({
                       "address": address,
@@ -282,6 +326,10 @@ jobs:
 
           print("Allowed replacements:")
           for address in allowed_replacements:
+              print(f"  - {address}")
+
+          print("\nAllowed Dev ECS retirement deletions:")
+          for address in allowed_deletions:
               print(f"  - {address}")
 
           print("\nBlocked destructive changes:")
