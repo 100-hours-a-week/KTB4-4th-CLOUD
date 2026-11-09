@@ -160,6 +160,15 @@ variable "create_dns_record" {
   default = true
 }
 
+variable "route53_alias_target" {
+  description = "Optional external ALB target for the environment DNS alias. Null keeps the V2 ALB target."
+  type = object({
+    dns_name = string
+    zone_id  = string
+  })
+  default = null
+}
+
 variable "enable_redis_auth" {
   type    = bool
   default = false

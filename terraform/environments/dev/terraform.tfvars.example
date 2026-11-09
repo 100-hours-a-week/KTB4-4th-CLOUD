@@ -9,6 +9,8 @@ db_subnets = {
 }
 hosted_zone_id = "Z_REPLACE"
 domain_name = "dev.needu.gift"
+# Keep ECS as the target until V3 Ingress, HTTPS, OAuth, and app URLs are verified.
+route53_target = "ecs"
 ecr_repository_urls = {
   frontend = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/frontend"
   backend  = "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/need-u/backend"

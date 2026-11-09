@@ -122,8 +122,8 @@ resource "aws_route53_record" "app" {
   name    = var.domain_name
   type    = "A"
   alias {
-    name                   = aws_lb.main.dns_name
-    zone_id                = aws_lb.main.zone_id
+    name                   = var.route53_alias_target == null ? aws_lb.main.dns_name : var.route53_alias_target.dns_name
+    zone_id                = var.route53_alias_target == null ? aws_lb.main.zone_id : var.route53_alias_target.zone_id
     evaluate_target_health = true
   }
 }
