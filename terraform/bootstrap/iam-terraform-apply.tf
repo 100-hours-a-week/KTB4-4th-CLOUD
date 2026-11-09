@@ -111,7 +111,7 @@ locals {
     "servicediscovery:UntagResource"
   ]
 
-  # ECS Dev scheduled action 삭제에 필요한 권한을 현재 Dev scalable target에만 부여합니다.
+  # ECS Dev scheduled action 삭제 권한의 리소스 범위를 제한합니다.
   # Application Auto Scaling target은 Terraform provider에서 태그를 지원하지 않아 ARN으로 제한합니다.
   terraform_dev_ecs_scalable_target_arns = [
     "arn:aws:application-autoscaling:ap-northeast-2:${data.aws_caller_identity.current.account_id}:scalable-target/0ec55e7e5bf3666e44b9b4961e8116c72b6f",
@@ -215,31 +215,6 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     effect    = "Allow"
     actions   = local.terraform_environment_apply_actions
     resources = ["*"]
-  }
-
-  # ECS Dev의 기존 야간 중지·아침 시작 Scheduled Action 정리 전용 권한입니다.
-  # Prod·Staging Role에는 이 Statement가 생성되지 않습니다.
-  dynamic "statement" {
-    for_each = each.key == "dev" ? [1] : []
-
-    content {
-      sid       = "DeleteDevECSScheduledActions"
-      effect    = "Allow"
-      actions   = ["application-autoscaling:DeleteScheduledAction"]
-      resources = local.terraform_dev_ecs_scalable_target_arns
-
-      condition {
-        test     = "StringEquals"
-        variable = "application-autoscaling:service-namespace"
-        values   = ["ecs"]
-      }
-
-      condition {
-        test     = "StringEquals"
-        variable = "application-autoscaling:scalable-dimension"
-        values   = ["ecs:service:DesiredCount"]
-      }
-    }
   }
 
   # Staging 마이그레이션에서만 V1·V2 VPC Peering을 관리합니다.
@@ -354,6 +329,47 @@ resource "aws_iam_role_policy" "terraform_environment_apply" {
   name   = "TerraformEnvironmentApply"
   role   = aws_iam_role.terraform_github[each.key].id
   policy = data.aws_iam_policy_document.terraform_environment_apply[each.key].json
+}
+
+# Dev ECS Scheduled Action 정리 권한은 Terraform Dev Role의 inline policy 크기 한도를
+# 넘지 않도록 별도 customer-managed policy로 분리합니다.
+data "aws_iam_policy_document" "terraform_dev_ecs_scheduled_action_delete" {
+  statement {
+    sid       = "DeleteDevECSScheduledActions"
+    effect    = "Allow"
+    actions   = ["application-autoscaling:DeleteScheduledAction"]
+    resources = local.terraform_dev_ecs_scalable_target_arns
+
+    condition {
+      test     = "StringEquals"
+      variable = "application-autoscaling:service-namespace"
+      values   = ["ecs"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "application-autoscaling:scalable-dimension"
+      values   = ["ecs:service:DesiredCount"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "terraform_dev_ecs_scheduled_action_delete" {
+  name        = "NeedU-V2-Terraform-Dev-ECSScheduledActionCleanup"
+  description = "Allows Terraform Dev to delete scheduled actions on the three Dev ECS scalable targets"
+  policy      = data.aws_iam_policy_document.terraform_dev_ecs_scheduled_action_delete.json
+
+  tags = {
+    Environment = "dev"
+    ManagedBy   = "Terraform"
+    Project     = "NeedU"
+    Purpose     = "TerraformDevECSScheduledActionCleanup"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_dev_ecs_scheduled_action_delete" {
+  role       = aws_iam_role.terraform_github["dev"].name
+  policy_arn = aws_iam_policy.terraform_dev_ecs_scheduled_action_delete.arn
 }
 
 # ALB Access Log S3 권한은 Role의 Inline Policy 크기 제한을 피하기 위해
