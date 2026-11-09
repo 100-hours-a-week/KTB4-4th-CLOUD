@@ -115,6 +115,7 @@ resource "aws_eks_node_group" "system" {
     ignore_changes = [
       scaling_config[0].desired_size,
       scaling_config[0].min_size,
+      scaling_config[0].max_size,
     ]
   }
   update_config {
@@ -144,6 +145,7 @@ resource "aws_eks_node_group" "application" {
     ignore_changes = [
       scaling_config[0].desired_size,
       scaling_config[0].min_size,
+      scaling_config[0].max_size,
     ]
   }
   update_config {
@@ -171,11 +173,25 @@ resource "aws_eks_addon" "pod_identity_agent" {
 }
 
 # Dev EKS 노드 그룹을 매일 22:00~09:00(Asia/Seoul)에 0대로 축소한다.
+# 야간에는 최대 용량도 0으로 잠가 Cluster Autoscaler의 재확장을 막고,
+# 아침에는 Terraform 변수에 정의된 최대 용량으로 복구한다.
 # 제어 영역은 유지되며, 운영 클러스터에는 이 모듈이 적용되지 않는다.
 locals {
   scheduled_node_groups = merge(
-    { for az, node_group in aws_eks_node_group.system : "system-${az}" => node_group },
-    { for az, node_group in aws_eks_node_group.application : "application-${az}" => node_group },
+    {
+      for az, node_group in aws_eks_node_group.system : "system-${az}" => {
+        arn             = node_group.arn
+        node_group_name = node_group.node_group_name
+        max_size        = var.system_max_per_az
+      }
+    },
+    {
+      for az, node_group in aws_eks_node_group.application : "application-${az}" => {
+        arn             = node_group.arn
+        node_group_name = node_group.node_group_name
+        max_size        = var.app_max_per_az
+      }
+    },
   )
 }
 
@@ -227,7 +243,7 @@ resource "aws_scheduler_schedule" "node_night_stop" {
       ScalingConfig = {
         MinSize     = 0
         DesiredSize = 0
-        MaxSize     = each.value.scaling_config[0].max_size
+        MaxSize     = 0
       }
     })
   }
@@ -253,7 +269,7 @@ resource "aws_scheduler_schedule" "node_morning_start" {
       ScalingConfig = {
         MinSize     = 1
         DesiredSize = 1
-        MaxSize     = each.value.scaling_config[0].max_size
+        MaxSize     = each.value.max_size
       }
     })
   }
