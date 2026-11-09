@@ -9,7 +9,7 @@ data "archive_file" "mysql_secret_rotation_redeploy" {
   count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   type        = "zip"
-  source_file = "${path.module}/lambda/ecs_secret_rotation_redeploy.py"
+  source_file = var.enable_ecs_applications ? "${path.module}/lambda/ecs_secret_rotation_redeploy.py" : "${path.module}/lambda/dev_postgres_secret_sync.py"
   output_path = "${path.root}/needu-${var.environment}-${local.secret_rotation_name}-redeploy.zip"
 }
 
@@ -98,7 +98,7 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
 
   function_name = "needu-${var.environment}-${local.secret_rotation_name}-redeploy"
   role          = aws_iam_role.secret_rotation_redeploy[0].arn
-  handler       = "ecs_secret_rotation_redeploy.handler"
+  handler       = var.enable_ecs_applications ? "ecs_secret_rotation_redeploy.handler" : "dev_postgres_secret_sync.handler"
   runtime       = "python3.13"
   timeout       = 30
 
@@ -106,12 +106,16 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
   source_code_hash = data.archive_file.mysql_secret_rotation_redeploy[0].output_base64sha256
 
   environment {
-    variables = {
-      ENABLE_ECS_REDEPLOY       = tostring(var.enable_ecs_applications)
+    variables = var.enable_ecs_applications ? {
       CLUSTER_NAME              = aws_ecs_cluster.main.name
-      BACKEND_SERVICE_NAME      = var.enable_ecs_applications ? aws_ecs_service.service["backend"].name : ""
-      AI_SERVICE_NAME           = var.enable_ecs_applications ? aws_ecs_service.service["ai"].name : ""
+      BACKEND_SERVICE_NAME      = aws_ecs_service.service["backend"].name
+      AI_SERVICE_NAME           = aws_ecs_service.service["ai"].name
       MYSQL_SECRET_ARN          = aws_db_instance.mysql[0].master_user_secret[0].secret_arn
+      POSTGRES_SECRET_ARN       = aws_db_instance.postgres[0].master_user_secret[0].secret_arn
+      POSTGRES_HOST             = aws_db_instance.postgres[0].address
+      POSTGRES_PORT             = tostring(aws_db_instance.postgres[0].port)
+      AI_DATABASE_URL_PARAMETER = "${local.parameter_base_path}/ai/CATALOG_DATABASE_URL_RO"
+      } : {
       POSTGRES_SECRET_ARN       = aws_db_instance.postgres[0].master_user_secret[0].secret_arn
       POSTGRES_HOST             = aws_db_instance.postgres[0].address
       POSTGRES_PORT             = tostring(aws_db_instance.postgres[0].port)
@@ -129,7 +133,7 @@ resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
   count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   name        = "needu-${var.environment}-${local.secret_rotation_name}"
-  description = "Refresh database consumers when an RDS-managed database secret changes"
+  description = "Refresh ECS database consumers when an RDS-managed database secret changes"
 
   event_pattern = jsonencode({
     source      = ["aws.secretsmanager"]
