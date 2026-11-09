@@ -1,0 +1,2 @@
+bucket = "needu-v3-dev-ai-514205-tfstate"
+prefix = "vertex-inference/dev"
