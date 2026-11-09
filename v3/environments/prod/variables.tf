@@ -46,3 +46,9 @@ variable "app_max_per_az" {
 }
 variable "eks_public_access_cidrs" { type = list(string) }
 variable "eks_cluster_admin_role_arn" { type = string }
+
+variable "eso_secret_kms_key_arns" {
+  description = "Customer-managed KMS key ARNs required by External Secrets Operator"
+  type        = list(string)
+  default     = []
+}
