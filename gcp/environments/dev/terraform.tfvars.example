@@ -1,0 +1,9 @@
+eks_oidc_issuer_uri = "https://oidc.eks.ap-northeast-2.amazonaws.com/id/REPLACE_WITH_CLUSTER_OIDC_ID"
+
+# Keep the endpoint disabled until the AI team confirms the model, GPU, and
+# immutable Artifact Registry image digest. Model upload and GPU deployment
+# use the reviewed release step documented in README.md.
+enable_vertex_endpoint = false
+
+# Optional: let this principal impersonate the dedicated model deployer SA.
+# vertex_deployer_operator_member = "user:operator@example.com"
