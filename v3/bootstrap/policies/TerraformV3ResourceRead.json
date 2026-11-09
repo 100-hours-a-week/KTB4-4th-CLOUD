@@ -71,6 +71,20 @@
       "Effect": "Allow",
       "Action": "scheduler:ListTagsForResource",
       "Resource": "*"
+    },
+    {
+      "Sid": "MonitoringAndAlertingRead",
+      "Effect": "Allow",
+      "Action": [
+        "aps:DescribeWorkspace",
+        "aps:ListTagsForResource",
+        "logs:DescribeLogGroups",
+        "logs:ListTagsForResource",
+        "secretsmanager:DescribeSecret",
+        "sns:GetTopicAttributes",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": "*"
     }
   ]
 }
