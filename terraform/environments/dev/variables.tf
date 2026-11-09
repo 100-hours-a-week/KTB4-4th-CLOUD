@@ -18,6 +18,17 @@ variable "domain_name" {
   type = string
 }
 
+variable "route53_target" {
+  description = "ALB that receives dev.needu.gift. Keep ecs until V3 domain and app checks are ready."
+  type        = string
+  default     = "ecs"
+
+  validation {
+    condition     = contains(["ecs", "v3-eks"], var.route53_target)
+    error_message = "route53_target must be either ecs or v3-eks."
+  }
+}
+
 variable "ecr_repository_urls" {
   type = map(string)
 }

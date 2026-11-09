@@ -28,15 +28,27 @@ data "aws_ssm_parameter" "certificate_arn" {
   name = "/needu/v2/dev/acm/certificate-arn"
 }
 
+# The ALB is created by AWS Load Balancer Controller. Look it up only when
+# the explicit cutover switch is set, so the normal Dev plan has no dependency
+# on the V3 ALB and keeps DNS on ECS.
+data "aws_lb" "v3_eks" {
+  count = var.route53_target == "v3-eks" ? 1 : 0
+  name  = "needu-v3-dev-group"
+}
+
 module "v2" {
   source = "../../modules/v2-stack"
 
-  environment              = var.environment
-  public_subnets           = var.public_subnets
-  db_subnets               = var.db_subnets
-  certificate_arn          = data.aws_ssm_parameter.certificate_arn.value
-  hosted_zone_id           = var.hosted_zone_id
-  domain_name              = var.domain_name
+  environment     = var.environment
+  public_subnets  = var.public_subnets
+  db_subnets      = var.db_subnets
+  certificate_arn = data.aws_ssm_parameter.certificate_arn.value
+  hosted_zone_id  = var.hosted_zone_id
+  domain_name     = var.domain_name
+  route53_alias_target = var.route53_target == "v3-eks" ? {
+    dns_name = data.aws_lb.v3_eks[0].dns_name
+    zone_id  = data.aws_lb.v3_eks[0].zone_id
+  } : null
   ecr_repository_urls      = var.ecr_repository_urls
   image_tags               = var.image_tags
   mysql_engine_version     = var.mysql_engine_version
