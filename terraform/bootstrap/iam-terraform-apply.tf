@@ -110,6 +110,14 @@ locals {
     "servicediscovery:TagResource",
     "servicediscovery:UntagResource"
   ]
+
+  # ECS Dev scheduled action 삭제에 필요한 권한을 현재 Dev scalable target에만 부여합니다.
+  # Application Auto Scaling target은 Terraform provider에서 태그를 지원하지 않아 ARN으로 제한합니다.
+  terraform_dev_ecs_scalable_target_arns = [
+    "arn:aws:application-autoscaling:ap-northeast-2:${data.aws_caller_identity.current.account_id}:scalable-target/0ec55e7e5bf3666e44b9b4961e8116c72b6f",
+    "arn:aws:application-autoscaling:ap-northeast-2:${data.aws_caller_identity.current.account_id}:scalable-target/0ec5b4bcd4e443d748f79edcca6f930c51f3",
+    "arn:aws:application-autoscaling:ap-northeast-2:${data.aws_caller_identity.current.account_id}:scalable-target/0ec5065d282abeff4c05a96ed1be19df295d"
+  ]
 }
 
 # ==================================================
@@ -207,6 +215,31 @@ data "aws_iam_policy_document" "terraform_environment_apply" {
     effect    = "Allow"
     actions   = local.terraform_environment_apply_actions
     resources = ["*"]
+  }
+
+  # ECS Dev의 기존 야간 중지·아침 시작 Scheduled Action 정리 전용 권한입니다.
+  # Prod·Staging Role에는 이 Statement가 생성되지 않습니다.
+  dynamic "statement" {
+    for_each = each.key == "dev" ? [1] : []
+
+    content {
+      sid       = "DeleteDevECSScheduledActions"
+      effect    = "Allow"
+      actions   = ["application-autoscaling:DeleteScheduledAction"]
+      resources = local.terraform_dev_ecs_scalable_target_arns
+
+      condition {
+        test     = "StringEquals"
+        variable = "application-autoscaling:service-namespace"
+        values   = ["ecs"]
+      }
+
+      condition {
+        test     = "StringEquals"
+        variable = "application-autoscaling:scalable-dimension"
+        values   = ["ecs:service:DesiredCount"]
+      }
+    }
   }
 
   # Staging 마이그레이션에서만 V1·V2 VPC Peering을 관리합니다.
