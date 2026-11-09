@@ -7,14 +7,6 @@ locals {
   shared_ssm_bastion_instance_id        = "i-0fc4a029b4d5b90ca"
 }
 
-data "aws_db_instance" "staging_preflight_mysql" {
-  db_instance_identifier = "needu-staging-mysql"
-}
-
-data "aws_db_instance" "staging_preflight_postgres" {
-  db_instance_identifier = "needu-staging-postgres"
-}
-
 data "aws_iam_policy_document" "staging_migration_preflight_trust" {
   statement {
     sid     = "GitHubStagingEnvironmentOnly"
@@ -48,6 +40,7 @@ resource "aws_iam_role" "staging_migration_preflight" {
   }
 }
 
+# Staging RDS가 폐기되어 관리형 DB Secret을 동적으로 조회·읽는 설정은 제거했습니다.
 data "aws_iam_policy_document" "staging_migration_preflight" {
   statement {
     sid    = "ReadStagingMigrationResources"
@@ -84,16 +77,6 @@ data "aws_iam_policy_document" "staging_migration_preflight" {
     effect    = "Allow"
     actions   = ["ssm:TerminateSession"]
     resources = ["arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:session/$${aws:userid}-*"]
-  }
-
-  statement {
-    sid     = "ReadStagingDatabaseSecrets"
-    effect  = "Allow"
-    actions = ["secretsmanager:GetSecretValue"]
-    resources = [
-      data.aws_db_instance.staging_preflight_mysql.master_user_secret[0].secret_arn,
-      data.aws_db_instance.staging_preflight_postgres.master_user_secret[0].secret_arn
-    ]
   }
 }
 

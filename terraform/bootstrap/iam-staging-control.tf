@@ -14,7 +14,6 @@
 # - CloudWatch CDC 지연 지표 조회
 # - V1 EC2 트랜잭션 확인 (SSM Run Command)
 # - SSM Bastion을 통한 V2 MySQL 터널
-# - Staging MySQL Secret 조회
 #
 # Terraform Apply Role과 분리
 # ==================================================
@@ -81,17 +80,10 @@ resource "aws_iam_role" "staging_control" {
 }
 
 # ==================================================
-# Staging MySQL RDS Secret
-# ==================================================
-
-data "aws_db_instance" "staging_control_mysql" {
-  db_instance_identifier = "needu-staging-mysql"
-}
-
-# ==================================================
 # IAM Policy
 # ==================================================
 
+# Staging RDS가 폐기되어 관리형 DB Secret을 조회하는 권한은 구성하지 않습니다.
 data "aws_iam_policy_document" "staging_control" {
 
   # ------------------------------------------------
@@ -389,23 +381,6 @@ data "aws_iam_policy_document" "staging_control" {
 
     resources = [
       "arn:aws:ssm:ap-northeast-2:${data.aws_caller_identity.current.account_id}:session/*"
-    ]
-  }
-
-  # ------------------------------------------------
-  # Staging MySQL Secret
-  # ------------------------------------------------
-
-  statement {
-    sid    = "ReadStagingMySQLSecret"
-    effect = "Allow"
-
-    actions = [
-      "secretsmanager:GetSecretValue"
-    ]
-
-    resources = [
-      data.aws_db_instance.staging_control_mysql.master_user_secret[0].secret_arn
     ]
   }
 }
