@@ -52,6 +52,22 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
 
     resources = ["*"]
   }
+
+  statement {
+    sid = "ReadDevMonitoringAndAlerting"
+
+    actions = [
+      "aps:DescribeWorkspace",
+      "aps:ListTagsForResource",
+      "logs:DescribeLogGroups",
+      "logs:ListTagsForResource",
+      "secretsmanager:DescribeSecret",
+      "sns:GetTopicAttributes",
+      "sns:ListTagsForResource",
+    ]
+
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "v3_plan_eso_read" {
