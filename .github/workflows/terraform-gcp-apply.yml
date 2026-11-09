@@ -1,0 +1,424 @@
+name: Terraform GCP Dev Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_vertex_endpoint:
+        description: Create the Dev Vertex AI endpoint (GPU model deployment is a separate operation)
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-gcp-dev-apply
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_DIR: gcp/environments/dev
+  GCP_PROJECT_ID: needu-v3-dev-ai-514205
+  GCP_REGION: asia-northeast3
+  TF_STATE_BUCKET: needu-v3-dev-ai-514205-tfstate
+  TF_STATE_PREFIX: vertex-inference/dev
+
+jobs:
+  plan:
+    name: Plan - GCP Dev
+    runs-on: ubuntu-latest
+    environment: terraform-gcp-plan
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      ENABLE_VERTEX_ENDPOINT: ${{ inputs.enable_vertex_endpoint }}
+      GCP_TERRAFORM_SERVICE_ACCOUNT: ${{ vars.GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT }}
+
+    steps:
+      - name: Require main branch and GCP identity configuration
+        shell: bash
+        env:
+          GCP_WIF_PROVIDER: ${{ vars.GCP_TERRAFORM_WIF_PROVIDER }}
+          GCP_EKS_OIDC_ISSUER_URI: ${{ vars.GCP_EKS_OIDC_ISSUER_URI }}
+        run: |
+          set -euo pipefail
+
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "::error::GCP Apply must run from main"
+            exit 1
+          }
+
+          [[ -n "$GCP_WIF_PROVIDER" ]] || {
+            echo "::error::Configure repository variable GCP_TERRAFORM_WIF_PROVIDER"
+            exit 1
+          }
+          [[ -n "$GCP_TERRAFORM_SERVICE_ACCOUNT" ]] || {
+            echo "::error::Configure repository variable GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT"
+            exit 1
+          }
+          [[ -n "$GCP_EKS_OIDC_ISSUER_URI" ]] || {
+            echo "::error::Configure repository variable GCP_EKS_OIDC_ISSUER_URI"
+            exit 1
+          }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Check formatting and provider lock file
+        run: |
+          set -euo pipefail
+
+          terraform fmt -check -recursive gcp/
+          test -f "$TF_DIR/.terraform.lock.hcl" || {
+            echo "::error::Missing GCP Dev provider lock file"
+            exit 1
+          }
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_TERRAFORM_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_PLAN_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify target project and state bucket
+        run: |
+          set -euo pipefail
+
+          gcloud storage buckets describe "gs://${TF_STATE_BUCKET}" \
+            --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || {
+              echo "::error::GCP Terraform state bucket is missing or inaccessible. Create it once with gcp/bootstrap first."
+              exit 1
+            }
+
+      - name: Initialize GCP Dev remote backend
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=${TF_STATE_PREFIX}"
+
+      - name: Verify GCP Dev backend and workspace
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          [[ "$(terraform workspace show)" == "default" ]] || {
+            echo "::error::Unexpected Terraform workspace"
+            exit 1
+          }
+
+          jq -e \
+            --arg bucket "$TF_STATE_BUCKET" \
+            --arg prefix "$TF_STATE_PREFIX" \
+            '.backend.type == "gcs" and
+             .backend.config.bucket == $bucket and
+             .backend.config.prefix == $prefix' \
+            .terraform/terraform.tfstate >/dev/null
+
+      - name: Validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate -no-color
+
+      - name: Create exact Plan
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          GCP_EKS_OIDC_ISSUER_URI: ${{ vars.GCP_EKS_OIDC_ISSUER_URI }}
+        run: |
+          set -euo pipefail
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var="region=${GCP_REGION}" \
+            -var="eks_oidc_issuer_uri=${GCP_EKS_OIDC_ISSUER_URI}" \
+            -var="enable_vertex_endpoint=${ENABLE_VERTEX_ENDPOINT}" \
+            -out=tfplan \
+            -no-color
+
+          terraform show -json tfplan > plan.json
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Block destructive changes
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+
+          with open("plan.json", encoding="utf-8") as plan_file:
+              plan = json.load(plan_file)
+
+          blocked = [
+              (resource["address"], resource["change"]["actions"])
+              for resource in plan.get("resource_changes", [])
+              if "delete" in resource.get("change", {}).get("actions", [])
+          ]
+
+          for address, actions in blocked:
+              print(f"::error::Destructive change blocked: {address} {actions}")
+
+          if blocked:
+              sys.exit(1)
+
+          print("No destructive changes detected.")
+          PY
+
+      - name: Create Plan metadata
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          GCP_EKS_OIDC_ISSUER_URI: ${{ vars.GCP_EKS_OIDC_ISSUER_URI }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          PLAN_SHA="$(sha256sum tfplan | awk '{print $1}')"
+
+          {
+            echo "environment=dev"
+            echo "project_id=$GCP_PROJECT_ID"
+            echo "state_bucket=$TF_STATE_BUCKET"
+            echo "state_prefix=$TF_STATE_PREFIX"
+            echo "enable_vertex_endpoint=$ENABLE_VERTEX_ENDPOINT"
+            echo "eks_oidc_issuer_uri=$GCP_EKS_OIDC_ISSUER_URI"
+            echo "commit_sha=$COMMIT_SHA"
+            echo "run_id=$RUN_ID"
+            echo "run_attempt=$RUN_ATTEMPT"
+            echo "plan_sha256=$PLAN_SHA"
+          } > plan-metadata.env
+
+          {
+            echo "## Terraform GCP Dev Plan"
+            echo "- Project: $GCP_PROJECT_ID"
+            echo "- Region: $GCP_REGION"
+            echo "- Vertex endpoint enabled: $ENABLE_VERTEX_ENDPOINT"
+            echo "- Commit: $COMMIT_SHA"
+            echo "- Plan SHA-256: $PLAN_SHA"
+            echo "- Destructive changes: blocked"
+            echo "- Review the short-lived plan artifact before approving the GCP Dev environment."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact Plan for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-gcp-dev-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            ${{ env.TF_DIR }}/plan-metadata.env
+            ${{ env.TF_DIR }}/plan.txt
+          if-no-files-found: error
+          retention-days: 3
+
+  apply:
+    name: Apply - GCP Dev
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: gcp-dev
+
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+
+    env:
+      ENABLE_VERTEX_ENDPOINT: ${{ inputs.enable_vertex_endpoint }}
+      GCP_TERRAFORM_SERVICE_ACCOUNT: ${{ vars.GCP_TERRAFORM_APPLY_SERVICE_ACCOUNT }}
+
+    steps:
+      - name: Require main branch and GCP identity configuration
+        shell: bash
+        env:
+          GCP_WIF_PROVIDER: ${{ vars.GCP_TERRAFORM_WIF_PROVIDER }}
+        run: |
+          set -euo pipefail
+
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "::error::GCP Apply must run from main"
+            exit 1
+          }
+
+          [[ -n "$GCP_WIF_PROVIDER" ]] || {
+            echo "::error::Configure repository variable GCP_TERRAFORM_WIF_PROVIDER"
+            exit 1
+          }
+          [[ -n "$GCP_TERRAFORM_SERVICE_ACCOUNT" ]] || {
+            echo "::error::Configure repository variable GCP_TERRAFORM_APPLY_SERVICE_ACCOUNT"
+            exit 1
+          }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.0"
+          terraform_wrapper: false
+
+      - name: Download exact Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-gcp-dev-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.TF_DIR }}
+
+      - name: Verify Plan metadata and checksum
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          test -f tfplan
+          test -f plan-metadata.env
+
+          get_meta() {
+            grep -m1 "^$1=" plan-metadata.env | cut -d= -f2-
+          }
+
+          [[ "$(get_meta environment)" == "dev" ]]
+          [[ "$(get_meta project_id)" == "$GCP_PROJECT_ID" ]]
+          [[ "$(get_meta state_bucket)" == "$TF_STATE_BUCKET" ]]
+          [[ "$(get_meta state_prefix)" == "$TF_STATE_PREFIX" ]]
+          [[ "$(get_meta enable_vertex_endpoint)" == "$ENABLE_VERTEX_ENDPOINT" ]]
+          [[ -n "$(get_meta eks_oidc_issuer_uri)" ]]
+          [[ "$(get_meta commit_sha)" == "$COMMIT_SHA" ]]
+          [[ "$(get_meta run_id)" == "$RUN_ID" ]]
+          [[ "$(get_meta run_attempt)" == "$RUN_ATTEMPT" ]]
+          [[ "$(get_meta plan_sha256)" == "$(sha256sum tfplan | awk '{print $1}')" ]]
+
+          echo "Plan metadata and checksum verified."
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_TERRAFORM_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_APPLY_SERVICE_ACCOUNT }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify access to GCP Dev state bucket
+        run: |
+          set -euo pipefail
+
+          gcloud storage buckets describe "gs://${TF_STATE_BUCKET}" \
+            --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || {
+            echo "::error::GCP Terraform state bucket is missing or inaccessible"
+            exit 1
+          }
+
+      - name: Initialize GCP Dev remote backend
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          terraform init \
+            -reconfigure \
+            -input=false \
+            -lockfile=readonly \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=${TF_STATE_PREFIX}"
+
+      - name: Verify GCP Dev backend and workspace
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -euo pipefail
+
+          [[ "$(terraform workspace show)" == "default" ]] || {
+            echo "::error::Unexpected Terraform workspace"
+            exit 1
+          }
+
+          jq -e \
+            --arg bucket "$TF_STATE_BUCKET" \
+            --arg prefix "$TF_STATE_PREFIX" \
+            '.backend.type == "gcs" and
+             .backend.config.bucket == $bucket and
+             .backend.config.prefix == $prefix' \
+            .terraform/terraform.tfstate >/dev/null
+
+      - name: Apply exact reviewed Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply \
+            -input=false \
+            -lock-timeout=5m \
+            -no-color \
+            tfplan
+
+      - name: Post-Apply drift check
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set +e
+
+          GCP_EKS_OIDC_ISSUER_URI="$(grep -m1 '^eks_oidc_issuer_uri=' plan-metadata.env | cut -d= -f2-)"
+          if [[ -z "$GCP_EKS_OIDC_ISSUER_URI" ]]; then
+            echo "::error::Plan metadata is missing the EKS OIDC issuer URI"
+            exit 1
+          fi
+
+          terraform plan \
+            -input=false \
+            -lock-timeout=5m \
+            -detailed-exitcode \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var="region=${GCP_REGION}" \
+            -var="eks_oidc_issuer_uri=${GCP_EKS_OIDC_ISSUER_URI}" \
+            -var="enable_vertex_endpoint=${ENABLE_VERTEX_ENDPOINT}" \
+            -no-color > post-apply-plan.txt 2>&1
+
+          plan_exit_code=$?
+          cat post-apply-plan.txt
+
+          if [[ "$plan_exit_code" -eq 0 ]]; then
+            echo "No remaining changes." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$plan_exit_code" -eq 2 ]]; then
+            echo "::warning::Post-apply plan found remaining changes."
+            echo "Remaining changes detected." >> "$GITHUB_STEP_SUMMARY"
+          else
+            exit "$plan_exit_code"
+          fi
+
+      - name: Upload execution logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-gcp-dev-apply-logs-${{ github.run_id }}
+          path: ${{ env.TF_DIR }}/post-apply-plan.txt
+          if-no-files-found: ignore
+          retention-days: 7
