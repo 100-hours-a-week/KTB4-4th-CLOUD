@@ -76,11 +76,13 @@
       "Sid": "MonitoringAndAlertingRead",
       "Effect": "Allow",
       "Action": [
+        "aps:DescribeLoggingConfiguration",
         "aps:DescribeWorkspace",
         "aps:ListTagsForResource",
         "logs:DescribeLogGroups",
         "logs:ListTagsForResource",
         "secretsmanager:DescribeSecret",
+        "secretsmanager:GetResourcePolicy",
         "sns:GetTopicAttributes",
         "sns:ListTagsForResource"
       ],

@@ -57,11 +57,13 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
     sid = "ReadDevMonitoringAndAlerting"
 
     actions = [
+      "aps:DescribeLoggingConfiguration",
       "aps:DescribeWorkspace",
       "aps:ListTagsForResource",
       "logs:DescribeLogGroups",
       "logs:ListTagsForResource",
       "secretsmanager:DescribeSecret",
+      "secretsmanager:GetResourcePolicy",
       "sns:GetTopicAttributes",
       "sns:ListTagsForResource",
     ]
