@@ -17,6 +17,9 @@ override.tf.json
 *_override.tf.json
 **/tfplan
 !v3/environments/dev/dev.auto.tfvars
+gcp/environments/dev/backend.hcl
+gcp/environments/dev/terraform.tfvars
+gcp/environments/dev/credential-configuration.json
 
 # Generated Lambda and Python test artifacts
 **/__pycache__/
