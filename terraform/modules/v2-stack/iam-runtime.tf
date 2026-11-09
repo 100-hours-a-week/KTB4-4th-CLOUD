@@ -16,7 +16,7 @@ data "aws_iam_policy_document" "ecs_assume" {
 locals {
   parameter_base_path = "/needu/v2/${var.environment}"
 
-  execution_roles = {
+  application_execution_roles = {
     frontend = {
       parameter_path = "${local.parameter_base_path}/frontend-runtime/*"
       secret_arns    = []
@@ -32,6 +32,9 @@ locals {
       secret_arns    = []
     }
 
+  }
+
+  catalog_execution_roles = {
     catalog-sync = {
       parameter_path = "${local.parameter_base_path}/ai-catalog/*"
       secret_arns    = var.enable_databases ? [aws_db_instance.mysql[0].master_user_secret[0].secret_arn] : []
@@ -42,6 +45,11 @@ locals {
       secret_arns    = []
     }
   }
+
+  execution_roles = merge(
+    var.enable_ecs_applications ? local.application_execution_roles : {},
+    local.catalog_execution_roles
+  )
 }
 
 # --------------------------------------------------
@@ -107,11 +115,11 @@ resource "aws_iam_role_policy" "service_execution_parameters" {
 # --------------------------------------------------
 
 resource "aws_iam_role" "task" {
-  for_each = toset([
+  for_each = var.enable_ecs_applications ? toset([
     "frontend",
     "backend",
     "ai"
-  ])
+  ]) : toset([])
 
   name                 = "needu-${var.environment}-${each.key}-task"
   assume_role_policy   = data.aws_iam_policy_document.ecs_assume.json
@@ -123,7 +131,7 @@ resource "aws_iam_role" "task" {
 # --------------------------------------------------
 
 data "aws_iam_policy_document" "backend_cloudwatch_metrics" {
-  count = var.enable_backend_cloudwatch_metrics ? 1 : 0
+  count = var.enable_ecs_applications && var.enable_backend_cloudwatch_metrics ? 1 : 0
 
   statement {
     sid       = "PublishBackendMetrics"
@@ -140,7 +148,7 @@ data "aws_iam_policy_document" "backend_cloudwatch_metrics" {
 }
 
 resource "aws_iam_role_policy" "backend_cloudwatch_metrics" {
-  count = var.enable_backend_cloudwatch_metrics ? 1 : 0
+  count = var.enable_ecs_applications && var.enable_backend_cloudwatch_metrics ? 1 : 0
 
   name   = "publish-backend-cloudwatch-metrics"
   role   = aws_iam_role.task["backend"].id
@@ -152,7 +160,7 @@ resource "aws_iam_role_policy" "backend_cloudwatch_metrics" {
 # --------------------------------------------------
 
 data "aws_iam_policy_document" "backend_ecs_exec" {
-  count = var.environment == "staging" ? 1 : 0
+  count = var.enable_ecs_applications && var.environment == "staging" ? 1 : 0
 
   statement {
     sid    = "AllowECSExec"
@@ -170,7 +178,7 @@ data "aws_iam_policy_document" "backend_ecs_exec" {
 }
 
 resource "aws_iam_role_policy" "backend_ecs_exec" {
-  count = var.environment == "staging" ? 1 : 0
+  count = var.enable_ecs_applications && var.environment == "staging" ? 1 : 0
 
   name   = "backend-ecs-exec"
   role   = aws_iam_role.task["backend"].id

@@ -37,13 +37,17 @@ resource "aws_iam_role" "secret_rotation_redeploy" {
 data "aws_iam_policy_document" "secret_rotation_redeploy" {
   count = local.enable_secret_rotation_redeploy ? 1 : 0
 
-  statement {
-    sid     = "RedeployDatabaseConsumers"
-    actions = ["ecs:UpdateService"]
-    resources = local.enable_mysql_secret_rotation_redeploy ? [
-      aws_ecs_service.service["backend"].id,
-      aws_ecs_service.service["ai"].id
-    ] : [aws_ecs_service.service["ai"].id]
+  dynamic "statement" {
+    for_each = var.enable_ecs_applications ? [1] : []
+
+    content {
+      sid     = "RedeployDatabaseConsumers"
+      actions = ["ecs:UpdateService"]
+      resources = local.enable_mysql_secret_rotation_redeploy ? [
+        aws_ecs_service.service["backend"].id,
+        aws_ecs_service.service["ai"].id
+      ] : [aws_ecs_service.service["ai"].id]
+    }
   }
 
   statement {
@@ -103,9 +107,10 @@ resource "aws_lambda_function" "secret_rotation_redeploy" {
 
   environment {
     variables = {
+      ENABLE_ECS_REDEPLOY       = tostring(var.enable_ecs_applications)
       CLUSTER_NAME              = aws_ecs_cluster.main.name
-      BACKEND_SERVICE_NAME      = aws_ecs_service.service["backend"].name
-      AI_SERVICE_NAME           = aws_ecs_service.service["ai"].name
+      BACKEND_SERVICE_NAME      = var.enable_ecs_applications ? aws_ecs_service.service["backend"].name : ""
+      AI_SERVICE_NAME           = var.enable_ecs_applications ? aws_ecs_service.service["ai"].name : ""
       MYSQL_SECRET_ARN          = aws_db_instance.mysql[0].master_user_secret[0].secret_arn
       POSTGRES_SECRET_ARN       = aws_db_instance.postgres[0].master_user_secret[0].secret_arn
       POSTGRES_HOST             = aws_db_instance.postgres[0].address
@@ -124,7 +129,7 @@ resource "aws_cloudwatch_event_rule" "mysql_secret_rotation" {
   count = local.enable_secret_rotation_redeploy ? 1 : 0
 
   name        = "needu-${var.environment}-${local.secret_rotation_name}"
-  description = "Refresh ECS database consumers when an RDS-managed database secret changes"
+  description = "Refresh database consumers when an RDS-managed database secret changes"
 
   event_pattern = jsonencode({
     source      = ["aws.secretsmanager"]

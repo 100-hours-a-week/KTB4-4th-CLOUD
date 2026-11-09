@@ -45,6 +45,7 @@ class SecretRotationRedeployTest(unittest.TestCase):
         self.ecs.reset_mock()
         self.secrets_manager.reset_mock()
         self.ssm.reset_mock()
+        self.module.ENABLE_ECS_REDEPLOY = True
         self.ecs.update_service.return_value = {
             "service": {"deployments": [{"id": "deployment-1"}]}
         }
@@ -132,6 +133,49 @@ class SecretRotationRedeployTest(unittest.TestCase):
         self.assertFalse(result["redeployed"])
         self.ecs.update_service.assert_not_called()
         self.ssm.put_parameter.assert_not_called()
+
+    def test_mysql_rotation_skips_redeploy_when_ecs_is_disabled(self):
+        self.module.ENABLE_ECS_REDEPLOY = False
+
+        result = self.module.handler(
+            {
+                "resources": ["arn:mysql"],
+                "detail": {"labelUpdated": "AWSCURRENT"},
+            },
+            None,
+        )
+
+        self.assertEqual(result["target"], "backend")
+        self.assertFalse(result["redeployed"])
+        self.ecs.update_service.assert_not_called()
+
+    def test_postgres_rotation_updates_parameter_without_ecs_redeploy(self):
+        self.module.ENABLE_ECS_REDEPLOY = False
+        self.secrets_manager.get_secret_value.return_value = {
+            "SecretString": json.dumps(
+                {"username": "needu", "password": "new-password"}
+            )
+        }
+        self.ssm.get_parameter.return_value = {
+            "Parameter": {
+                "Value": "postgresql://needu:old-password@old:5432/needu_vector"
+            }
+        }
+        self.ssm.put_parameter.return_value = {"Version": 2}
+
+        result = self.module.handler(
+            {
+                "resources": ["arn:postgres"],
+                "detail": {"labelUpdated": "AWSCURRENT"},
+            },
+            None,
+        )
+
+        self.assertEqual(result["target"], "ai")
+        self.assertTrue(result["parameterUpdated"])
+        self.assertFalse(result["redeployed"])
+        self.ssm.put_parameter.assert_called_once()
+        self.ecs.update_service.assert_not_called()
 
 
 if __name__ == "__main__":

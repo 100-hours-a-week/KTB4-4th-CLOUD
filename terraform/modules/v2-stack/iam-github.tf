@@ -5,7 +5,7 @@
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "github_assume" {
-  for_each = var.github_subject_prefixes
+  for_each = var.enable_ecs_applications ? var.github_subject_prefixes : {}
 
   statement {
     actions = [
@@ -45,7 +45,7 @@ data "aws_iam_policy_document" "github_assume" {
 # --------------------------------------------------
 
 resource "aws_iam_role" "github_cd" {
-  for_each = var.github_subject_prefixes
+  for_each = var.enable_ecs_applications ? var.github_subject_prefixes : {}
 
   name = "needu-${var.environment}-${each.key}-github-ecs-cd"
 
@@ -58,7 +58,7 @@ resource "aws_iam_role" "github_cd" {
 # --------------------------------------------------
 
 resource "aws_iam_role_policy" "github_cd" {
-  for_each = var.github_subject_prefixes
+  for_each = var.enable_ecs_applications ? var.github_subject_prefixes : {}
 
   name = "ecs-deploy"
   role = aws_iam_role.github_cd[each.key].id

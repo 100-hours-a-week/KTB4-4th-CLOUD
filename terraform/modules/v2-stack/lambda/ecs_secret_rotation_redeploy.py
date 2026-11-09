@@ -12,6 +12,7 @@ LOGGER.setLevel(logging.INFO)
 ECS = boto3.client("ecs")
 SECRETS_MANAGER = boto3.client("secretsmanager")
 SSM = boto3.client("ssm")
+ENABLE_ECS_REDEPLOY = os.environ.get("ENABLE_ECS_REDEPLOY", "true").lower() == "true"
 CLUSTER_NAME = os.environ["CLUSTER_NAME"]
 BACKEND_SERVICE_NAME = os.environ["BACKEND_SERVICE_NAME"]
 AI_SERVICE_NAME = os.environ["AI_SERVICE_NAME"]
@@ -100,6 +101,13 @@ def handler(event, _context):
 
     secret_arn = resources[0]
     if secret_arn == MYSQL_SECRET_ARN:
+        if not ENABLE_ECS_REDEPLOY:
+            LOGGER.info("ECS redeploy is disabled; skipping MySQL consumer restart")
+            return {
+                "target": "backend",
+                "parameterUpdated": False,
+                "redeployed": False,
+            }
         deployment_id = redeploy(BACKEND_SERVICE_NAME)
         LOGGER.info(
             "Started Backend ECS deployment after MySQL secret rotation: deploymentId=%s",
@@ -114,6 +122,16 @@ def handler(event, _context):
 
     if secret_arn == POSTGRES_SECRET_ARN:
         parameter_updated = sync_ai_database_url()
+        if not ENABLE_ECS_REDEPLOY:
+            LOGGER.info(
+                "Updated the AI database URL without an ECS redeploy; "
+                "EKS consumes the synchronized secret"
+            )
+            return {
+                "target": "ai",
+                "parameterUpdated": parameter_updated,
+                "redeployed": False,
+            }
         deployment_id = redeploy(AI_SERVICE_NAME)
         LOGGER.info(
             "Started AI ECS deployment after PostgreSQL secret rotation: deploymentId=%s",
