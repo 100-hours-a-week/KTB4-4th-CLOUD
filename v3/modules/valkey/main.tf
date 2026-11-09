@@ -22,15 +22,15 @@ resource "aws_elasticache_subnet_group" "this" {
 
 resource "aws_elasticache_replication_group" "this" {
   replication_group_id = var.name
-  description          = "NeedU V3 Dev Valkey"
+  description          = var.description
   engine               = "valkey"
   engine_version       = var.engine_version
   node_type            = var.node_type
   port                 = 6379
 
-  num_cache_clusters         = 1
-  automatic_failover_enabled = false
-  multi_az_enabled           = false
+  num_cache_clusters         = var.num_cache_clusters
+  automatic_failover_enabled = var.automatic_failover_enabled
+  multi_az_enabled           = var.multi_az_enabled
 
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
@@ -39,7 +39,7 @@ resource "aws_elasticache_replication_group" "this" {
   subnet_group_name  = aws_elasticache_subnet_group.this.name
   security_group_ids = [aws_security_group.this.id]
 
-  snapshot_retention_limit = 0
+  snapshot_retention_limit = var.snapshot_retention_limit
   apply_immediately        = false
 
   tags = { Name = var.display_name }
