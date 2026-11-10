@@ -221,6 +221,7 @@ jobs:
           path: |
             ${{ env.TF_DIR }}/tfplan
             ${{ env.TF_DIR }}/plan-metadata.env
+            ${{ env.TF_DIR }}/*.zip
           if-no-files-found: error
           retention-days: 3
 
