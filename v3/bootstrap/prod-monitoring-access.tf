@@ -187,3 +187,78 @@ resource "aws_iam_role_policy_attachment" "v3_prod_alerting_resources" {
   role       = aws_iam_role.v3_prod_apply.name
   policy_arn = aws_iam_policy.v3_prod_alerting_resources.arn
 }
+
+data "aws_iam_policy_document" "v3_prod_amp_alerting" {
+  statement {
+    sid    = "ManageProdAMPAlertManager"
+    effect = "Allow"
+    actions = [
+      "aps:CreateAlertManagerDefinition",
+      "aps:DeleteAlertManagerDefinition",
+      "aps:PutAlertManagerDefinition",
+    ]
+    resources = ["arn:aws:aps:${local.region}:${local.account_id}:workspace/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Environment"
+      values   = ["prod"]
+    }
+  }
+
+  statement {
+    sid       = "CreateProdAMPRuleGroups"
+    effect    = "Allow"
+    actions   = ["aps:CreateRuleGroupsNamespace"]
+    resources = ["arn:aws:aps:${local.region}:${local.account_id}:rulegroupsnamespace/*/needu-v3-prod-alert-rules"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/Environment"
+      values   = ["prod"]
+    }
+  }
+
+  statement {
+    sid    = "UpdateProdAMPRuleGroups"
+    effect = "Allow"
+    actions = [
+      "aps:DeleteRuleGroupsNamespace",
+      "aps:PutRuleGroupsNamespace",
+      "aps:UntagResource",
+    ]
+    resources = [
+      "arn:aws:aps:${local.region}:${local.account_id}:rulegroupsnamespace/*/needu-v3-prod-alert-rules",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Environment"
+      values   = ["prod"]
+    }
+  }
+
+  statement {
+    sid       = "TagProdAMPRuleGroups"
+    effect    = "Allow"
+    actions   = ["aps:TagResource"]
+    resources = ["arn:aws:aps:${local.region}:${local.account_id}:rulegroupsnamespace/*/needu-v3-prod-alert-rules"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/Environment"
+      values   = ["prod"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "v3_prod_amp_alerting" {
+  name        = "NeedU-V3-Terraform-Prod-AMPAlerting"
+  description = "Allows V3 Production Terraform to manage AMP alert routing and rules"
+  policy      = data.aws_iam_policy_document.v3_prod_amp_alerting.json
+}
+
+resource "aws_iam_role_policy_attachment" "v3_prod_amp_alerting" {
+  role       = aws_iam_role.v3_prod_apply.name
+  policy_arn = aws_iam_policy.v3_prod_amp_alerting.arn
+}
