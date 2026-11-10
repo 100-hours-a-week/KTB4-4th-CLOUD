@@ -130,6 +130,25 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: v3-plan-${{ github.run_id }}
 
+      # Temporary diagnostic step for ALB DescribeTags permissions.
+      - name: Debug ALB DescribeTags permission
+        if: env.TF_ENV == 'prod'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+
+          echo "=== AWS Identity ==="
+          aws sts get-caller-identity \
+            --query '{Account:Account,Arn:Arn}' \
+            --output json
+
+          echo "=== ALB DescribeTags ==="
+          aws elbv2 describe-tags \
+            --resource-arns \
+              arn:aws:elasticloadbalancing:ap-northeast-2:919551759796:loadbalancer/app/needu-v3-prod-group/256a356de497689b \
+            --region "$AWS_REGION" \
+            --output json
+
       - name: Verify AWS identity
         run: |
           set -euo pipefail
