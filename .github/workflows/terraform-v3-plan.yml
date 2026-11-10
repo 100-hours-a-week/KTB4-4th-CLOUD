@@ -9,6 +9,15 @@ on:
     types: [opened, synchronize, reopened]
 
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Terraform environment"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
 
 permissions:
   contents: read
@@ -19,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_plan: ${{ steps.target.outputs.should_plan }}
+      environment: ${{ steps.target.outputs.environment }}
+      directory: ${{ steps.target.outputs.directory }}
 
     steps:
       - name: Checkout
@@ -27,10 +38,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Resolve Dev target
+      - name: Resolve Plan target
         id: target
         env:
           EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ inputs.environment }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
@@ -43,7 +55,10 @@ jobs:
               echo "::error::Manual Plan must run from main"
               exit 1
             }
+            TF_ENV="$INPUT_ENV"
             echo "should_plan=true" >> "$GITHUB_OUTPUT"
+            echo "environment=$TF_ENV" >> "$GITHUB_OUTPUT"
+            echo "directory=v3/environments/$TF_ENV" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -57,12 +72,19 @@ jobs:
 
           if grep -Eq '^(v3/|\.github/workflows/terraform-v3-)' changed-files.txt; then
             echo "should_plan=true" >> "$GITHUB_OUTPUT"
+            if grep -Eq '^v3/(environments/prod/|modules/eks-prod/)' changed-files.txt; then
+              echo "environment=prod" >> "$GITHUB_OUTPUT"
+              echo "directory=v3/environments/prod" >> "$GITHUB_OUTPUT"
+            else
+              echo "environment=dev" >> "$GITHUB_OUTPUT"
+              echo "directory=v3/environments/dev" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "should_plan=false" >> "$GITHUB_OUTPUT"
           fi
 
   plan:
-    name: Plan - Dev
+    name: Plan - ${{ needs.resolve.outputs.environment }}
     needs: resolve
     if: needs.resolve.outputs.should_plan == 'true'
     runs-on: ubuntu-latest
@@ -76,8 +98,8 @@ jobs:
       AWS_REGION: ap-northeast-2
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_ENV: dev
-      TF_DIR: v3/environments/dev
+      TF_ENV: ${{ needs.resolve.outputs.environment }}
+      TF_DIR: ${{ needs.resolve.outputs.directory }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
 
     steps:
@@ -98,8 +120,8 @@ jobs:
       - name: Verify lock file
         run: test -f "$TF_DIR/.terraform.lock.hcl"
 
-      - name: Verify Dev variables
-        run: test -f "$TF_DIR/dev.auto.tfvars"
+      - name: Verify environment variables
+        run: test -f "$TF_DIR/$TF_ENV.auto.tfvars"
 
       - name: Configure AWS Plan credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -252,7 +274,7 @@ jobs:
                   counts["update"] += 1
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
-              f.write("## Terraform V3 Dev Plan\n\n")
+              f.write(f"## Terraform V3 {os.environ['TF_ENV']} Plan\n\n")
               f.write("| Action | Count |\n")
               f.write("|---|---:|\n")
 
@@ -275,7 +297,7 @@ jobs:
       - name: Upload review artifact
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-v3-plan-review-dev-${{ github.run_id }}
+          name: terraform-v3-plan-review-${{ env.TF_ENV }}-${{ github.run_id }}
           path: ${{ env.TF_DIR }}/plan.txt
           if-no-files-found: error
           retention-days: 7
