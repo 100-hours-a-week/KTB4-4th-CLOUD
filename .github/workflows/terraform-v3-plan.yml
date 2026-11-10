@@ -150,6 +150,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # GitHub Actions 작업 공간에 남은 Provider가 현재 Lock 파일과
+          # 불일치하지 않도록 Terraform 생성 디렉터리를 초기화합니다.
+          rm -rf .terraform
+
           terraform init \
             -reconfigure \
             -input=false \

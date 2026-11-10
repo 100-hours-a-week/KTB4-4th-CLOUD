@@ -91,6 +91,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          # 현재 Lock 파일과 일치하는 Provider를 다시 설치합니다.
+          rm -rf .terraform
+
           terraform init \
             -reconfigure \
             -input=false \
@@ -306,6 +309,9 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         run: |
           set -euo pipefail
+
+          # Plan Job과 분리된 Apply Runner에서도 Provider를 새로 설치합니다.
+          rm -rf .terraform
 
           terraform init \
             -reconfigure \
