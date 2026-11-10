@@ -5,6 +5,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.24"
     }
+
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
   }
 }
 
