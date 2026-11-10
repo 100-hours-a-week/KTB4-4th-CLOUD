@@ -382,6 +382,35 @@ data "aws_iam_policy_document" "prod_apply" {
 
     resources = ["*"]
   }
+
+  statement {
+    sid = "ManageProdEKSSecurityGroupIngress"
+    actions = [
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:RevokeSecurityGroupIngress"
+    ]
+    resources = [
+      "arn:aws:ec2:${local.region}:${local.account_id}:security-group/sg-06867e8d11c60ce9d"
+    ]
+  }
+
+  statement {
+    sid       = "CreateProdEKSSecurityGroupRule"
+    actions   = ["ec2:AuthorizeSecurityGroupIngress"]
+    resources = ["arn:aws:ec2:${local.region}:${local.account_id}:security-group-rule/*"]
+  }
+
+  statement {
+    sid       = "TagProdEKSSecurityGroupRuleOnCreation"
+    actions   = ["ec2:CreateTags"]
+    resources = ["arn:aws:ec2:${local.region}:${local.account_id}:security-group-rule/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values   = ["AuthorizeSecurityGroupIngress"]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "v3_prod_apply" {

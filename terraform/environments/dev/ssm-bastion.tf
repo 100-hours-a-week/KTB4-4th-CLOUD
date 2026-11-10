@@ -110,9 +110,12 @@ resource "aws_iam_role_policy_attachment" "ssm_bastion" {
 
 data "aws_iam_policy_document" "ssm_bastion_dev_eks" {
   statement {
-    sid       = "DescribeDevEksCluster"
-    actions   = ["eks:DescribeCluster"]
-    resources = ["arn:aws:eks:ap-northeast-2:${data.aws_caller_identity.ssm_bastion.account_id}:cluster/needu-v3-dev"]
+    sid     = "DescribeEksClusters"
+    actions = ["eks:DescribeCluster"]
+    resources = [
+      "arn:aws:eks:ap-northeast-2:${data.aws_caller_identity.ssm_bastion.account_id}:cluster/needu-v3-dev",
+      "arn:aws:eks:ap-northeast-2:${data.aws_caller_identity.ssm_bastion.account_id}:cluster/needu-v3-prod"
+    ]
   }
 }
 
