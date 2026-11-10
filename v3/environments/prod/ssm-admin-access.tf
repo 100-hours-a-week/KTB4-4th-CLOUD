@@ -27,3 +27,13 @@ resource "aws_eks_access_policy_association" "ssm_admin_argocd" {
     namespaces = ["argocd"]
   }
 }
+
+resource "aws_eks_access_policy_association" "ssm_admin_cluster_read" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_eks_access_entry.ssm_admin.principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminViewPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+}

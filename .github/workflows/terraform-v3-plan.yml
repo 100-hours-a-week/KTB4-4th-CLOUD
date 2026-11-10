@@ -200,8 +200,8 @@ jobs:
           }'
 
           echo "=== Verify Existing EKS Cluster in State ==="
-          if ! terraform state list | grep -Fxq \
-            'module.eks.aws_eks_cluster.this'; then
+          if ! terraform state list | grep -Fx \
+            'module.eks.aws_eks_cluster.this' > /dev/null; then
             echo "::error::Existing EKS cluster is missing from Terraform State"
             echo "::error::Stopping Plan to prevent duplicate resource creation"
             exit 1
