@@ -90,7 +90,11 @@
       "Effect": "Allow",
       "Action": [
         "aps:DescribeLoggingConfiguration",
+        "aps:DescribeAlertManagerDefinition",
+        "aps:DescribeRuleGroupsNamespace",
         "aps:DescribeWorkspace",
+        "aps:GetAlertManagerStatus",
+        "aps:ListRuleGroupsNamespaces",
         "aps:ListTagsForResource",
         "grafana:DescribeWorkspace",
         "grafana:DescribeWorkspaceConfiguration",

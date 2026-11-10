@@ -70,7 +70,11 @@ data "aws_iam_policy_document" "v3_plan_eso_read" {
 
     actions = [
       "aps:DescribeLoggingConfiguration",
+      "aps:DescribeAlertManagerDefinition",
+      "aps:DescribeRuleGroupsNamespace",
       "aps:DescribeWorkspace",
+      "aps:GetAlertManagerStatus",
+      "aps:ListRuleGroupsNamespaces",
       "aps:ListTagsForResource",
       "grafana:DescribeWorkspace",
       "grafana:ListTagsForResource",
