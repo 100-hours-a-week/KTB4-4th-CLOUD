@@ -2,9 +2,23 @@ data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "prod_amp_sns" {
   statement {
-    sid       = "AllowAccountTopicAdministration"
-    effect    = "Allow"
-    actions   = ["sns:*"]
+    sid    = "AllowAccountTopicAdministration"
+    effect = "Allow"
+    # SNS topic policies require explicit SNS API actions; the sns:* wildcard
+    # is rejected by SNS with "action out of service scope".
+    actions = [
+      "sns:AddPermission",
+      "sns:DeleteTopic",
+      "sns:GetTopicAttributes",
+      "sns:ListSubscriptionsByTopic",
+      "sns:Publish",
+      "sns:RemovePermission",
+      "sns:SetTopicAttributes",
+      "sns:Subscribe",
+      "sns:TagResource",
+      "sns:Unsubscribe",
+      "sns:UntagResource",
+    ]
     resources = [aws_sns_topic.prod_alerts.arn]
 
     principals {
