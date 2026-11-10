@@ -4,19 +4,26 @@
     {
       "Sid": "EC2Read",
       "Effect": "Allow",
-      "Action": ["ec2:Describe*"],
+      "Action": [
+        "ec2:Describe*"
+      ],
       "Resource": "*"
     },
     {
       "Sid": "EKSRead",
       "Effect": "Allow",
-      "Action": ["eks:Describe*", "eks:List*"],
+      "Action": [
+        "eks:Describe*",
+        "eks:List*"
+      ],
       "Resource": "*"
     },
     {
       "Sid": "RDSRead",
       "Effect": "Allow",
-      "Action": ["rds:DescribeDBInstances"],
+      "Action": [
+        "rds:DescribeDBInstances"
+      ],
       "Resource": "*"
     },
     {
@@ -87,6 +94,16 @@
         "sns:GetSubscriptionAttributes",
         "sns:GetTopicAttributes",
         "sns:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ELBRead",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeTags"
       ],
       "Resource": "*"
     }
