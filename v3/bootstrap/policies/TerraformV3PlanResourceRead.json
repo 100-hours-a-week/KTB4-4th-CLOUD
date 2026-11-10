@@ -8,6 +8,12 @@
       "Resource": "*"
     },
     {
+      "Sid": "ELBRead",
+      "Effect": "Allow",
+      "Action": ["elasticloadbalancing:DescribeLoadBalancers"],
+      "Resource": "*"
+    },
+    {
       "Sid": "EKSRead",
       "Effect": "Allow",
       "Action": [

@@ -8,6 +8,12 @@
       "Resource": "*"
     },
     {
+      "Sid": "ELBRead",
+      "Effect": "Allow",
+      "Action": ["elasticloadbalancing:DescribeLoadBalancers"],
+      "Resource": "*"
+    },
+    {
       "Sid": "EKSRead",
       "Effect": "Allow",
       "Action": [
@@ -60,7 +66,7 @@
     {
       "Sid": "SchedulerRead",
       "Effect": "Allow",
-      "Action": "scheduler:GetSchedule",
+      "Action": ["scheduler:GetSchedule"],
       "Resource": [
         "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-night-stop",
         "arn:aws:scheduler:ap-northeast-2:919551759796:schedule/default/needu-v3-dev-*-morning-start"
@@ -69,7 +75,7 @@
     {
       "Sid": "SchedulerTagRead",
       "Effect": "Allow",
-      "Action": "scheduler:ListTagsForResource",
+      "Action": ["scheduler:ListTagsForResource"],
       "Resource": "*"
     },
     {

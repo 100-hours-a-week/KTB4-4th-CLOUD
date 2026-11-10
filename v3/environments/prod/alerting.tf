@@ -91,7 +91,9 @@ resource "aws_sns_topic_subscription" "discord_notifier" {
   protocol  = "lambda"
   endpoint  = aws_lambda_function.discord_notifier.arn
 
-  depends_on = [aws_lambda_permission.sns_invoke_discord]
+  depends_on = [
+    aws_lambda_permission.sns_invoke_discord,
+  ]
 }
 
 output "prod_alerts_sns_topic_arn" {
