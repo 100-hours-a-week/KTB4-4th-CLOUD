@@ -106,3 +106,16 @@ resource "aws_route53_record" "staging_cutover" {
   ttl     = 60
   records = ["v2.needu.gift"]
 }
+
+# V3 Production 전용 도메인을 V3 Production ALB에 연결한다.
+resource "aws_route53_record" "v3_prod" {
+  zone_id = data.aws_route53_zone.needu.zone_id
+  name    = "v3.prod.needu.gift"
+  type    = "A"
+
+  alias {
+    name                   = "needu-v3-prod-group-1531405752.ap-northeast-2.elb.amazonaws.com"
+    zone_id                = "ZWKZPGTI48KDX"
+    evaluate_target_health = true
+  }
+}
