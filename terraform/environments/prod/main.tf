@@ -54,9 +54,9 @@ module "v2" {
 
   # 1차: 기존 Production Redis OSS 7.1 유지
   # Replica 추가 및 Multi-AZ 구성 후 별도 작업으로 Valkey 전환
-  redis_engine                = "valkey"
-  redis_engine_version        = "8.0"
-  redis_parameter_group_name  = "default.valkey8"
+  redis_engine               = "valkey"
+  redis_engine_version       = "8.0"
+  redis_parameter_group_name = "default.valkey8"
 
   task_cpu                 = var.task_cpu
   task_memory              = var.task_memory
