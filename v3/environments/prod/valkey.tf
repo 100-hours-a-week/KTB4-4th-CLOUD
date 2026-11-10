@@ -29,19 +29,4 @@ module "valkey" {
   snapshot_retention_limit   = 7
 }
 
-module "valkey_cache" {
-  source = "../../modules/valkey"
 
-  name         = "${var.name}-valkey-a"
-  display_name = "${var.name}-valkey-cache"
-  description  = "NeedU V3 Production Valkey Cache"
-
-  vpc_id                     = var.vpc_id
-  subnet_ids                 = local.valkey_subnet_ids
-  eks_node_security_group_id = data.aws_eks_cluster.valkey.vpc_config[0].cluster_security_group_id
-
-  num_cache_clusters         = 2
-  automatic_failover_enabled = true
-  multi_az_enabled           = true
-  snapshot_retention_limit   = 7
-}

@@ -1,4 +1,3 @@
-
 terraform {
   required_version = ">= 1.10.0, < 2.0.0"
 
@@ -41,15 +40,24 @@ module "v2" {
   domain_name              = var.domain_name
   ecr_repository_urls      = var.ecr_repository_urls
   image_tags               = var.image_tags
-  mysql_engine_version     = var.mysql_engine_version
-  postgres_engine_version  = var.postgres_engine_version
-  mysql_instance_class     = var.mysql_instance_class
-  postgres_instance_class  = var.postgres_instance_class
-  mysql_storage_gb         = var.mysql_storage_gb
-  mysql_parameter_group    = var.mysql_parameter_group
-  postgres_storage_gb      = var.postgres_storage_gb
-  redis_node_type          = var.redis_node_type
-  redis_num_nodes          = var.redis_num_nodes
+
+  mysql_engine_version    = var.mysql_engine_version
+  postgres_engine_version = var.postgres_engine_version
+  mysql_instance_class    = var.mysql_instance_class
+  postgres_instance_class = var.postgres_instance_class
+  mysql_storage_gb        = var.mysql_storage_gb
+  mysql_parameter_group   = var.mysql_parameter_group
+  postgres_storage_gb     = var.postgres_storage_gb
+
+  redis_node_type = var.redis_node_type
+  redis_num_nodes = var.redis_num_nodes
+
+  # 1차: 기존 Production Redis OSS 7.1 유지
+  # Replica 추가 및 Multi-AZ 구성 후 별도 작업으로 Valkey 전환
+  redis_engine                = "valkey"
+  redis_engine_version        = "8.0"
+  redis_parameter_group_name  = "default.valkey8"
+
   task_cpu                 = var.task_cpu
   task_memory              = var.task_memory
   task_desired_count       = var.task_desired_count

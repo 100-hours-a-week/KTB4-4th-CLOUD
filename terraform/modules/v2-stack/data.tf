@@ -1,3 +1,4 @@
+
 resource "aws_db_subnet_group" "main" {
   name       = "needu-${var.environment}-db-subnets"
   subnet_ids = local.db_subnet_ids
@@ -115,9 +116,14 @@ resource "aws_elasticache_subnet_group" "redis" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id       = "needu-${var.environment}-redis"
-  description                = "NeedU ${var.environment} Redis"
-  engine                     = "redis"
+  replication_group_id = "needu-${var.environment}-redis"
+  description          = "NeedU ${var.environment} ${upper(var.redis_engine)}"
+
+  # Environment-specific Engine
+  engine               = var.redis_engine
+  engine_version       = var.redis_engine_version
+  parameter_group_name = var.redis_parameter_group_name
+
   node_type                  = var.redis_node_type
   port                       = 6379
   num_cache_clusters         = var.redis_num_nodes

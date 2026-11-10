@@ -56,7 +56,7 @@ mysql_parameter_group = {
 }
 postgres_storage_gb = 20
 redis_node_type     = "cache.t4g.small"
-redis_num_nodes     = 1
+redis_num_nodes     = 2
 task_cpu            = { frontend = 512, backend = 1024, ai = 512 }
 task_memory         = { frontend = 1024, backend = 2048, ai = 1024 }
 # 최초 Apply에서는 RDS와 런타임 리소스만 생성한다.
