@@ -431,3 +431,10 @@ resource "aws_iam_role_policy" "v3_prod_apply" {
   role   = aws_iam_role.v3_prod_apply.name
   policy = data.aws_iam_policy_document.prod_apply.json
 }
+
+resource "aws_iam_role_policy" "v3_prod_waf_association" {
+  name = "TerraformV3ProdWAFAssociation"
+  role = aws_iam_role.v3_prod_apply.name
+
+  policy = file("${path.module}/policies/TerraformV3ProdWAFAssociation.json")
+}

@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageProdWAFAssociation",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:AssociateWebACL",
+        "wafv2:DisassociateWebACL"
+      ],
+      "Resource": [
+        "arn:aws:wafv2:ap-northeast-2:919551759796:regional/webacl/needu-v3-prod-waf/e3c63c99-020c-445a-9a66-2df3a1096b0e",
+        "arn:aws:elasticloadbalancing:ap-northeast-2:919551759796:loadbalancer/app/needu-v3-prod-group/256a356de497689b"
+      ]
+    }
+  ]
+}
