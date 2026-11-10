@@ -21,6 +21,7 @@ variable "additional_public_routes" {
 variable "db_subnets" {
   type = map(object({ az = string, cidr = string }))
 }
+
 variable "certificate_arn" {
   type = string
 }
@@ -88,6 +89,30 @@ variable "redis_num_nodes" {
     condition     = var.redis_num_nodes >= 1 && floor(var.redis_num_nodes) == var.redis_num_nodes
     error_message = "Redis 노드 수는 1 이상의 정수여야 합니다."
   }
+}
+
+# ElastiCache Engine Configuration
+variable "redis_engine" {
+  description = "ElastiCache engine (redis or valkey)"
+  type        = string
+  default     = "redis"
+
+  validation {
+    condition     = contains(["redis", "valkey"], var.redis_engine)
+    error_message = "redis_engine must be redis or valkey."
+  }
+}
+
+variable "redis_engine_version" {
+  description = "ElastiCache engine version"
+  type        = string
+  default     = null
+}
+
+variable "redis_parameter_group_name" {
+  description = "ElastiCache parameter group name"
+  type        = string
+  default     = null
 }
 
 variable "task_cpu" {
