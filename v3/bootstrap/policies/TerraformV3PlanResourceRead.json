@@ -12,7 +12,8 @@
       "Effect": "Allow",
       "Action": [
         "elasticloadbalancing:DescribeLoadBalancers",
-        "elasticloadbalancing:DescribeLoadBalancerAttributes"
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeTags"
       ],
       "Resource": "*"
     },
