@@ -1,0 +1,90 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EC2Read",
+      "Effect": "Allow",
+      "Action": ["ec2:Describe*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EKSRead",
+      "Effect": "Allow",
+      "Action": ["eks:Describe*", "eks:List*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RDSRead",
+      "Effect": "Allow",
+      "Action": ["rds:DescribeDBInstances"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMRead",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole",
+        "iam:ListPolicyVersions",
+        "iam:ListRolePolicies",
+        "iam:ListRoleTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ElastiCacheRead",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeCacheParameterGroups",
+        "elasticache:DescribeCacheSubnetGroups",
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WAFRead",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:GetLoggingConfiguration",
+        "wafv2:GetWebACL",
+        "wafv2:GetWebACLForResource",
+        "wafv2:ListResourcesForWebACL",
+        "wafv2:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "MonitoringAndSecretsRead",
+      "Effect": "Allow",
+      "Action": [
+        "aps:DescribeLoggingConfiguration",
+        "aps:DescribeWorkspace",
+        "aps:ListTagsForResource",
+        "grafana:DescribeWorkspace",
+        "grafana:DescribeWorkspaceConfiguration",
+        "grafana:ListTagsForResource",
+        "lambda:GetFunction",
+        "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetFunctionConcurrency",
+        "lambda:GetPolicy",
+        "lambda:GetRuntimeManagementConfig",
+        "lambda:ListTags",
+        "lambda:ListVersionsByFunction",
+        "logs:DescribeLogGroups",
+        "logs:ListTagsForResource",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetResourcePolicy",
+        "sns:GetSubscriptionAttributes",
+        "sns:GetTopicAttributes",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -110,6 +110,19 @@ resource "aws_iam_role_policy" "v3_prod_state" {
   policy = data.aws_iam_policy_document.prod_state.json
 }
 
+# Terraform은 Apply 전에 Remote State와 실제 AWS 리소스를 비교한다.
+# 변경 권한과 조회 권한을 분리해 Prod Apply 인라인 정책의 크기 증가를 방지한다.
+resource "aws_iam_policy" "v3_prod_resource_read" {
+  name        = "NeedU-V3-Terraform-Prod-ResourceRead"
+  description = "Allows V3 Prod Terraform to read resources during state refresh"
+  policy      = file("${path.module}/policies/TerraformV3ProdResourceRead.json")
+}
+
+resource "aws_iam_role_policy_attachment" "v3_prod_resource_read" {
+  role       = aws_iam_role.v3_prod_apply.name
+  policy_arn = aws_iam_policy.v3_prod_resource_read.arn
+}
+
 # Production Terraform Apply permissions
 data "aws_iam_policy_document" "prod_apply" {
 
