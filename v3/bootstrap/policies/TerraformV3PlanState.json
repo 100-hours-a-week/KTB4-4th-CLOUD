@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::needu-terraform-state-919551759796",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "v3/dev/terraform.tfstate",
+            "v3/dev/terraform.tfstate.tflock",
+            "v3/prod/terraform.tfstate",
+            "v3/prod/terraform.tfstate.tflock"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "arn:aws:s3:::needu-terraform-state-919551759796/v3/dev/terraform.tfstate",
+        "arn:aws:s3:::needu-terraform-state-919551759796/v3/prod/terraform.tfstate"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::needu-terraform-state-919551759796/v3/dev/terraform.tfstate.tflock",
+        "arn:aws:s3:::needu-terraform-state-919551759796/v3/prod/terraform.tfstate.tflock"
+      ]
+    }
+  ]
+}
