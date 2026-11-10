@@ -59,3 +59,28 @@ resource "aws_iam_role" "v3_prod_promotion" {
   }
 }
 
+data "aws_iam_policy_document" "v3_prod_promotion_ecr_read" {
+  for_each = local.v3_prod_promotion_services
+
+  statement {
+    sid       = "ReadProductionImageMetadata"
+    effect    = "Allow"
+    actions   = ["ecr:DescribeImages"]
+    resources = [each.value.ecr_repository_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "v3_prod_promotion_ecr_read" {
+  for_each = local.v3_prod_promotion_services
+
+  name   = "ReadProductionECRImageMetadata"
+  role   = aws_iam_role.v3_prod_promotion[each.key].name
+  policy = data.aws_iam_policy_document.v3_prod_promotion_ecr_read[each.key].json
+}
+
+output "v3_prod_promotion_role_arns" {
+  description = "GitHub Actions OIDC roles used to promote V3 production images"
+  value = {
+    for service, role in aws_iam_role.v3_prod_promotion : service => role.arn
+  }
+}
