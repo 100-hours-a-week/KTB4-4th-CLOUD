@@ -10,7 +10,10 @@
     {
       "Sid": "ELBRead",
       "Effect": "Allow",
-      "Action": ["elasticloadbalancing:DescribeLoadBalancers"],
+      "Action": [
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes"
+      ],
       "Resource": "*"
     },
     {
