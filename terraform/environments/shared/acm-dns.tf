@@ -119,3 +119,27 @@ resource "aws_route53_record" "v3_prod" {
     evaluate_target_health = true
   }
 }
+
+# needu.gift의 기존 ECS ALB Alias를 Terraform 상태로 가져와
+# V3 Production ALB로 전환합니다. 기존 레코드를 먼저 import하므로
+# 새 레코드 생성이 아니라 기존 A Alias의 대상만 변경합니다.
+import {
+  to = aws_route53_record.prod_apex_v3
+  id = "Z10258582M6TRCEOCUBUW_needu.gift_A"
+}
+
+resource "aws_route53_record" "prod_apex_v3" {
+  zone_id = data.aws_route53_zone.needu.zone_id
+  name    = "needu.gift"
+  type    = "A"
+
+  alias {
+    name                   = "needu-v3-prod-group-1531405752.ap-northeast-2.elb.amazonaws.com"
+    zone_id                = "ZWKZPGTI48KDX"
+    evaluate_target_health = true
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
