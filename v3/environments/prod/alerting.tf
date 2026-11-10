@@ -54,7 +54,7 @@ resource "aws_iam_role_policy" "discord_notifier" {
 data "archive_file" "discord_notifier" {
   type        = "zip"
   source_file = "${path.module}/lambda/discord_notifier.py"
-  output_path = "${path.module}/.terraform/discord_notifier.zip"
+  output_path = "${path.module}/discord_notifier.zip"
 }
 
 resource "aws_lambda_function" "discord_notifier" {

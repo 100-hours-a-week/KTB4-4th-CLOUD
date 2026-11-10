@@ -65,9 +65,12 @@ resource "aws_iam_role_policy_attachment" "v3_prod_monitoring_iam" {
 
 data "aws_iam_policy_document" "v3_prod_monitoring_resources" {
   statement {
-    sid       = "CreateProdAMPWorkspace"
-    effect    = "Allow"
-    actions   = ["aps:CreateWorkspace"]
+    sid    = "CreateProdAMPWorkspace"
+    effect = "Allow"
+    actions = [
+      "aps:CreateWorkspace",
+      "aps:TagResource",
+    ]
     resources = ["*"]
 
     condition {
@@ -135,6 +138,7 @@ data "aws_iam_policy_document" "v3_prod_alerting_resources" {
       "sns:DeleteTopic",
       "sns:Subscribe",
       "sns:Unsubscribe",
+      "sns:SetTopicAttributes",
       "sns:SetSubscriptionAttributes",
       "sns:TagResource",
       "sns:UntagResource",
