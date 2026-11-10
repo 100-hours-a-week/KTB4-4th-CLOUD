@@ -17,6 +17,7 @@ override.tf.json
 *_override.tf.json
 **/tfplan
 !v3/environments/dev/dev.auto.tfvars
+!v3/environments/prod/prod.auto.tfvars
 gcp/environments/dev/backend.hcl
 gcp/environments/dev/terraform.tfvars
 gcp/environments/dev/credential-configuration.json

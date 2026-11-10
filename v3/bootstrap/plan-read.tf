@@ -1,6 +1,18 @@
 
 # V3 Plan Role은 Apply Role과 별도로 생성되어 있다.
 # Terraform refresh에 필요한 리소스 조회 권한을 부여한다.
+resource "aws_iam_role_policy" "v3_plan_state" {
+  name   = "TerraformV3State"
+  role   = "NeedU-V3-Terraform-Plan"
+  policy = file("${path.module}/policies/TerraformV3PlanState.json")
+}
+
+resource "aws_iam_role_policy" "v3_plan_resource_read" {
+  name   = "TerraformV3ResourceRead"
+  role   = "NeedU-V3-Terraform-Plan"
+  policy = file("${path.module}/policies/TerraformV3PlanResourceRead.json")
+}
+
 data "aws_iam_policy_document" "v3_plan_eso_read" {
   statement {
     sid       = "DescribeDevPodIdentityAssociations"

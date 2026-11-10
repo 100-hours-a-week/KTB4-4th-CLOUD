@@ -2,6 +2,15 @@ name: Terraform V3 Apply
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Terraform environment"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
 
 permissions:
   contents: read
@@ -12,7 +21,7 @@ concurrency:
 
 jobs:
   plan:
-    name: Plan - Dev
+    name: Plan - ${{ inputs.environment }}
     runs-on: ubuntu-latest
     environment: terraform-v3-plan
 
@@ -24,8 +33,8 @@ jobs:
       AWS_REGION: ap-northeast-2
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_ENV: dev
-      TF_DIR: v3/environments/dev
+      TF_ENV: ${{ inputs.environment }}
+      TF_DIR: v3/environments/${{ inputs.environment }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
 
     steps:
@@ -56,7 +65,7 @@ jobs:
           terraform fmt -check -recursive v3/
           test -f "$TF_DIR/.terraform.lock.hcl"
           test -f "$TF_DIR/backend.tf"
-          test -f "$TF_DIR/dev.auto.tfvars"
+          test -f "$TF_DIR/$TF_ENV.auto.tfvars"
 
       - name: Configure Plan credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -195,7 +204,7 @@ jobs:
           } > plan-metadata.env
 
           {
-            echo "## Terraform V3 Dev Plan"
+            echo "## Terraform V3 $TF_ENV Plan"
             echo "- Environment: $TF_ENV"
             echo "- Commit: $COMMIT_SHA"
             echo "- Plan SHA-256: $PLAN_SHA"
@@ -205,7 +214,7 @@ jobs:
       - name: Upload exact Plan
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-v3-plan-dev-${{ github.run_id }}-${{ github.run_attempt }}
+          name: terraform-v3-plan-${{ env.TF_ENV }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ env.TF_DIR }}/tfplan
             ${{ env.TF_DIR }}/plan-metadata.env
@@ -213,10 +222,10 @@ jobs:
           retention-days: 3
 
   apply:
-    name: Apply - Dev
+    name: Apply - ${{ inputs.environment }}
     needs: plan
     runs-on: ubuntu-latest
-    environment: v3-dev
+    environment: v3-${{ inputs.environment }}
 
     permissions:
       contents: read
@@ -227,8 +236,8 @@ jobs:
       AWS_REGION: ap-northeast-2
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_ENV: dev
-      TF_DIR: v3/environments/dev
+      TF_ENV: ${{ inputs.environment }}
+      TF_DIR: v3/environments/${{ inputs.environment }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
 
     steps:
@@ -246,7 +255,7 @@ jobs:
       - name: Download exact Plan
         uses: actions/download-artifact@v4
         with:
-          name: terraform-v3-plan-dev-${{ github.run_id }}-${{ github.run_attempt }}
+          name: terraform-v3-plan-${{ env.TF_ENV }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.TF_DIR }}
 
       - name: Verify Plan metadata and checksum
@@ -277,7 +286,7 @@ jobs:
       - name: Configure Apply credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.V3_TERRAFORM_APPLY_ROLE_ARN }}
+          role-to-assume: ${{ inputs.environment == 'prod' && 'arn:aws:iam::919551759796:role/NeedU-V3-Terraform-Prod' || vars.V3_TERRAFORM_APPLY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: v3-apply-${{ github.run_id }}
 
@@ -381,7 +390,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-v3-apply-logs-dev-${{ github.run_id }}
+          name: terraform-v3-apply-logs-${{ env.TF_ENV }}-${{ github.run_id }}
           path: ${{ env.TF_DIR }}/post-apply-plan.txt
           if-no-files-found: ignore
           retention-days: 7

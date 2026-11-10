@@ -2,6 +2,7 @@
 **/*.tfstate
 **/*.tfstate.*
 **/.terraform.lock.hcl
+!environments/prod/.terraform.lock.hcl
 **/terraform.tfvars
 **/backend.tf
 **/crash.log
