@@ -1,3 +1,4 @@
+
 resource "aws_wafv2_web_acl" "prod" {
   name        = "needu-v3-prod-waf"
   description = "WAF for NeedU V3 Production ALB"
@@ -83,9 +84,8 @@ resource "aws_wafv2_web_acl" "prod" {
 
     statement {
       rate_based_statement {
-        limit              = 2000
-        aggregate_key_type = "IP"
-
+        limit                 = 2000
+        aggregate_key_type    = "IP"
         evaluation_window_sec = 300
       }
     }
@@ -108,4 +108,15 @@ resource "aws_wafv2_web_acl" "prod" {
     Environment = "prod"
     ManagedBy   = "Terraform"
   }
+}
+
+# V3 Production ALB 조회
+data "aws_lb" "prod" {
+  name = "needu-v3-prod-group"
+}
+
+# WAF Web ACL을 V3 Production ALB에 연결
+resource "aws_wafv2_web_acl_association" "prod_alb" {
+  resource_arn = data.aws_lb.prod.arn
+  web_acl_arn  = aws_wafv2_web_acl.prod.arn
 }
