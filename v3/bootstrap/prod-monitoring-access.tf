@@ -3,6 +3,7 @@ locals {
     "arn:aws:iam::${local.account_id}:role/${local.prod_prefix}-adot",
     "arn:aws:iam::${local.account_id}:role/${local.prod_prefix}-fluent-bit",
     "arn:aws:iam::${local.account_id}:role/${local.prod_prefix}-discord-notifier",
+    "arn:aws:iam::${local.account_id}:role/${local.prod_prefix}-grafana",
   ]
 }
 
@@ -48,6 +49,19 @@ data "aws_iam_policy_document" "v3_prod_monitoring_iam" {
       test     = "StringEquals"
       variable = "iam:PassedToService"
       values   = ["lambda.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid       = "PassProdGrafanaRoleToGrafana"
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
+    resources = ["arn:aws:iam::${local.account_id}:role/${local.prod_prefix}-grafana"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["grafana.amazonaws.com"]
     }
   }
 }
@@ -115,6 +129,53 @@ data "aws_iam_policy_document" "v3_prod_monitoring_resources" {
       "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/needu-v3-prod-discord-notifier",
       "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/needu-v3-prod-discord-notifier:*",
     ]
+  }
+
+  statement {
+    sid    = "CreateProdGrafanaWorkspace"
+    effect = "Allow"
+    actions = [
+      "grafana:CreateWorkspace",
+      "grafana:TagResource",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/Environment"
+      values   = ["prod"]
+    }
+  }
+
+  statement {
+    sid    = "ManageProdGrafanaWorkspace"
+    effect = "Allow"
+    actions = [
+      "grafana:DeleteWorkspace",
+      "grafana:TagResource",
+      "grafana:UntagResource",
+      "grafana:UpdateWorkspace",
+      "grafana:UpdateWorkspaceAuthentication",
+      "grafana:UpdateWorkspaceConfiguration",
+    ]
+    resources = ["arn:aws:grafana:${local.region}:${local.account_id}:/workspaces/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Environment"
+      values   = ["prod"]
+    }
+  }
+
+  statement {
+    sid    = "CreateProdGrafanaSSOApplication"
+    effect = "Allow"
+    actions = [
+      "sso:CreateManagedApplicationInstance",
+      "sso:DescribeRegisteredRegions",
+      "sso:GetSharedSsoConfiguration",
+    ]
+    resources = ["*"]
   }
 }
 
