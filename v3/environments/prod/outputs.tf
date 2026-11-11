@@ -42,3 +42,18 @@ output "application_log_group_name" {
   description = "CloudWatch Log Group for V3 Production EKS application logs"
   value       = aws_cloudwatch_log_group.fluent_bit.name
 }
+
+output "grafana_workspace_id" {
+  description = "V3 Production Grafana Workspace ID"
+  value       = aws_grafana_workspace.prod.id
+}
+
+output "grafana_workspace_endpoint" {
+  description = "V3 Production Grafana Workspace URL"
+  value       = aws_grafana_workspace.prod.endpoint
+}
+
+output "grafana_workspace_role_arn" {
+  description = "V3 Production Grafana IAM Role ARN"
+  value       = aws_iam_role.grafana.arn
+}
