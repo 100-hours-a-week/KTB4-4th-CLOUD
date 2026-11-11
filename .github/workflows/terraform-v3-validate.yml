@@ -31,6 +31,13 @@ jobs:
       - name: Check formatting
         run: terraform fmt -check -recursive v3/
 
+      - name: Validate Grafana dashboard JSON
+        run: |
+          set -euo pipefail
+          find v3 -path '*/grafana/dashboards/*.json' -print0 \
+            | xargs -0 -r -n1 jq -e \
+              '.uid and .title and (.panels | length > 0) and (.templating.list | length > 0)'
+
       - name: Verify environment and lock file
         run: |
           set -euo pipefail
