@@ -10,6 +10,11 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
+
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 4.0"
+    }
   }
 }
 
@@ -24,3 +29,5 @@ provider "aws" {
     }
   }
 }
+
+provider "grafana" {}
