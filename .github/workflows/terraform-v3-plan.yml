@@ -101,6 +101,8 @@ jobs:
       TF_ENV: ${{ needs.resolve.outputs.environment }}
       TF_DIR: ${{ needs.resolve.outputs.directory }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
+      GRAFANA_URL: ${{ needs.resolve.outputs.environment == 'prod' && vars.V3_PROD_GRAFANA_URL || '' }}
+      GRAFANA_AUTH: ${{ needs.resolve.outputs.environment == 'prod' && secrets.V3_PROD_GRAFANA_TERRAFORM_TOKEN || '' }}
 
     steps:
       - name: Checkout
@@ -163,6 +165,19 @@ jobs:
             echo "::error::Unexpected AWS account: $account"
             exit 1
           fi
+
+      - name: Verify Grafana provisioning credentials
+        if: env.TF_ENV == 'prod'
+        run: |
+          set -euo pipefail
+          test -n "$GRAFANA_URL" || {
+            echo "::error::Set V3_PROD_GRAFANA_URL in the terraform-v3-plan environment"
+            exit 1
+          }
+          test -n "$GRAFANA_AUTH" || {
+            echo "::error::Set V3_PROD_GRAFANA_TERRAFORM_TOKEN in the terraform-v3-plan environment"
+            exit 1
+          }
 
       - name: Initialize remote backend
         working-directory: ${{ env.TF_DIR }}

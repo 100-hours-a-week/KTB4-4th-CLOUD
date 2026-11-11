@@ -36,6 +36,8 @@ jobs:
       TF_ENV: ${{ inputs.environment }}
       TF_DIR: v3/environments/${{ inputs.environment }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
+      GRAFANA_URL: ${{ inputs.environment == 'prod' && vars.V3_PROD_GRAFANA_URL || '' }}
+      GRAFANA_AUTH: ${{ inputs.environment == 'prod' && secrets.V3_PROD_GRAFANA_TERRAFORM_TOKEN || '' }}
 
     steps:
       - name: Verify main branch
@@ -83,6 +85,19 @@ jobs:
 
           [[ "$account" == "919551759796" ]] || {
             echo "::error::Unexpected AWS account: $account"
+            exit 1
+          }
+
+      - name: Verify Grafana provisioning credentials
+        if: inputs.environment == 'prod'
+        run: |
+          set -euo pipefail
+          test -n "$GRAFANA_URL" || {
+            echo "::error::Set V3_PROD_GRAFANA_URL in the terraform-v3-plan environment"
+            exit 1
+          }
+          test -n "$GRAFANA_AUTH" || {
+            echo "::error::Set V3_PROD_GRAFANA_TERRAFORM_TOKEN in the terraform-v3-plan environment"
             exit 1
           }
 
@@ -243,6 +258,8 @@ jobs:
       TF_ENV: ${{ inputs.environment }}
       TF_DIR: v3/environments/${{ inputs.environment }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
+      GRAFANA_URL: ${{ inputs.environment == 'prod' && vars.V3_PROD_GRAFANA_URL || '' }}
+      GRAFANA_AUTH: ${{ inputs.environment == 'prod' && secrets.V3_PROD_GRAFANA_TERRAFORM_TOKEN || '' }}
 
     steps:
       - name: Checkout
@@ -286,6 +303,19 @@ jobs:
           [[ "$(get_meta plan_sha256)" == "$(sha256sum tfplan | awk '{print $1}')" ]]
 
           echo "Plan metadata and checksum verified."
+
+      - name: Verify Grafana provisioning credentials
+        if: inputs.environment == 'prod'
+        run: |
+          set -euo pipefail
+          test -n "$GRAFANA_URL" || {
+            echo "::error::Set V3_PROD_GRAFANA_URL in the v3-prod environment"
+            exit 1
+          }
+          test -n "$GRAFANA_AUTH" || {
+            echo "::error::Set V3_PROD_GRAFANA_TERRAFORM_TOKEN in the v3-prod environment"
+            exit 1
+          }
 
       - name: Configure Apply credentials
         uses: aws-actions/configure-aws-credentials@v4
