@@ -1,0 +1,189 @@
+{
+  "annotations": {"list": []},
+  "description": "NeedU V3 Production EKS 운영 상태와 자원 사용량",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"} == 1)", "instant": true, "legendFormat": "Ready", "refId": "A"}],
+      "title": "Ready Nodes",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"false\"} == 1) or vector(0)", "instant": true, "legendFormat": "NotReady", "refId": "A"}],
+      "title": "NotReady Nodes",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(kube_pod_status_phase{phase=\"Pending\",exported_namespace=~\"$namespace\"} == 1) or vector(0)", "instant": true, "legendFormat": "Pending", "refId": "A"}],
+      "title": "Pending Pods",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(kube_deployment_status_replicas_unavailable{exported_namespace=~\"$namespace\",deployment=~\"$deployment\"}) or vector(0)", "instant": true, "legendFormat": "Unavailable", "refId": "A"}],
+      "title": "Unavailable Replicas",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "id": 5,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(kube_pod_container_status_waiting_reason{exported_namespace=~\"$namespace\",pod=~\"$pod\",reason=\"CrashLoopBackOff\"} == 1) or vector(0)", "instant": true, "legendFormat": "CrashLoop", "refId": "A"}],
+      "title": "CrashLoopBackOff",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "id": 6,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "count(kube_node_info{node=~\"$node\"})", "instant": true, "legendFormat": "Nodes", "refId": "A"}],
+      "title": "Selected Nodes",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4},
+      "id": 7,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "100 * sum by (node) (rate(container_cpu_usage_seconds_total{job=\"kubernetes-nodes-cadvisor\",node=~\"$node\",container!=\"\",image!=\"\"}[$__rate_interval])) / max by (node) (machine_cpu_cores{job=\"kubernetes-nodes-cadvisor\",node=~\"$node\"})", "legendFormat": "{{node}}", "refId": "A"}],
+      "title": "Node CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4},
+      "id": 8,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "100 * sum by (node) (container_memory_working_set_bytes{job=\"kubernetes-nodes-cadvisor\",node=~\"$node\",container!=\"\",image!=\"\"}) / max by (node) (machine_memory_bytes{job=\"kubernetes-nodes-cadvisor\",node=~\"$node\"})", "legendFormat": "{{node}}", "refId": "A"}],
+      "title": "Node Memory Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4},
+      "id": 9,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "sum(kube_pod_status_phase{phase=\"Running\",exported_namespace=~\"$namespace\"} == 1) by (exported_namespace)", "legendFormat": "{{exported_namespace}}", "refId": "A"}],
+      "title": "Running Pods by Namespace",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 10,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "kube_deployment_spec_replicas{exported_namespace=~\"$namespace\",deployment=~\"$deployment\"}", "legendFormat": "desired {{exported_namespace}}/{{deployment}}", "refId": "A"},
+        {"editorMode": "code", "expr": "kube_deployment_status_replicas_available{exported_namespace=~\"$namespace\",deployment=~\"$deployment\"}", "legendFormat": "available {{exported_namespace}}/{{deployment}}", "refId": "B"}
+      ],
+      "title": "Deployment Replicas",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "cores"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 11,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "sum by (namespace,pod) (rate(container_cpu_usage_seconds_total{job=\"kubernetes-nodes-cadvisor\",namespace=~\"$namespace\",pod=~\"$pod\",container!=\"\",image!=\"\"}[$__rate_interval]))", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+      "title": "Pod CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "id": 12,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "sum by (namespace,pod) (container_memory_working_set_bytes{job=\"kubernetes-nodes-cadvisor\",namespace=~\"$namespace\",pod=~\"$pod\",container!=\"\",image!=\"\"})", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+      "title": "Pod Memory Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "id": 13,
+      "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "sum by (exported_namespace,pod) (increase(kube_pod_container_status_restarts_total{exported_namespace=~\"$namespace\",pod=~\"$pod\"}[$__rate_interval]))", "legendFormat": "{{exported_namespace}}/{{pod}}", "refId": "A"}],
+      "title": "Pod Restarts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "kube-state-metrics에서 horizontalpodautoscalers 수집을 활성화한 뒤 표시됩니다.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+      "id": 14,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "kube_horizontalpodautoscaler_status_current_replicas{exported_namespace=~\"$namespace\"}", "legendFormat": "current {{horizontalpodautoscaler}}", "refId": "A"},
+        {"editorMode": "code", "expr": "kube_horizontalpodautoscaler_spec_min_replicas{exported_namespace=~\"$namespace\"}", "legendFormat": "min {{horizontalpodautoscaler}}", "refId": "B"},
+        {"editorMode": "code", "expr": "kube_horizontalpodautoscaler_spec_max_replicas{exported_namespace=~\"$namespace\"}", "legendFormat": "max {{horizontalpodautoscaler}}", "refId": "C"}
+      ],
+      "title": "HPA Replicas (collection required)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "id": 15,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "sum by (label_eks_amazonaws_com_nodegroup) (kube_node_labels{label_eks_amazonaws_com_nodegroup!=\"\"})", "legendFormat": "{{label_eks_amazonaws_com_nodegroup}}", "refId": "A"}],
+      "title": "Nodes by Managed Node Group",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["needu", "v3", "production", "eks"],
+  "templating": {
+    "list": [
+      {"current": {}, "hide": 0, "includeAll": false, "label": "Prometheus", "multi": false, "name": "DS_PROMETHEUS", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "type": "datasource"},
+      {"allValue": ".*", "current": {"text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "definition": "label_values(kube_pod_info, exported_namespace)", "hide": 0, "includeAll": true, "label": "Namespace", "multi": true, "name": "namespace", "options": [], "query": {"query": "label_values(kube_pod_info, exported_namespace)", "refId": "StandardVariableQuery"}, "refresh": 1, "regex": "", "sort": 1, "type": "query"},
+      {"allValue": ".*", "current": {"text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "definition": "label_values(kube_deployment_labels{exported_namespace=~\"$namespace\"}, deployment)", "hide": 0, "includeAll": true, "label": "Deployment", "multi": true, "name": "deployment", "options": [], "query": {"query": "label_values(kube_deployment_labels{exported_namespace=~\"$namespace\"}, deployment)", "refId": "StandardVariableQuery"}, "refresh": 1, "regex": "", "sort": 1, "type": "query"},
+      {"allValue": ".*", "current": {"text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "definition": "label_values(kube_pod_info{exported_namespace=~\"$namespace\"}, pod)", "hide": 0, "includeAll": true, "label": "Pod", "multi": true, "name": "pod", "options": [], "query": {"query": "label_values(kube_pod_info{exported_namespace=~\"$namespace\"}, pod)", "refId": "StandardVariableQuery"}, "refresh": 1, "regex": "", "sort": 1, "type": "query"},
+      {"allValue": ".*", "current": {"text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "definition": "label_values(kube_node_info, node)", "hide": 0, "includeAll": true, "label": "Node", "multi": true, "name": "node", "options": [], "query": {"query": "label_values(kube_node_info, node)", "refId": "StandardVariableQuery"}, "refresh": 1, "regex": "", "sort": 1, "type": "query"}
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "NeedU V3 Production Kubernetes Overview",
+  "uid": "needu-v3-prod-k8s",
+  "version": 1,
+  "weekStart": ""
+}
