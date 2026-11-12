@@ -47,6 +47,10 @@ locals {
     [
       "/needu/v3/prod/backend/KAKAO_REDIRECT_URI",
       "/needu/v3/prod/backend/KAKAO_FRIEND_REDIRECT_URI",
+
+      # Production 평가용 데모 로그인
+      "/needu/v3/prod/backend/DEMO_LOGIN_ENABLED",
+      "/needu/v3/prod/backend/AUTH_DEMOLOGIN_ACCOUNTS_*",
     ],
   )
 
