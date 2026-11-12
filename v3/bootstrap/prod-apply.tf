@@ -178,6 +178,18 @@ data "aws_iam_policy_document" "prod_apply" {
     ]
   }
 
+  # External Secrets IAM Inline Policy
+  statement {
+    sid = "ManageProdExternalSecretsInlinePolicy"
+    actions = [
+      "iam:PutRolePolicy"
+    ]
+
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/${local.prod_prefix}-external-secrets"
+    ]
+  }
+
   # ALB Controller IAM Role
   statement {
     sid = "ManageProdALBControllerRole"
