@@ -64,7 +64,7 @@ task_memory         = { frontend = 1024, backend = 2048, ai = 1024 }
 task_desired_count       = 0
 autoscaling_min          = 0
 autoscaling_max          = 4
-multi_az                 = false
+multi_az                 = true
 deletion_protection      = true
 db_backup_retention_days = 7
 deployment_5xx_threshold = 5
