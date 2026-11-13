@@ -51,6 +51,9 @@ locals {
       # Production 평가용 데모 로그인
       "/needu/v3/prod/backend/DEMO_LOGIN_ENABLED",
       "/needu/v3/prod/backend/AUTH_DEMOLOGIN_ACCOUNTS_*",
+
+      # K1 AI Fault Injection
+      "/needu/v3/prod/ai/FAULT_INJECTION_ENABLED",
     ],
   )
 
