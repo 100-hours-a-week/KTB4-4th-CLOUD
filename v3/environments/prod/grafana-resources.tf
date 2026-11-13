@@ -14,9 +14,24 @@ resource "grafana_data_source" "prod_amp" {
   })
 }
 
+resource "grafana_data_source" "prod_cloudwatch" {
+  name = "NeedU V3 Production CloudWatch"
+  uid  = "needu-v3-prod-cloudwatch"
+  type = "cloudwatch"
+
+  json_data_encoded = jsonencode({
+    authType                = "default"
+    defaultRegion           = var.aws_region
+    customMetricsNamespaces = "AWS/ElastiCache"
+  })
+}
+
 resource "grafana_dashboard" "prod_kubernetes_overview" {
   config_json = file("${path.module}/grafana/dashboards/needu-v3-prod-kubernetes-overview.json")
   overwrite   = true
 
-  depends_on = [grafana_data_source.prod_amp]
+  depends_on = [
+    grafana_data_source.prod_amp,
+    grafana_data_source.prod_cloudwatch,
+  ]
 }
