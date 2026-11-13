@@ -1,6 +1,6 @@
 {
   "annotations": {"list": []},
-  "description": "NeedU V3 Production EKS 운영 상태와 자원 사용량",
+  "description": "NeedU V3 Production EKS 운영 상태와 AI Queue·Worker 처리 현황",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -165,6 +165,113 @@
       "targets": [{"editorMode": "code", "expr": "sum by (label_eks_amazonaws_com_nodegroup) (kube_node_labels{label_eks_amazonaws_com_nodegroup!=\"\"})", "legendFormat": "{{label_eks_amazonaws_com_nodegroup}}", "refId": "A"}],
       "title": "Nodes by Managed Node Group",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 36},
+      "id": 16,
+      "panels": [],
+      "title": "AI Queue / Worker",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 37},
+      "id": 17,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "max(aichat_reply_queue_length) or vector(0)", "instant": true, "legendFormat": "Queue", "refId": "A"}],
+      "title": "Queue Length",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 37},
+      "id": 18,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "max(aichat_reply_queue_pending) or vector(0)", "instant": true, "legendFormat": "Pending", "refId": "A"}],
+      "title": "Pending Jobs",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 30}, {"color": "red", "value": 60}]}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 37},
+      "id": 19,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "max(aichat_reply_queue_oldest_wait_seconds) or vector(0)", "instant": true, "legendFormat": "Oldest", "refId": "A"}],
+      "title": "Oldest Wait",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 37},
+      "id": 20,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(aichat_reply_permits_used) or vector(0)", "instant": true, "legendFormat": "Used", "refId": "A"}],
+      "title": "Permits Used",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 37},
+      "id": 21,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(increase(aichat_reply_queue_rejected_total[$__range])) or vector(0)", "instant": true, "legendFormat": "Rejected", "refId": "A"}],
+      "title": "Queue Rejected",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 37},
+      "id": 22,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"editorMode": "code", "expr": "sum(increase(aichat_reply_jobs_gave_up_total[$__range])) or vector(0)", "instant": true, "legendFormat": "Gave up", "refId": "A"}],
+      "title": "Jobs Gave Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 41},
+      "id": 23,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "sum by (result) (rate(aichat_reply_jobs_processed_total[$__rate_interval]))", "legendFormat": "{{result}}", "refId": "A"}],
+      "title": "Job Processing Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 41},
+      "id": 24,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(aichat_reply_jobs_processing_seconds_sum{result=\"success\"}[$__rate_interval])) / clamp_min(sum(rate(aichat_reply_jobs_processing_seconds_count{result=\"success\"}[$__rate_interval])), 0.001)", "legendFormat": "average", "refId": "A"},
+        {"editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(aichat_reply_jobs_processing_seconds_bucket{result=\"success\"}[$__rate_interval])))", "legendFormat": "p95", "refId": "B"}
+      ],
+      "title": "Job Processing Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 41},
+      "id": 25,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(aichat_reply_jobs_claimed_total[$__rate_interval]))", "legendFormat": "claimed", "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(aichat_reply_jobs_redispatched_total[$__rate_interval]))", "legendFormat": "redispatched", "refId": "B"},
+        {"editorMode": "code", "expr": "sum(rate(aichat_reply_jobs_returned_total[$__rate_interval]))", "legendFormat": "returned", "refId": "C"},
+        {"editorMode": "code", "expr": "sum(rate(aichat_reply_commits_rejected_total[$__rate_interval]))", "legendFormat": "commit rejected", "refId": "D"},
+        {"editorMode": "code", "expr": "sum(rate(aichat_reply_jobs_retries_total{reason=\"turn_in_progress\"}[$__rate_interval]))", "legendFormat": "turn retry", "refId": "E"}
+      ],
+      "title": "Worker Lifecycle Events",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -184,6 +291,6 @@
   "timezone": "browser",
   "title": "NeedU V3 Production Kubernetes Overview",
   "uid": "needu-v3-prod-k8s",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
