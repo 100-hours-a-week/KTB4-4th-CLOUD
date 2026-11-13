@@ -26,3 +26,10 @@ gcp/environments/dev/credential-configuration.json
 **/__pycache__/
 *.pyc
 terraform/environments/*/needu-*-secret-rotation-redeploy.zip
+
+# K1 load test credentials and results
+load-test-v3/tokens*.json
+load-test-v3/pool*.json
+load-test-v3/*.errors.json
+load-test-v3/accounts.json
+load-test-v3/.venv/
