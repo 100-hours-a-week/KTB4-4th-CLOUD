@@ -8,7 +8,7 @@ resource "grafana_data_source" "prod_amp" {
   json_data_encoded = jsonencode({
     httpMethod    = "POST"
     sigV4Auth     = true
-    sigV4AuthType = "workspace-iam-role"
+    sigV4AuthType = "default"
     sigV4Region   = var.aws_region
     sigv4Service  = "aps"
   })
