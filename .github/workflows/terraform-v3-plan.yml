@@ -13,10 +13,9 @@ on:
       environment:
         description: "Terraform environment"
         required: true
-        default: dev
+        default: prod
         type: choice
         options:
-          - dev
           - prod
 
 permissions:
@@ -55,6 +54,10 @@ jobs:
               echo "::error::Manual Plan must run from main"
               exit 1
             }
+            [[ "$INPUT_ENV" == "prod" ]] || {
+              echo "::error::Only V3 Production is supported"
+              exit 1
+            }
             TF_ENV="$INPUT_ENV"
             echo "should_plan=true" >> "$GITHUB_OUTPUT"
             echo "environment=$TF_ENV" >> "$GITHUB_OUTPUT"
@@ -70,16 +73,14 @@ jobs:
 
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
 
-          if grep -Eq '^(v3/|\.github/workflows/terraform-v3-)' changed-files.txt; then
+          # Production environment and shared modules may affect Prod.
+          # Dev-only changes and workflow-only changes do not run AWS Plan.
+          if grep -Eq '^v3/(environments/prod/|modules/)' changed-files.txt; then
             echo "should_plan=true" >> "$GITHUB_OUTPUT"
-            if grep -Eq '^v3/(environments/prod/|modules/eks-prod/)' changed-files.txt; then
-              echo "environment=prod" >> "$GITHUB_OUTPUT"
-              echo "directory=v3/environments/prod" >> "$GITHUB_OUTPUT"
-            else
-              echo "environment=dev" >> "$GITHUB_OUTPUT"
-              echo "directory=v3/environments/dev" >> "$GITHUB_OUTPUT"
-            fi
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "directory=v3/environments/prod" >> "$GITHUB_OUTPUT"
           else
+            echo "Dev-only or workflow-only changes: AWS Plan skipped"
             echo "should_plan=false" >> "$GITHUB_OUTPUT"
           fi
 
