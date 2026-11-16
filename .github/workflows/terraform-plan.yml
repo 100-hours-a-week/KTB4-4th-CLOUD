@@ -1,4 +1,3 @@
-
 name: Terraform Plan
 
 on:
@@ -20,7 +19,7 @@ on:
         type: choice
         options:
           - shared
-          - dev
+          - shared-bastion
           - staging
           - prod
 
@@ -62,7 +61,7 @@ jobs:
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             case "$INPUT_ENV" in
-              shared|dev|staging|prod)
+              shared|shared-bastion|staging|prod)
                 TARGETS="[\"${INPUT_ENV}\"]"
                 ;;
               *)
@@ -96,11 +95,15 @@ jobs:
           targets = set()
 
           for path in paths:
+              # 공통 V2 Module 변경은 활성 환경에만 반영
               if path.startswith("terraform/modules/"):
-                  targets.update(["dev", "staging", "prod"])
+                  targets.update(["staging", "prod"])
 
-              elif path.startswith("terraform/environments/dev/"):
-                  targets.add("dev")
+              elif path.startswith("terraform/environments/shared-bastion/"):
+                  targets.add("shared-bastion")
+
+              elif path.startswith("terraform/environments/shared/"):
+                  targets.add("shared")
 
               elif path.startswith("terraform/environments/staging/"):
                   targets.add("staging")
@@ -108,8 +111,7 @@ jobs:
               elif path.startswith("terraform/environments/prod/"):
                   targets.add("prod")
 
-              elif path.startswith("terraform/environments/shared/"):
-                  targets.add("shared")
+              # V2 Dev는 운영 종료되어 Plan 대상에서 제외
 
           print(json.dumps(sorted(targets)))
           PY
@@ -159,7 +161,7 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_ENV: ${{ matrix.environment }}
-      TF_DIR: terraform/environments/${{ matrix.environment }}
+      TF_DIR: ${{ matrix.environment == 'shared-bastion' && 'terraform/environments/shared-bastion' || format('terraform/environments/{0}', matrix.environment) }}
       TF_STATE_BUCKET: needu-terraform-state-919551759796
 
     steps:
@@ -204,6 +206,10 @@ jobs:
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive terraform/
 
+      # ==================================================
+      # Backend State
+      # ==================================================
+
       - name: Resolve backend state key
         id: backend
         shell: bash
@@ -214,7 +220,10 @@ jobs:
             shared)
               STATE_KEY="shared/terraform.tfstate"
               ;;
-            dev|staging|prod)
+            shared-bastion)
+              STATE_KEY="shared/bastion/terraform.tfstate"
+              ;;
+            staging|prod)
               STATE_KEY="v2/${TF_ENV}/terraform.tfstate"
               ;;
             *)
@@ -224,6 +233,10 @@ jobs:
           esac
 
           echo "state_key=$STATE_KEY" >> "$GITHUB_OUTPUT"
+
+      # ==================================================
+      # AWS Authentication
+      # ==================================================
 
       - name: Configure AWS Plan credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -235,12 +248,18 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
+      # ==================================================
+      # Terraform Initialize
+      # ==================================================
+
       - name: Initialize remote backend
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         env:
           STATE_KEY: ${{ steps.backend.outputs.state_key }}
         run: |
+          set -euo pipefail
+
           terraform init \
             -input=false \
             -lockfile=readonly \
@@ -252,6 +271,10 @@ jobs:
       - name: Terraform validate
         working-directory: ${{ env.TF_DIR }}
         run: terraform validate -no-color
+
+      # ==================================================
+      # Terraform Plan
+      # ==================================================
 
       - name: Terraform plan
         id: plan
@@ -280,6 +303,10 @@ jobs:
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # ==================================================
+      # Plan Summary
+      # ==================================================
 
       - name: Inspect planned resource changes
         working-directory: ${{ env.TF_DIR }}
@@ -352,6 +379,10 @@ jobs:
             echo ""
             cat plan-summary.md
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # ==================================================
+      # Artifact
+      # ==================================================
 
       - name: Upload Plan review artifact
         uses: actions/upload-artifact@v4
