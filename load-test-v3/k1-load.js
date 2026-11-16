@@ -16,13 +16,14 @@ const DURATION = __ENV.DURATION || "5m";
 const PRE_ALLOCATED_VUS = Number(__ENV.VUS || 1000);
 const MAX_VUS = Number(__ENV.MAX_VUS || 3000);
 
-const POOL_FILE = __ENV.POOL_FILE || "./pool.json";
+const POOL_FILE = __ENV.POOL_FILE || "./pool-mock-18000.json";
 
 const EXPECTED_STATUS = 202;
 
-// AI Session Idle TTL = 1800 seconds.
-// Reserve time for the test execution.
-const MAX_POOL_AGE_SECONDS = Number(__ENV.MAX_POOL_AGE_SECONDS || 1200);
+// AI Session TTL: 10 days
+const SESSION_TTL_SECONDS = Number(__ENV.SESSION_TTL_SECONDS || 864000);
+
+const MAX_POOL_AGE_SECONDS = Number(__ENV.MAX_POOL_AGE_SECONDS || 864000);
 
 // ============================================================
 // 2. Duration Parser
@@ -56,7 +57,7 @@ const pool = new SharedArray("conversation-pool", () => {
   const data = JSON.parse(open(POOL_FILE));
 
   if (!Array.isArray(data)) {
-    throw new Error("pool.json must contain a JSON array");
+    throw new Error("Pool file must contain a JSON array");
   }
 
   return data;
@@ -82,21 +83,22 @@ if (PRE_ALLOCATED_VUS > MAX_VUS) {
   throw new Error("VUS cannot exceed MAX_VUS");
 }
 
-if (pool.length < EXPECTED_REQUESTS) {
-  throw new Error(
-    `Insufficient pool: required=${EXPECTED_REQUESTS}, ` +
-      `available=${pool.length}`,
-  );
+if (pool.length === 0) {
+  throw new Error("Conversation pool is empty");
 }
+
+console.log(
+  `K1 Configuration: ` +
+    `rate=${RATE} RPS, ` +
+    `duration=${DURATION}, ` +
+    `expectedRequests=${EXPECTED_REQUESTS}, ` +
+    `sessions=${pool.length}, ` +
+    `avgMessagesPerSession=${(EXPECTED_REQUESTS / pool.length).toFixed(2)}`,
+);
 
 // ============================================================
 // 5. Session Timestamp Parser
 // ============================================================
-
-// Supports:
-// - Unix timestamp in seconds: 1794500000
-// - Unix timestamp in milliseconds: 1794500000000
-// - ISO 8601 string: "2026-11-13T10:00:00Z"
 
 function parseCreatedAt(value) {
   if (value === undefined || value === null || value === "") {
@@ -129,7 +131,7 @@ function parseCreatedAt(value) {
 
 const nowSeconds = Date.now() / 1000;
 
-for (let i = 0; i < EXPECTED_REQUESTS; i++) {
+for (let i = 0; i < pool.length; i++) {
   const item = pool[i];
 
   if (!item.conversationId || !item.cookie || !item.csrfToken) {
@@ -151,10 +153,11 @@ for (let i = 0; i < EXPECTED_REQUESTS; i++) {
     );
   }
 
-  if (ageSeconds + RUN_SECONDS > 1800) {
+  if (ageSeconds + RUN_SECONDS > SESSION_TTL_SECONDS) {
     throw new Error(
       `Pool session may expire during the test: ` +
-        `index=${i}, age=${ageSeconds.toFixed(1)}s, ` +
+        `index=${i}, ` +
+        `age=${ageSeconds.toFixed(1)}s, ` +
         `duration=${RUN_SECONDS}s`,
     );
   }
@@ -246,12 +249,11 @@ export default function () {
   const index = exec.scenario.iterationInTest;
 
   if (index >= EXPECTED_REQUESTS) {
-    throw new Error(
-      `Unexpected iteration index=${index}, ` + `expected=${EXPECTED_REQUESTS}`,
-    );
+    return;
   }
 
-  const item = pool[index];
+  // Reuse 18,000 sessions in round-robin order.
+  const item = pool[index % pool.length];
 
   const url =
     `${BASE_URL}/api/v1/ai/conversations/` + `${item.conversationId}/messages`;
