@@ -1,12 +1,6 @@
 name: Terraform Apply
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "terraform/**"
-
   workflow_dispatch:
     inputs:
       environment:
@@ -15,7 +9,6 @@ on:
         type: choice
         options:
           - shared
-          - dev
           - staging
           - prod
       allow_shared_acm_replacement:
