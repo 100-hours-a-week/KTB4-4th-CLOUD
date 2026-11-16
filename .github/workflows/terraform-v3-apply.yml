@@ -6,10 +6,9 @@ on:
       environment:
         description: "Terraform environment"
         required: true
-        default: dev
+        default: prod
         type: choice
         options:
-          - dev
           - prod
 
 permissions:
@@ -46,6 +45,16 @@ jobs:
 
           [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
             echo "::error::Apply must run from main"
+            exit 1
+          }
+
+      - name: Block decommissioned Dev environment
+        env:
+          REQUESTED_ENV: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_ENV" == "prod" ]] || {
+            echo "::error::Only V3 Production is supported"
             exit 1
           }
 
@@ -262,6 +271,16 @@ jobs:
       GRAFANA_AUTH: ${{ inputs.environment == 'prod' && secrets.V3_PROD_GRAFANA_TERRAFORM_TOKEN || '' }}
 
     steps:
+      - name: Block decommissioned Dev environment
+        env:
+          REQUESTED_ENV: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_ENV" == "prod" ]] || {
+            echo "::error::Only V3 Production is supported"
+            exit 1
+          }
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
