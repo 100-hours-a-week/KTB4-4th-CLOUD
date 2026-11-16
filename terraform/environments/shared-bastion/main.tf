@@ -64,3 +64,30 @@ resource "aws_instance" "bastion" {
     ignore_changes = [ami]
   }
 }
+
+
+# ============================================================
+# Shared Bastion - EKS Describe Permission
+# ============================================================
+
+resource "aws_iam_role_policy" "bastion_eks_describe" {
+  name = "NeedU-Shared-Bastion-EKS-Describe"
+  role = "needu-ec2-role"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Sid    = "DescribeNeedUV3ProdCluster"
+        Effect = "Allow"
+
+        Action = [
+          "eks:DescribeCluster"
+        ]
+
+        Resource = "arn:aws:eks:ap-northeast-2:919551759796:cluster/needu-v3-prod"
+      }
+    ]
+  })
+}
