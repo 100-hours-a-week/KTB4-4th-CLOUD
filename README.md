@@ -132,21 +132,21 @@ NeedU README 템플릿
 
 <div align="center">
 
-<h1>NeedU {{PART_TITLE}}</h1>
+# NeedU Cloud
 
-<!-- 안내: PART_TITLE 예) Backend · AI · Frontend · Cloud -->
+**안정적인 서비스 운영을 위한 AWS 클라우드 인프라 구축 및 자동화**
 
-<p>{{ONE_LINE_ROLE}}</p>
+EC2 기반 단일 서버에서 ECS Fargate, EKS로 아키텍처를 발전시키며  
+인프라 프로비저닝, CI/CD, 데이터 마이그레이션, 모니터링 및 장애 대응을 담당합니다.
 
-<!-- 안내: 이 저장소가 하는 일을 한 줄로. 예) 인증, 사용자·친구·상품, AI 대화 중계, 알림을 담당하는 Spring Boot 서버 -->
-
-<!-- 안내: GitHub Actions 상태 배지. 워크플로가 없으면 이 두 줄을 지웁니다. -->
-[![{{WORKFLOW_NAME}}](https://github.com/100-hours-a-week/{{REPO_NAME}}/actions/workflows/{{WORKFLOW_FILE}}/badge.svg)](https://github.com/100-hours-a-week/{{REPO_NAME}}/actions/workflows/{{WORKFLOW_FILE}})
-
-<!-- 안내: 주요 기술 배지 4~8개. 로고 이름과 색은 https://simpleicons.org 에서 찾습니다. 공백은 _ 로 씁니다. -->
-![{{TECH_1}}](https://img.shields.io/badge/{{TECH_1_LABEL}}-{{TECH_1_HEX}}?style=flat-square&logo={{TECH_1_LOGO}}&logoColor=white)
-![{{TECH_2}}](https://img.shields.io/badge/{{TECH_2_LABEL}}-{{TECH_2_HEX}}?style=flat-square&logo={{TECH_2_LOGO}}&logoColor=white)
-![{{TECH_3}}](https://img.shields.io/badge/{{TECH_3_LABEL}}-{{TECH_3_HEX}}?style=flat-square&logo={{TECH_3_LOGO}}&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat-square&logo=amazonwebservices&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=flat-square&logo=terraform&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![Argo CD](https://img.shields.io/badge/Argo_CD-EF7B4D?style=flat-square&logo=argo&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white)
 
 </div>
 
@@ -154,210 +154,424 @@ NeedU README 템플릿
 
 ## 책임 범위
 
-<!-- 안내: 하는 일과 하지 않는 일을 나눠, 다른 파트와의 경계를 분명히 합니다. 비담당 항목에는 담당 저장소 링크를 답니다. -->
-
 **담당**
 
-- {{RESPONSIBILITY_1}}
-- {{RESPONSIBILITY_2}}
-- {{RESPONSIBILITY_3}}
+- AWS 기반 VPC, EC2, ECS Fargate, EKS, ALB, RDS, ElastiCache 인프라 설계 및 운영
+- Terraform을 활용한 Infrastructure as Code(IaC) 구성 및 환경별 리소스 관리
+- GitHub Actions, ECR, Helm, Argo CD 기반 CI/CD 및 GitOps 배포 자동화
+- EC2 → ECS → EKS 아키텍처 전환 및 데이터 마이그레이션
+- Prometheus, Grafana, CloudWatch, ADOT 기반 모니터링
+- k6 부하 테스트 및 장애 복구 시나리오 검증
+- AWS WAF, IAM, OIDC, External Secrets 기반 보안 및 권한 관리
 
 **비담당**
 
-- {{OUT_OF_SCOPE_1}} → [{{OWNER_PART_1}}](https://github.com/100-hours-a-week/KTB4-4th-{{OWNER_PART_1}})
-- {{OUT_OF_SCOPE_2}} → [{{OWNER_PART_2}}](https://github.com/100-hours-a-week/KTB4-4th-{{OWNER_PART_2}})
+- 서비스 비즈니스 로직 및 API 구현 → [Backend](https://github.com/100-hours-a-week/KTB4-4th-BE)
+- AI 모델 개발 및 추천 알고리즘 → [AI](https://github.com/100-hours-a-week/KTB4-4th-AI)
+- 사용자 인터페이스 및 클라이언트 로직 → [Frontend](https://github.com/100-hours-a-week/KTB4-4th-FE)
 
 ## 기술 스택
 
-<!-- 안내: 이름만 나열하지 말고, 버전과 쓰는 이유를 함께 적습니다. 분류는 스택에 맞게 바꿔도 됩니다. -->
-
 | 분류 | 기술 | 사용 목적 |
 | --- | --- | --- |
-| Language | {{LANGUAGE_AND_VERSION}} | {{PURPOSE}} |
-| Framework | {{FRAMEWORK_AND_VERSION}} | {{PURPOSE}} |
-| {{CATEGORY}} | {{TECH}} | {{PURPOSE}} |
-| Test | {{TEST_TECH}} | {{PURPOSE}} |
-| Deploy | {{DEPLOY_TECH}} | {{PURPOSE}} |
+| Cloud | AWS | 클라우드 인프라 구축 및 운영 |
+| IaC | Terraform | 인프라 코드화 및 환경별 리소스 관리 |
+| Compute | EC2, ECS Fargate, EKS | 서비스 실행 환경 및 컨테이너 오케스트레이션 |
+| Container | Docker, ECR | 컨테이너 이미지 빌드 및 저장 |
+| Networking | VPC, ALB, Route 53, NAT Gateway | 네트워크 격리 및 트래픽 라우팅 |
+| Database | RDS MySQL, RDS PostgreSQL | 관계형 데이터 저장 |
+| Cache / Queue | Redis, Valkey Streams | 캐싱, 세션 및 비동기 작업 처리 |
+| CI/CD | GitHub Actions, Argo CD, Helm | 이미지 배포 및 GitOps 자동화 |
+| Security | IAM, OIDC, WAF, SSM, External Secrets | 권한 제어, 보안 정책 및 Secret 관리 |
+| Monitoring | CloudWatch, Prometheus, Grafana, ADOT, AMP | 메트릭 수집 및 관측성 확보 |
+| Scaling | HPA, KEDA, Cluster Autoscaler | Pod 및 Node 자동 확장 |
+| Testing | k6 | 성능 및 부하 테스트 |
+| Migration | AWS DMS | 데이터베이스 마이그레이션 및 정합성 검증 |
 
 ## 아키텍처
 
-<!-- 안내: 내 저장소 안의 구성 요소와 바깥 시스템(다른 파트, 외부 API, DB)의 호출 방향을 그립니다. GitHub에서 Mermaid로 그려집니다. -->
+NeedU는 서비스 규모와 운영 요구사항에 따라 세 단계로 인프라를 발전시켰습니다.
+
+| 구분 | V1 | V2 | V3 |
+| --- | --- | --- | --- |
+| Compute | EC2 | ECS Fargate | EKS |
+| Architecture | 단일 서버 | 서비스별 컨테이너 분리 | Kubernetes 기반 워크로드 분리 |
+| Deployment | Docker 기반 배포 | GitHub Actions + ECR | GitHub Actions + Argo CD |
+| Database | EC2 내부 DB | RDS | RDS |
+| Cache / Queue | Redis | ElastiCache Redis | Redis + Valkey Streams |
+| Scaling | 수직 확장 중심 | ECS Service 확장 | HPA, KEDA, Cluster Autoscaler |
+| Monitoring | 서버 중심 모니터링 | CloudWatch | Prometheus, Grafana, ADOT |
+
+### V1 — EC2 기반 단일 서버
 
 ```mermaid
-flowchart LR
-    IN(["{{CALLER}}"]) --> A
+flowchart TB
+    USER["Client"] --> NGINX["Nginx"]
 
-    subgraph PART["NeedU {{PART_TITLE}}"]
-        direction LR
-        A["{{COMPONENT_1}}"] --> B["{{COMPONENT_2}}"]
-        B --> C["{{COMPONENT_3}}"]
+    subgraph EC2["EC2 Instance"]
+        NGINX --> FE["Next.js"]
+        NGINX --> BE["Spring Boot"]
+        BE --> AI["FastAPI"]
+        BE --> MYSQL["MySQL"]
+        BE --> REDIS["Redis"]
+        AI --> POSTGRES["PostgreSQL"]
+    end
+```
+
+초기에는 단일 EC2 인스턴스에서 Frontend, Backend, AI, Database를 함께 운영했습니다.
+
+구성이 단순하고 비용이 낮다는 장점이 있었지만, 부하 증가 시 여러 서비스가 동일한 서버 리소스를 공유하는 문제가 발생했습니다.
+
+### V2 — ECS Fargate 기반 서비스 분리
+
+```mermaid
+flowchart TB
+    USER["Client"] --> R53["Route 53"]
+    R53 --> ALB["Application Load Balancer"]
+
+    subgraph ECS["ECS Fargate"]
+        ALB --> FE["Frontend Service"]
+        ALB --> BE["Backend Service"]
+        BE --> AI["AI Service"]
     end
 
-    C --> EXT["{{EXTERNAL_SYSTEM}}"]
+    BE --> MYSQL[("RDS MySQL")]
+    BE --> REDIS[("ElastiCache Redis")]
+    AI --> POSTGRES[("RDS PostgreSQL")]
+    AI --> LLM["External LLM"]
 ```
+
+- Frontend, Backend, AI를 독립적인 ECS Service로 분리
+- ALB 기반 HTTPS 및 Path Routing 적용
+- MySQL과 PostgreSQL을 RDS로 이전
+- Terraform 기반 인프라 프로비저닝
+- GitHub Actions와 ECR을 활용한 이미지 배포 자동화
+- Dev, Staging, Production 환경 분리
+
+### V3 — EKS 기반 Kubernetes 아키텍처
+
+```mermaid
+flowchart TB
+    USER["Client"] --> R53["Route 53"]
+    R53 --> WAF["AWS WAF"]
+    WAF --> ALB["Application Load Balancer"]
+
+    subgraph EKS["Amazon EKS"]
+        direction TB
+
+        INGRESS["AWS Load Balancer Controller"]
+
+        subgraph FRONTEND["Frontend Namespace"]
+            FE["Frontend Pods"]
+        end
+
+        subgraph BACKEND["Backend Namespace"]
+            AUTH["Auth API"]
+            REC["Recommendation API"]
+            SOCIAL["Social API"]
+            WORKER["AI Worker"]
+        end
+
+        subgraph AI["AI Workload"]
+            AIAPI["AI FastAPI"]
+        end
+
+        INGRESS --> FE
+        INGRESS --> AUTH
+        INGRESS --> REC
+        INGRESS --> SOCIAL
+
+        REC --> WORKER
+        WORKER --> AIAPI
+    end
+
+    AUTH --> MYSQL[("RDS MySQL")]
+    REC --> MYSQL
+    SOCIAL --> MYSQL
+
+    AUTH --> REDIS[("ElastiCache Redis")]
+    REC --> VALKEY[("Valkey Streams")]
+    WORKER --> VALKEY
+
+    AIAPI --> POSTGRES[("RDS PostgreSQL")]
+    AIAPI --> LLM["External LLM"]
+```
+
+> 위 다이어그램은 주요 인프라와 서비스 간 관계를 단순화한 구성도입니다. AI Worker의 실제 작업 전달은 Valkey Streams를 통해 이루어집니다.
 
 **설계 원칙**
 
-<!-- 안내: "무엇을 / 왜" 형식으로 2~4개. 예) 다중 인스턴스 전제 — 락과 이벤트 전달은 Redis로 처리합니다. -->
+- **워크로드 분리** — API와 AI Worker를 분리하여 추론 작업이 API 처리에 미치는 영향을 줄입니다.
+- **선언적 인프라 관리** — Terraform과 GitOps로 인프라 및 Kubernetes 리소스 변경 이력을 관리합니다.
+- **독립적인 확장** — HPA, KEDA, Cluster Autoscaler로 워크로드 특성에 맞게 확장합니다.
+- **가용성 확보** — 다중 AZ 및 복수 Replica를 활용해 단일 장애 지점의 영향을 줄입니다.
+- **관측성 확보** — 메트릭과 대시보드를 통해 성능 저하 및 장애 상황을 분석합니다.
 
-- **{{PRINCIPLE_1}}** — {{PRINCIPLE_1_REASON}}
-- **{{PRINCIPLE_2}}** — {{PRINCIPLE_2_REASON}}
-- **{{PRINCIPLE_3}}** — {{PRINCIPLE_3_REASON}}
-
-### {{CORE_FLOW_TITLE}}
-
-<!-- 안내: 선택 섹션. 가장 중요한 흐름 하나를 시퀀스 다이어그램으로 보여 줍니다. 없으면 이 섹션을 지웁니다.
-     예) BE: AI 대화 메시지 흐름 / AI: 취향 분석 파이프라인 / FE: 로그인 흐름 / CLOUD: 요청이 서버까지 가는 경로 -->
+### AI 비동기 작업 처리 흐름
 
 ```mermaid
 sequenceDiagram
-    participant A as {{ACTOR_1}}
-    participant B as {{ACTOR_2}}
-    participant C as {{ACTOR_3}}
+    participant Client
+    participant API as Backend API
+    participant Queue as Valkey Streams
+    participant Worker as AI Worker
+    participant AI as AI FastAPI
 
-    A->>B: {{STEP_1}}
-    B->>C: {{STEP_2}}
-    C-->>B: {{STEP_3}}
-    B-->>A: {{STEP_4}}
+    Client->>API: AI 대화 요청
+    API->>Queue: 작업 등록
+    API-->>Client: 요청 접수
+
+    Worker->>Queue: 작업 소비
+    Queue-->>Worker: 작업 전달
+
+    Worker->>AI: AI 추론 요청
+    AI-->>Worker: 추론 결과
+
+    Worker->>Worker: 결과 저장
+    Worker->>Queue: ACK
+
+    API-->>Client: SSE 응답 전달
 ```
+
+AI 요청 처리와 실제 추론 작업을 분리하여 장시간 실행되는 AI 작업이 API 요청 처리에 미치는 영향을 줄이도록 설계했습니다.
 
 ## 시작하기
 
-**필요 도구** — {{TOOL_1}} · {{TOOL_2}} · {{TOOL_3}}
+**필요 도구**
+
+- AWS CLI
+- Terraform
+- kubectl
+- Helm
+- Docker
+- GitHub CLI
+
+### 저장소 복제
 
 ```bash
-git clone https://github.com/100-hours-a-week/{{REPO_NAME}}.git
-cd {{REPO_NAME}}
+git clone https://github.com/100-hours-a-week/KTB4-4th-CLOUD.git
 
-{{SETUP_COMMANDS}}
-{{RUN_COMMAND}}
+cd KTB4-4th-CLOUD
 ```
 
-`{{HEALTHCHECK}}`이면 준비 완료입니다.
+### AWS 인증
 
-<!-- 안내: 실행 확인 방법. 예) http://localhost:3000 이 열리면 / terraform plan 이 오류 없이 끝나면 -->
+```bash
+aws sso login --profile needu-v2
 
-<details>
-<summary><b>환경 변수 목록</b></summary>
+aws sts get-caller-identity --profile needu-v2
+```
 
-<br/>
+실제 인프라 작업 전에는 대상 환경과 AWS 계정, Terraform Workspace 및 State를 확인해야 합니다.
 
-전체 목록은 [`.env.example`](./.env.example)에 있습니다. 실제 키는 README와 `.env.example`에 넣지 않습니다.
+### Terraform 검증
 
-| 변수 | 필수 | 설명 |
-| --- | :---: | --- |
-| `{{ENV_NAME_1}}` | ✓ | {{ENV_DESCRIPTION_1}} |
-| `{{ENV_NAME_2}}` | | {{ENV_DESCRIPTION_2}} |
+```bash
+terraform fmt -check -recursive
+terraform validate
+```
 
-</details>
+`terraform validate`는 Terraform 구성이 초기화된 디렉터리에서 실행해야 합니다.
 
-## {{INTERFACE_TITLE}}
+운영 환경에 대한 `terraform apply` 및 `terraform destroy`는 변경 계획을 검토한 뒤 수행합니다.
 
-<!-- 안내: 다른 파트가 내 저장소와 맞물리는 지점을 요약하고, 자세한 명세는 링크합니다.
-     섹션 이름 예) BE: API / AI: API 명세 / FE: 화면 구성 / CLOUD: 인프라 구성 -->
+## 인프라 구성
 
-| 구분 | 내용 |
+| 구성 요소 | 설명 |
 | --- | --- |
-| {{INTERFACE_1}} | {{INTERFACE_1_DESCRIPTION}} |
-| {{INTERFACE_2}} | {{INTERFACE_2_DESCRIPTION}} |
-
-## 디렉터리 구조
-
-<!-- 안내: 최상위 폴더만, 한 줄 설명과 함께. -->
-
-```text
-{{ROOT_DIRECTORY}}
-├── {{DIRECTORY_1}}     {{DIRECTORY_1_DESCRIPTION}}
-├── {{DIRECTORY_2}}     {{DIRECTORY_2_DESCRIPTION}}
-└── {{DIRECTORY_3}}     {{DIRECTORY_3_DESCRIPTION}}
-```
+| VPC | 서비스 네트워크 및 Subnet 구성 |
+| ALB | HTTPS 트래픽 분산 및 라우팅 |
+| ECS Fargate | V2 컨테이너 실행 환경 |
+| EKS | V3 Kubernetes 클러스터 |
+| RDS MySQL | 사용자 및 서비스 데이터 |
+| RDS PostgreSQL | AI 및 벡터 데이터 |
+| ElastiCache Redis | 캐싱 및 서비스 데이터 처리 |
+| ElastiCache Valkey | AI 비동기 작업 Stream |
+| Route 53 | 서비스 도메인 관리 |
+| AWS WAF | 악성 요청 및 비정상 트래픽 대응 |
+| AMP | Prometheus 메트릭 저장 |
+| CloudWatch | 로그 및 AWS 리소스 모니터링 |
 
 ## 테스트
 
-```bash
-{{TEST_COMMAND}}     # {{TEST_COMMAND_DESCRIPTION}}
-{{BUILD_COMMAND}}
-```
+### 주요 검증 항목
 
-| 종류 | 대상 |
+| 종류 | 검증 대상 |
 | --- | --- |
-| {{TEST_TYPE_1}} | {{TEST_TARGET_1}} |
-| {{TEST_TYPE_2}} | {{TEST_TARGET_2}} |
+| Infrastructure | Terraform 정적 검증 및 실행 계획 |
+| Deployment | GitHub Actions, ECR, Argo CD 배포 |
+| Health Check | Startup, Readiness, Liveness Probe |
+| Load Test | k6 기반 API 부하 및 응답 지연 |
+| Scaling | HPA, KEDA, Cluster Autoscaler |
+| Failure Recovery | Worker 종료 및 작업 재처리 |
+| Migration | AWS DMS 데이터 정합성 |
+| Observability | Prometheus 및 Grafana 메트릭 수집 |
 
-{{PR_CHECK_RULE}}
+### 부하 테스트
 
-<!-- 안내: PR이 통과해야 하는 검사. 예) PR은 test·build를 통과해야 합니다. -->
+V1에서는 단일 서버의 처리 한계를 확인하고, V2에서는 서비스 분리 이후 API 처리 성능을 검증했습니다.
+
+V3에서는 API 처리량뿐 아니라 AI 비동기 작업 적체, Worker 장애 복구, 자동 확장 및 배포 중 연결 안정성을 검증 대상으로 설정했습니다.
+
+**V3 주요 테스트 시나리오**
+
+1. AI 추론 지연 및 Queue Lag 증가
+2. AI Worker 종료 시 작업 재처리
+3. Worker 분리 전후 API 응답 안정성 비교
+4. 급증 트래픽에 대한 Pod 및 Node 확장
+5. 배포 중 SSE 및 WebSocket 연결 안정성
 
 ## 배포
 
-<!-- 안내: 브랜치가 어느 환경으로 어떻게 배포되는지 그립니다. 자동은 실선, 수동은 점선(-.->)으로 구분합니다. -->
+### CI/CD 및 GitOps
 
 ```mermaid
-flowchart LR
-    PR[PR] -->|CI 통과| DEVB[dev 머지]
-    DEVB -->|"{{DEV_TRIGGER}}"| DEV["Dev<br/>{{DEV_URL}}"]
-    DEV --> MAIN[main 머지]
-    MAIN -.->|"{{PROD_TRIGGER}}"| PROD["Production<br/>{{PROD_URL}}"]
+flowchart TB
+    USER["Client"] --> NGINX["Nginx"]
+
+    subgraph EC2["EC2 Instance"]
+        NGINX --> FE["Next.js"]
+        NGINX --> BE["Spring Boot"]
+        BE --> AI["FastAPI"]
+        BE --> MYSQL["MySQL"]
+        BE --> REDIS["Redis"]
+        AI --> POSTGRES["PostgreSQL"]
+    end
 ```
 
-- **Dev** — {{DEV_DEPLOY_DESCRIPTION}}
-- **Production** — {{PROD_DEPLOY_DESCRIPTION}}
-- **롤백** — {{ROLLBACK_DESCRIPTION}}
-- **모니터링** — {{MONITORING_DESCRIPTION}}
+
+- **CI** — 애플리케이션 변경 시 Docker 이미지 빌드 및 ECR Push
+- **GitOps** — 이미지 Digest 변경을 GitOps 저장소 PR로 관리
+- **Dev** — GitOps 변경 병합 후 Argo CD 자동 동기화
+- **Production** — 승인된 이미지에 대해 수동 승격 절차 적용
+- **Rollback** — 이전 정상 이미지 Digest 및 GitOps 선언 상태로 복구
+- **Monitoring** — Grafana, Prometheus, CloudWatch를 통한 배포 상태 확인
+
+V3 Dev 환경은 구축 및 검증 이후 리소스 정리를 완료했습니다.
 
 ## 기술적 결정
 
-<!-- 안내: 결정마다 "문제 → 선택 → 결과" 순서로 짧게 씁니다. 수치가 있으면 표로 보여 줍니다. 2~4개 권장. -->
+### 1. 단일 EC2에서 ECS Fargate로 전환
 
-### {{DECISION_1_TITLE}}
+V1에서는 Frontend, Backend, AI 및 데이터베이스가 단일 EC2 리소스를 공유했습니다.
 
-{{DECISION_1_PROBLEM_AND_CHOICE}}
+부하 테스트를 통해 서버 리소스 경합과 처리량 한계를 확인한 뒤 ECS Fargate 기반으로 서비스를 분리했습니다.
 
-| 지표 | 이전 | 이후 |
-| --- | ---: | ---: |
-| {{METRIC_1}} | {{BEFORE_1}} | **{{AFTER_1}}** |
-| {{METRIC_2}} | {{BEFORE_2}} | **{{AFTER_2}}** |
+이를 통해 서비스별 실행 환경을 독립적으로 관리하고, RDS를 통한 데이터 계층 분리를 진행했습니다.
 
-<sub>{{MEASUREMENT_CONDITION}}</sub>
+### 2. 데이터 마이그레이션 자동화
 
-### {{DECISION_2_TITLE}}
+EC2 내부 데이터베이스를 RDS로 이전하면서 서비스 중단과 데이터 유실을 최소화하는 것을 목표로 했습니다.
 
-{{DECISION_2_PROBLEM_AND_CHOICE}}
+사전 검증(Preflight), 쓰기 제한, 데이터 동기화 확인, 트래픽 전환(Cutover)을 절차화했습니다.
+
+| 지표 | 검증 결과 |
+| --- | ---: |
+| Preflight | 1분 17초 |
+| Cutover | 2분 37초 |
+| RPO | **0** |
+| DMS 검증 테이블 | 7개 |
+| Validation Failed Records | **0건** |
+| Resync Failed Rows | **0건** |
+
+### 3. ECS에서 EKS로 전환
+
+V2에서는 ECS Service 단위로 애플리케이션을 관리했으나, V3에서는 Kubernetes를 통해 서비스별 배포 및 확장 정책을 세분화했습니다.
+
+- Backend 단일 이미지를 여러 Deployment로 분리
+- Helm과 Argo CD 기반 선언적 배포
+- HPA 기반 API Pod 확장
+- KEDA 기반 AI Worker 확장 설계
+- Cluster Autoscaler 기반 Node 확장
+- Namespace 및 RBAC 기반 리소스 분리
+- Startup, Readiness, Liveness Probe 구성
+
+### 4. Redis와 Valkey Streams 역할 분리
+
+로그인 및 일반 서비스 데이터 처리와 AI 비동기 작업이 동일한 저장소 리소스를 공유하지 않도록 구성했습니다.
+
+AI 작업은 Valkey Streams에 등록하고 별도 Worker가 소비하도록 설계했습니다.
+
+이를 통해 API 요청 처리와 AI 추론 작업을 분리하고, 작업 적체량을 기준으로 Worker를 독립적으로 확장할 수 있는 구조를 마련했습니다.
 
 ## 협업 규칙
 
 | 항목 | 규칙 |
 | --- | --- |
-| 브랜치 | {{BRANCH_RULE}} |
-| 커밋 | {{COMMIT_RULE}} |
-| PR | {{PR_RULE}} |
+| 브랜치 | 기능 및 작업 단위로 브랜치 생성 |
+| 커밋 | 변경 목적이 드러나는 메시지 작성 |
+| PR | 변경 배경, 주요 변경 사항, 검증 결과 작성 |
+| Terraform | Plan 확인 후 Apply |
+| Production | 변경 영향 및 롤백 방안 검토 |
+| GitOps | 이미지 변경을 PR로 관리하고 Argo CD 동기화 상태 확인 |
+| Secret | 민감 정보는 Git에 커밋하지 않고 AWS Secret 관리 서비스 사용 |
 
 ## 문제 해결
 
-<!-- 안내: 처음 세팅하는 팀원이 실제로 겪은 문제 위주로. 제목은 증상(에러 메시지), 본문은 원인과 해결 방법. -->
-
 <details>
-<summary><code>{{ERROR_MESSAGE_1}}</code>이 발생합니다</summary>
+<summary><b>Argo CD 배포가 실패합니다</b></summary>
 
 <br/>
 
-{{CAUSE_AND_SOLUTION_1}}
+**확인 항목**
+
+- Application Sync 및 Health 상태
+- GitOps Repository의 이미지 Digest
+- ECR 이미지 존재 여부
+- Kubernetes Event 및 Pod 상태
+- ExternalSecret 동기화 여부
+
+```bash
+kubectl get pods -A
+
+kubectl get events -A --sort-by=.lastTimestamp
+```
 
 </details>
 
 <details>
-<summary>{{SYMPTOM_2}}</summary>
+<summary><b>External Secrets 동기화가 실패합니다</b></summary>
 
 <br/>
 
-{{CAUSE_AND_SOLUTION_2}}
+AWS IAM Role에 필요한 권한이 누락되면 Secret 동기화 또는 관련 Terraform 변경이 실패할 수 있습니다.
+
+실제 Production 구성 과정에서 `iam:PutRolePolicy` 권한 부족 문제가 발생해 Bootstrap IAM 정책을 수정한 이력이 있습니다.
+
+**확인 항목**
+
+- IAM Role 및 정책
+- ServiceAccount와 IAM 연결
+- SecretStore 상태
+- ExternalSecret 상태
+- SSM Parameter 및 Secrets Manager 경로
+
+</details>
+
+<details>
+<summary><b>ALB를 통한 WebSocket 연결이 실패합니다</b></summary>
+
+<br/>
+
+V2 Dev 환경에서 STOMP 연결 중 504 오류가 발생한 사례가 있었습니다.
+
+ALB Listener Rule 및 요청 라우팅 구성을 확인하고 규칙을 추가하여 해결했습니다.
+
+**확인 항목**
+
+- ALB Listener Rule
+- Target Group Health
+- Backend Service Port
+- WebSocket 요청 경로
+- ALB 및 애플리케이션 로그
 
 </details>
 
 ## 문서 · 문의
 
-- [{{DOC_1_NAME}}]({{DOC_1_URL}}) · [팀 위키](https://github.com/100-hours-a-week/KTB4-4th-wiki)
-- 이슈: [GitHub Issues](https://github.com/100-hours-a-week/{{REPO_NAME}}/issues) · 팀 채널: {{TEAM_CHANNEL}}
-- 라이선스: {{LICENSE}}
+- [Cloud Repository](https://github.com/100-hours-a-week/KTB4-4th-CLOUD)
+- [GitOps Repository](https://github.com/100-hours-a-week/KTB4-4th-GITOPS)
+- [Team Wiki](https://github.com/100-hours-a-week/KTB4-4th-wiki)
+- [GitHub Issues](https://github.com/100-hours-a-week/KTB4-4th-CLOUD/issues)
 
 <!-- PART:END -->
