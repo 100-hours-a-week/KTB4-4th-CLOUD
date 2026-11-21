@@ -426,17 +426,22 @@ V3에서는 API 처리량뿐 아니라 AI 비동기 작업 적체, Worker 장애
 ### CI/CD 및 GitOps
 
 
+
+```mermaid
 flowchart LR
-    A["Application Repository"] --> B["GitHub Actions CI"]
+    A["Application Repository"] -->|Push| B["GitHub Actions CI"]
     B --> C["Docker Build"]
     C --> D["Amazon ECR"]
-    D --> E["GitOps Image Digest Update"]
-    E --> F["GitOps Pull Request"]
-    F --> G["Merge to main"]
+    B --> E["Update Image Digest"]
+    D -.-> E
+    E --> F["GitOps Repository PR"]
+    F -->|Merge| G["GitOps main"]
     G --> H["Argo CD Sync"]
     H --> I["Amazon EKS"]
 
-    J["Production Manual Promotion"] -.-> E
+    J["Manual Production Promotion"] -.-> E
+```
+
 
 
 
