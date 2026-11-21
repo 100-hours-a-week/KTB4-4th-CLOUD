@@ -425,19 +425,19 @@ V3에서는 API 처리량뿐 아니라 AI 비동기 작업 적체, Worker 장애
 
 ### CI/CD 및 GitOps
 
-```mermaid
-flowchart TB
-    USER["Client"] --> NGINX["Nginx"]
 
-    subgraph EC2["EC2 Instance"]
-        NGINX --> FE["Next.js"]
-        NGINX --> BE["Spring Boot"]
-        BE --> AI["FastAPI"]
-        BE --> MYSQL["MySQL"]
-        BE --> REDIS["Redis"]
-        AI --> POSTGRES["PostgreSQL"]
-    end
-```
+flowchart LR
+    A["Application Repository"] --> B["GitHub Actions CI"]
+    B --> C["Docker Build"]
+    C --> D["Amazon ECR"]
+    D --> E["GitOps Image Digest Update"]
+    E --> F["GitOps Pull Request"]
+    F --> G["Merge to main"]
+    G --> H["Argo CD Sync"]
+    H --> I["Amazon EKS"]
+
+    J["Production Manual Promotion"] -.-> E
+
 
 
 - **CI** — 애플리케이션 변경 시 Docker 이미지 빌드 및 ECR Push
